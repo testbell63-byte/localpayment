@@ -15,7 +15,6 @@ export function initTelegramBot(token: string): TelegramBot {
 
   const userState = new Map();
 
-  // Amount Keyboard
   const amountKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -46,7 +45,6 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // Game Keyboard
   const gameKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -76,8 +74,7 @@ export function initTelegramBot(token: string): TelegramBot {
       step: "amount",
       amountInput: "",
       employeeName,
-      selectedGames: [],
-      records: []
+      selectedGames: []
     });
 
     await bot.sendMessage(chatId, 
@@ -115,7 +112,8 @@ export function initTelegramBot(token: string): TelegramBot {
         state.step = "game";
 
         await bot.sendMessage(chatId, 
-          `✅ Amount saved: $${amount}\n\nStep 2: Select games:`,
+          `✅ Amount saved: $${amount}\n\n` +
+          `Step 2: Select one or more games:`,
           gameKeyboard
         );
       } else {
@@ -135,7 +133,7 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
-    // Game selection
+    // Game Selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -147,14 +145,14 @@ export function initTelegramBot(token: string): TelegramBot {
         await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[0]}:`);
       } else if (data === "game_Other") {
         state.step = "custom_game";
-        await bot.sendMessage(chatId, "Type custom game name:");
+        await bot.sendMessage(chatId, "Type the custom game name:");
       } else {
         const game = data.replace("game_", "");
         if (!state.selectedGames.includes(game)) {
           state.selectedGames.push(game);
         }
         await bot.sendMessage(chatId,
-          `Selected: ${state.selectedGames.join(", ")}\nYou can select more or press Done.`,
+          `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`,
           gameKeyboard
         );
       }
@@ -181,7 +179,7 @@ export function initTelegramBot(token: string): TelegramBot {
     } 
     else if (state.step === "per_game_points") {
       const points = parseFloat(text);
-      if (isNaN(points)) {
+      if (isNaN(points) || points <= 0) {
         await bot.sendMessage(chatId, "❌ Please enter valid points.");
         return;
       }
@@ -190,27 +188,14 @@ export function initTelegramBot(token: string): TelegramBot {
       const now = new Date();
       const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-      state.records.push({
-        date: now.toISOString().split("T")[0],
-        time: now.toLocaleTimeString(),
-        day: days[now.getDay()],
-        employee: state.employeeName,
-        amount: state.amount,
-        game: currentGame,
-        points: points
-      });
+      const row = `${now.toISOString().split("T")[0]},${now.toLocaleTimeString()},${days[now.getDay()]},"${state.employeeName}",${state.amount},"${currentGame}",${points}\n`;
+      fs.appendFileSync(RECORDS_FILE, row);
 
       state.currentGameIndex++;
 
       if (state.currentGameIndex < state.selectedGames.length) {
         await bot.sendMessage(chatId, `Next game: ${state.selectedGames[state.currentGameIndex]}\nEnter points:`);
       } else {
-        // Save to CSV
-        for (const r of state.records) {
-          const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
-          fs.appendFileSync(RECORDS_FILE, row);
-        }
-
         await bot.sendMessage(chatId, 
           `✅ All records saved!\n\nAmount: $${state.amount}\nGames: ${state.selectedGames.join(", ")}`
         );
