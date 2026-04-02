@@ -1,50 +1,99 @@
 import TelegramBot from "node-telegram-bot-api";
-import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 
-const DB_PATH = path.join(process.cwd(), "payment_tracker.db");
-const db = new Database(DB_PATH);
+const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 
-export function initTelegramBot(token) {
+if (!fs.existsSync(RECORDS_FILE)) {
+  fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
+}
+
+export function initTelegramBot(token: string): TelegramBot {
   const bot = new TelegramBot(token, { polling: true });
 
-  console.log("[Bot] Minimal Bot Started");
+  console.log("[Bot] Improved Version Started");
 
+  const userState = new Map();
+
+  // Amount Keyboard
+  const amountKeyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "1", callback_data: "amt_1" }, { text: "2", callback_data: "amt_2" }, { text: "3", callback_data: "amt_3" }],
+        [{ text: "4", callback_data: "amt_4" }, { text: "5", callback_data: "amt_5" }, { text: "6", callback_data: "amt_6" }],
+        [{ text: "7", callback_data: "amt_7" }, { text: "8", callback_data: "amt_8" }, { text: "9", callback_data: "amt_9" }],
+        [{ text: "⬅️ Back", callback_data: "amt_back" }, { text: "0", callback_data: "amt_0" }, { text: "🧹 Clear", callback_data: "amt_clear" }],
+        [{ text: "✅ Done", callback_data: "amt_done" }]
+      ]
+    }
+  };
+
+  // Game Keyboard
+  const gameKeyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "FK", callback_data: "game_FK" }],
+        [{ text: "JW", callback_data: "game_JW" }],
+        [{ text: "GV", callback_data: "game_GV" }],
+        [{ text: "Orion", callback_data: "game_Orion" }],
+        [{ text: "MW", callback_data: "game_MW" }],
+        [{ text: "FunStation", callback_data: "game_FunStation" }],
+        [{ text: "VS", callback_data: "game_VS" }],
+        [{ text: "PM", callback_data: "game_PM" }],
+        [{ text: "CM", callback_data: "game_CM" }],
+        [{ text: "UP", callback_data: "game_UP" }],
+        [{ text: "Monstor", callback_data: "game_Monstor" }],
+        [{ text: "Other", callback_data: "game_Other" }],
+        [{ text: "✅ Done", callback_data: "game_done" }]
+      ]
+    }
+  };
+
+  // PHOTO HANDLER
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
-    const employee = msg.from?.first_name || "Unknown";
+    const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
+
+    userState.set(chatId, {
+      step: "amount",
+      amountInput: "",
+      employeeName,
+      selectedGames: [],
+      records: []
+    });
 
     await bot.sendMessage(chatId, 
-      `📸 Screenshot received from ${employee}\n\n` +
-      `Step 1: How much amount was received? (e.g. 125.50)`
+      `📸 Screenshot received from ${employeeName}\n\n` +
+      `Step 1: Enter the deposited amount using the keypad below:`,
+      amountKeyboard
     );
   });
 
-  bot.on("text", async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text.trim();
+  // CALLBACK HANDLER (Keypad + Game)
+  bot.on("callback_query", async (query) => {
+    const chatId = query.message?.chat.id!;
+    const data = query.data!;
+    const state = userState.get(chatId);
+    if (!state) return;
 
-    // Simple save for testing
-    const now = new Date();
-    db.prepare(`
-      INSERT INTO payments (date, time, day, employee, amount, game, points)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      now.toISOString().split("T")[0],
-      now.toLocaleTimeString(),
-      "Monday", 
-      "Test User",
-      parseFloat(text) || 100,
-      "FK",
-      120
-    );
+    // Amount Keypad
+    if (data.startsWith("amt_")) {
+      const action = data.replace("amt_", "");
 
-    await bot.sendMessage(chatId, `✅ Saved test record!\nRefresh dashboard to see it.`);
-  });
+      if (!state.amountInput) state.amountInput = "";
 
-  bot.onText(/\/start|\/help/, (msg) => {
-    bot.sendMessage(msg.chat.id, "Send a screenshot to start.");
-  });
+      if (action === "back") {
+        state.amountInput = state.amountInput.slice(0, -1);
+      } else if (action === "clear") {
+        state.amountInput = "";
+      } else if (action === "done") {
+        const amount = parseFloat(state.amountInput);
+        if (isNaN(amount) || amount <= 0) {
+          await bot.sendMessage(chatId, "❌ Please enter a valid amount.");
+          return;
+        }
 
-  return bot;
-}
+        state.amount = amount;
+        state.step = "game";
+
+        await bot.sendMessage(chatId, 
