@@ -15,32 +15,32 @@ export function initTelegramBot(token: string): TelegramBot {
 
   const userState = new Map<any, any>();
 
-  // ---------------- KEYBOARD ----------------
-  const amountKeyboard = {
+  // ---------------- KEYBOARDS ----------------
+  const numberKeyboard = {   // Used for both amount and points
     reply_markup: {
       inline_keyboard: [
         [
-          { text: "1", callback_data: "amt_1" },
-          { text: "2", callback_data: "amt_2" },
-          { text: "3", callback_data: "amt_3" }
+          { text: "1", callback_data: "num_1" },
+          { text: "2", callback_data: "num_2" },
+          { text: "3", callback_data: "num_3" }
         ],
         [
-          { text: "4", callback_data: "amt_4" },
-          { text: "5", callback_data: "amt_5" },
-          { text: "6", callback_data: "amt_6" }
+          { text: "4", callback_data: "num_4" },
+          { text: "5", callback_data: "num_5" },
+          { text: "6", callback_data: "num_6" }
         ],
         [
-          { text: "7", callback_data: "amt_7" },
-          { text: "8", callback_data: "amt_8" },
-          { text: "9", callback_data: "amt_9" }
+          { text: "7", callback_data: "num_7" },
+          { text: "8", callback_data: "num_8" },
+          { text: "9", callback_data: "num_9" }
         ],
         [
-          { text: "⬅️", callback_data: "amt_back" },
-          { text: "0", callback_data: "amt_0" },
-          { text: "🧹", callback_data: "amt_clear" }
+          { text: "⬅️ Back", callback_data: "num_back" },
+          { text: "0", callback_data: "num_0" },
+          { text: "🧹 Clear", callback_data: "num_clear" }
         ],
         [
-          { text: "✅ Done", callback_data: "amt_done" }
+          { text: "✅ Done", callback_data: "num_done" }
         ]
       ]
     }
@@ -61,10 +61,7 @@ export function initTelegramBot(token: string): TelegramBot {
         [{ text: "UP", callback_data: "game_UP" }],
         [{ text: "Monstor", callback_data: "game_Monstor" }],
         [{ text: "Other", callback_data: "game_Other" }],
-        [
-          { text: "✅ Done", callback_data: "game_done" },
-          { text: "🔄 Reset", callback_data: "reset" }
-        ]
+        [{ text: "✅ Done", callback_data: "game_done" }]
       ]
     }
   };
@@ -82,100 +79,11 @@ export function initTelegramBot(token: string): TelegramBot {
       records: []
     });
 
-    await bot.sendMessage(
-      chatId,
-      `📸 Screenshot received from ${employeeName}\n\n💰 Step 1: Enter amount using keypad:`,
-      amountKeyboard
+    await bot.sendMessage(chatId,
+      `📸 Screenshot received from ${employeeName}\n\n` +
+      `Step 1: Enter the deposited amount using keypad:`,
+      numberKeyboard   // ← changed to numberKeyboard
     );
-  });
-
-  // ---------------- TEXT HANDLER ----------------
-  bot.on("text", async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text?.trim() || "";
-    const state = userState.get(chatId);
-
-    if (!state) return;
-
-    if (state.step === "amount") {
-      await bot.sendMessage(chatId, "👉 Please use the keypad below 👇", amountKeyboard);
-      return;
-    }
-
-    // custom game
-    if (state.step === "custom_game") {
-      state.selectedGames.push(text);
-      state.step = "game";
-
-      await bot.sendMessage(
-        chatId,
-        `✅ Added "${text}"\n\nSelected: ${state.selectedGames.join(", ")}`,
-        gameKeyboard
-      );
-    }
-
-    // per game points
-    else if (state.step === "per_game_points") {
-      const points = parseFloat(text);
-      if (isNaN(points)) {
-        await bot.sendMessage(chatId, "❌ Enter valid points.");
-        return;
-      }
-
-      const currentGame = state.selectedGames[state.currentGameIndex];
-
-      const now = new Date();
-      const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-
-      state.records.push({
-        date: now.toISOString().split("T")[0],
-        time: now.toLocaleTimeString(),
-        day: days[now.getDay()],
-        employee: state.employeeName,
-        amount: state.amount,
-        game: currentGame,
-        points
-      });
-
-      state.currentGameIndex++;
-
-      if (state.currentGameIndex < state.selectedGames.length) {
-        await bot.sendMessage(
-          chatId,
-          `Next: ${state.selectedGames[state.currentGameIndex]}\nEnter points:`
-        );
-      } else {
-        state.step = "final_confirm";
-
-        let summaryText = `📋 **SUMMARY**\n\n`;
-        summaryText += `Amount Received: $${state.amount}\n`;
-        summaryText += `Games: ${state.selectedGames.join(", ")}\n\n`;
-        summaryText += `**Points per game:**\n`;
-
-        let totalPoints = 0;
-        state.records.forEach((r: any, index: number) => {
-          summaryText += `${index + 1}. ${r.game}: ${r.points} points\n`;
-          totalPoints += r.points;
-        });
-
-        summaryText += `\n**Total Points:** ${totalPoints}\n`;
-        summaryText += `Date: ${state.records[0].date}\n`;
-        summaryText += `Day : ${state.records[0].day}\n`;
-        summaryText += `Time: ${state.records[0].time}\n\n`;
-        summaryText += `Is everything correct?`;
-
-        await bot.sendMessage(chatId, summaryText, {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "✅ Yes", callback_data: "confirm_yes" },
-                { text: "❌ No", callback_data: "confirm_no" }
-              ]
-            ]
-          }
-        });
-      }
-    }
   });
 
   // ---------------- CALLBACK HANDLER ----------------
@@ -183,14 +91,11 @@ export function initTelegramBot(token: string): TelegramBot {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
-
     if (!state) return;
 
-    // ---------------- AMOUNT KEYPAD ----------------
-    if (data.startsWith("amt_")) {
-      if (state.step !== "amount") return;
-
-      const action = data.replace("amt_", "");
+    // Numerical Keypad (used for amount and points)
+    if (data.startsWith("num_")) {
+      const action = data.replace("num_", "");
 
       if (!state.amountInput) state.amountInput = "";
 
@@ -199,23 +104,74 @@ export function initTelegramBot(token: string): TelegramBot {
       } else if (action === "clear") {
         state.amountInput = "";
       } else if (action === "done") {
-        const amount = parseFloat(state.amountInput);
-
-        if (!amount || isNaN(amount)) {
-          await bot.sendMessage(chatId, "❌ Invalid amount. Try again.");
+        const value = parseFloat(state.amountInput);
+        if (isNaN(value) || value <= 0) {
+          await bot.sendMessage(chatId, "❌ Please enter a valid number.");
           return;
         }
 
-        state.amount = amount;
-        state.step = "game";
+        if (state.step === "amount") {
+          state.amount = value;
+          state.step = "game";
+          await bot.sendMessage(chatId, 
+            `✅ Amount saved: $${value}\n\nStep 2: Select games:`, 
+            gameKeyboard
+          );
+        } else if (state.step === "per_game_points") {
+          // Points entry using keypad
+          const currentGame = state.selectedGames[state.currentGameIndex];
+          const now = new Date();
+          const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-        await bot.sendMessage(
-          chatId,
-          `💰 Amount saved: $${amount}\n\nStep 2: Select games:`,
-          gameKeyboard
-        );
+          state.records.push({
+            date: now.toISOString().split("T")[0],
+            time: now.toLocaleTimeString(),
+            day: days[now.getDay()],
+            employee: state.employeeName,
+            amount: state.amount,
+            game: currentGame,
+            points: value
+          });
 
-        await bot.answerCallbackQuery(query.id);
+          state.currentGameIndex++;
+
+          if (state.currentGameIndex < state.selectedGames.length) {
+            state.amountInput = "";
+            await bot.sendMessage(chatId, 
+              `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, 
+              numberKeyboard   // ← using keypad for points
+            );
+          } else {
+            state.step = "final_confirm";
+
+            let summaryText = `📋 **SUMMARY**\n\n`;
+            summaryText += `Amount Received: $${state.amount}\n`;
+            summaryText += `Games: ${state.selectedGames.join(", ")}\n\n`;
+            summaryText += `**Points per game:**\n`;
+
+            let totalPoints = 0;
+            state.records.forEach((r: any, index: number) => {
+              summaryText += `${index + 1}. ${r.game}: ${r.points} points\n`;
+              totalPoints += r.points;
+            });
+
+            summaryText += `\nDate: ${state.records[0].date}\n`;
+            summaryText += `Day : ${state.records[0].day}\n`;
+            summaryText += `Time: ${state.records[0].time}\n\n`;
+            summaryText += `Is everything correct?`;
+
+            await bot.sendMessage(chatId, summaryText, {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: "✅ Yes", callback_data: "confirm_yes" },
+                    { text: "❌ No", callback_data: "confirm_no" }
+                  ]
+                ]
+              }
+            });
+          }
+        }
         return;
       } else {
         state.amountInput += action;
@@ -226,7 +182,7 @@ export function initTelegramBot(token: string): TelegramBot {
         {
           chat_id: chatId,
           message_id: query.message!.message_id,
-          reply_markup: amountKeyboard.reply_markup
+          reply_markup: numberKeyboard.reply_markup
         }
       );
 
@@ -234,16 +190,17 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
-    // ---------------- GAME LOGIC ----------------
+    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
+        if (state.selectedGames.length === 0) {
+          await bot.sendMessage(chatId, "Please select at least one game.");
+          return;
+        }
         state.step = "per_game_points";
         state.currentGameIndex = 0;
-
-        await bot.sendMessage(
-          chatId,
-          `🎮 First game: ${state.selectedGames[0]}\nEnter points:`
-        );
+        state.amountInput = "";
+        await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[0]}:`, numberKeyboard);
       } else if (data === "game_Other") {
         state.step = "custom_game";
         await bot.sendMessage(chatId, "Type custom game name:");
@@ -252,29 +209,23 @@ export function initTelegramBot(token: string): TelegramBot {
         await bot.sendMessage(chatId, "🔄 Reset done. Send screenshot again.");
       } else {
         const game = data.replace("game_", "");
-
         if (!state.selectedGames.includes(game)) {
           state.selectedGames.push(game);
         }
-
-        await bot.sendMessage(
-          chatId,
-          `Selected: ${state.selectedGames.join(", ")}`,
+        await bot.sendMessage(chatId,
+          `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`,
           gameKeyboard
         );
       }
     }
 
-    // ---------------- FINAL CONFIRMATION ----------------
+    // Final confirmation
     if (state.step === "final_confirm") {
       if (data === "confirm_yes") {
         for (const r of state.records) {
-          const row =
-            `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
-
+          const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
           fs.appendFileSync(RECORDS_FILE, row);
         }
-
         await bot.sendMessage(chatId, "✅ Saved successfully!");
         userState.delete(chatId);
       } else if (data === "confirm_no") {
@@ -286,11 +237,40 @@ export function initTelegramBot(token: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // ---------------- HELP ----------------
+  // Text handler for custom game
+  bot.on("text", async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text?.trim() || "";
+    const state = userState.get(chatId);
+
+    if (!state) return;
+
+    if (state.step === "custom_game") {
+      state.selectedGames.push(text);
+      state.step = "game";
+      await bot.sendMessage(chatId,
+        `Added "${text}"\nSelected: ${state.selectedGames.join(", ")}`,
+        gameKeyboard
+      );
+    }
+  });
+
+  // Daily report at midnight CST
+  setInterval(() => {
+    const now = new Date();
+    if (now.getHours() === 0 && now.getMinutes() === 0) {   // Midnight CST
+      // You can add daily summary logic here later
+      console.log("[Bot] Midnight CST - Daily report would be sent here");
+    }
+  }, 60000); // check every minute
+
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(
-      msg.chat.id,
-      "👋 Payment Bot\n\n1. Send screenshot\n2. Enter amount via keypad\n3. Select games\n4. Enter points\n5. Confirm"
+    await bot.sendMessage(msg.chat.id,
+      "👋 Payment Bot\n\n" +
+      "1. Send screenshot\n" +
+      "2. Enter amount via keypad\n" +
+      "3. Select games\n" +
+      "4. Enter points using keypad"
     );
   });
 
