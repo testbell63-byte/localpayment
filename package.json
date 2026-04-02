@@ -1,6 +1,13 @@
 {
+  "name": "payment-tracker-bot",
+  "version": "1.0.0",
   "scripts": {
-    "start": "tsx server/_core/index.ts",
+    "start": "node --import tsx server/_core/index.ts",
     "dev": "tsx watch server/_core/index.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "node-telegram-bot-api": "^0.68.0",
+    "tsx": "^4.19.0"
   }
 }
