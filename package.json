@@ -1,6 +1,7 @@
 {
   "name": "payment-tracker-bot",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "start": "node --import tsx server/_core/index.ts",
     "dev": "tsx watch server/_core/index.ts"
