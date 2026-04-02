@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20", "python3"]
 
 [phases.install]
-cmds = ["npm ci --production=false"]
+cmds = ["npm install"]
 
 [deploy]
 startCommand = "node --import tsx server/_core/index.ts"
