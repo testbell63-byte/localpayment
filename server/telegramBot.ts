@@ -15,7 +15,6 @@ export function initTelegramBot(token: string): TelegramBot {
 
   const userState = new Map<any, any>();
 
-  // ---------------- NUMERICAL KEYPAD (with decimal, no Clear) ----------------
   const numberKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -36,10 +35,10 @@ export function initTelegramBot(token: string): TelegramBot {
         ],
         [
           { text: "0", callback_data: "num_0" },
-          { text: ".", callback_data: "num_dot" }   // ← Decimal added
+          { text: ".", callback_data: "num_dot" }
         ],
         [
-          { text: "⬅️ Back", callback_data: "num_back" },   // Only Back
+          { text: "⬅️ Back", callback_data: "num_back" },
           { text: "✅ Done", callback_data: "num_done" }
         ]
       ]
@@ -66,7 +65,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // ---------------- PHOTO HANDLER ----------------
+  // PHOTO HANDLER
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -76,7 +75,8 @@ export function initTelegramBot(token: string): TelegramBot {
       amountInput: "",
       employeeName,
       selectedGames: [],
-      records: []
+      records: [],
+      originalMessageId: msg.message_id   // Save original screenshot message ID
     });
 
     await bot.sendMessage(chatId,
@@ -86,14 +86,13 @@ export function initTelegramBot(token: string): TelegramBot {
     );
   });
 
-  // ---------------- CALLBACK HANDLER ----------------
+  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Numerical Keypad (Amount & Points)
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -102,9 +101,7 @@ export function initTelegramBot(token: string): TelegramBot {
       if (action === "back") {
         state.amountInput = state.amountInput.slice(0, -1);
       } else if (action === "dot") {
-        if (!state.amountInput.includes(".")) {
-          state.amountInput += ".";
-        }
+        if (!state.amountInput.includes(".")) state.amountInput += ".";
       } else if (action === "done") {
         const value = parseFloat(state.amountInput);
         if (isNaN(value) || value <= 0) {
@@ -162,6 +159,7 @@ export function initTelegramBot(token: string): TelegramBot {
             summaryText += `Is everything correct?`;
 
             await bot.sendMessage(chatId, summaryText, {
+              reply_to_message_id: state.originalMessageId,   // Reply to original screenshot
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -191,7 +189,7 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
-    // Game selection
+    // Game selection (same as before)
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -227,7 +225,19 @@ export function initTelegramBot(token: string): TelegramBot {
           const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
           fs.appendFileSync(RECORDS_FILE, row);
         }
-        await bot.sendMessage(chatId, "✅ Saved successfully!");
+
+        // Final success message with Amount, Game & Points, replying to original screenshot
+        let successMsg = `✅ **Saved Successfully!**\n\n`;
+        successMsg += `**Amount:** $${state.amount}\n`;
+        successMsg += `**Games & Points:**\n`;
+        state.records.forEach((r: any, i: number) => {
+          successMsg += `${i + 1}. ${r.game}: ${r.points} points\n`;
+        });
+
+        await bot.sendMessage(chatId, successMsg, {
+          reply_to_message_id: state.originalMessageId   // Reply to original screenshot
+        });
+
         userState.delete(chatId);
       } else if (data === "confirm_no") {
         userState.delete(chatId);
