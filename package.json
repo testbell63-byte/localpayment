@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "start": "tsx server/_core/index.ts",
+    "dev": "tsx watch server/_core/index.ts"
+  }
+}
