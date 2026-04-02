@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Tracker Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold text-gray-800">💰 Payment Tracker</h1>
+      <div class="text-sm text-gray-500">
+        Last updated: <span id="last-updated"></span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex gap-3 mb-8 flex-wrap">
+      <button onclick="filterData('all')" class="filter-btn active px-6 py-2 rounded-xl bg-blue-600 text-white">All Time</button>
+      <button onclick="filterData('daily')" class="filter-btn px-6 py-2 rounded-xl bg-white border">Today</button>
+      <button onclick="filterData('weekly')" class="filter-btn px-6 py-2 rounded-xl bg-white border">This Week</button>
+      <button onclick="filterData('monthly')" class="filter-btn px-6 py-2 rounded-xl bg-white border">This Month</button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500 text-sm">Total Amount</p>
+        <p class="text-3xl font-bold text-green-600" id="total-amount">$0</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500 text-sm">Total Points</p>
+        <p class="text-3xl font-bold text-blue-600" id="total-points">0</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500 text-sm">Transactions</p>
+        <p class="text-3xl font-bold text-purple-600" id="transaction-count">0</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500 text-sm">Avg per Transaction</p>
+        <p class="text-3xl font-bold text-orange-600" id="avg-amount">$0</p>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <h3 class="font-semibold mb-4">Points Trend</h3>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <h3 class="font-semibold mb-4">Game Distribution</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Download Buttons -->
+    <div class="flex gap-4 mb-8">
+      <button onclick="downloadCSV('records')" 
+              class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">
+        📥 Download All Records CSV
+      </button>
+      <button onclick="downloadCSV('daily')" 
+              class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
+        📥 Download Daily Summary
+      </button>
+      <button onclick="downloadCSV('monthly')" 
+              class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
+        📥 Download Monthly Summary
+      </button>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="bg-white rounded-2xl shadow overflow-hidden">
+      <div class="p-6 border-b">
+        <h3 class="font-semibold">Recent Transactions</h3>
+      </div>
+      <div id="recent-table" class="overflow-x-auto"></div>
+    </div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>
