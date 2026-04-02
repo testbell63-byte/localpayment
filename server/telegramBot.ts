@@ -15,6 +15,7 @@ export function initTelegramBot(token: string): TelegramBot {
 
   const userState = new Map<any, any>();
 
+  // ---------------- KEYBOARDS ----------------
   const numberKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -65,7 +66,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // PHOTO HANDLER
+  // ---------------- PHOTO HANDLER ----------------
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -75,8 +76,7 @@ export function initTelegramBot(token: string): TelegramBot {
       amountInput: "",
       employeeName,
       selectedGames: [],
-      records: [],
-      originalMessageId: msg.message_id   // Save original screenshot message ID
+      records: []
     });
 
     await bot.sendMessage(chatId,
@@ -86,7 +86,7 @@ export function initTelegramBot(token: string): TelegramBot {
     );
   });
 
-  // CALLBACK HANDLER
+  // ---------------- CALLBACK HANDLER ----------------
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -159,7 +159,6 @@ export function initTelegramBot(token: string): TelegramBot {
             summaryText += `Is everything correct?`;
 
             await bot.sendMessage(chatId, summaryText, {
-              reply_to_message_id: state.originalMessageId,   // Reply to original screenshot
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -189,7 +188,6 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
-    // Game selection (same as before)
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -218,7 +216,6 @@ export function initTelegramBot(token: string): TelegramBot {
       }
     }
 
-    // Final confirmation
     if (state.step === "final_confirm") {
       if (data === "confirm_yes") {
         for (const r of state.records) {
@@ -226,16 +223,16 @@ export function initTelegramBot(token: string): TelegramBot {
           fs.appendFileSync(RECORDS_FILE, row);
         }
 
-        // Final success message with Amount, Game & Points, replying to original screenshot
+        // Final success message with Amount, Game & Points
         let successMsg = `✅ **Saved Successfully!**\n\n`;
-        successMsg += `**Amount:** $${state.amount}\n`;
+        successMsg += `**Amount:** $${state.amount}\n\n`;
         successMsg += `**Games & Points:**\n`;
         state.records.forEach((r: any, i: number) => {
           successMsg += `${i + 1}. ${r.game}: ${r.points} points\n`;
         });
 
         await bot.sendMessage(chatId, successMsg, {
-          reply_to_message_id: state.originalMessageId   // Reply to original screenshot
+          reply_to_message_id: state.originalMessageId || undefined
         });
 
         userState.delete(chatId);
@@ -265,6 +262,16 @@ export function initTelegramBot(token: string): TelegramBot {
       );
     }
   });
+
+  // Daily Report at Midnight CST
+  setInterval(() => {
+    const now = new Date();
+    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {   // Midnight CST = 6:00 UTC
+      console.log("[Bot] Sending Daily Report at Midnight CST");
+      // TODO: Add daily summary logic here later
+      bot.sendMessage(msg.chat.id || "your_group_chat_id", "📊 Daily Report\nTotal Amount: $0\nTotal Points: 0"); // placeholder
+    }
+  }, 60000);
 
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id,
