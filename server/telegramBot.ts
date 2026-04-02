@@ -15,8 +15,8 @@ export function initTelegramBot(token: string): TelegramBot {
 
   const userState = new Map<any, any>();
 
-  // ---------------- KEYBOARDS ----------------
-  const numberKeyboard = {   // Used for both amount and points
+  // ---------------- NUMERICAL KEYPAD (with decimal, no Clear) ----------------
+  const numberKeyboard = {
     reply_markup: {
       inline_keyboard: [
         [
@@ -35,11 +35,11 @@ export function initTelegramBot(token: string): TelegramBot {
           { text: "9", callback_data: "num_9" }
         ],
         [
-          { text: "⬅️ Back", callback_data: "num_back" },
           { text: "0", callback_data: "num_0" },
-          { text: "🧹 Clear", callback_data: "num_clear" }
+          { text: ".", callback_data: "num_dot" }   // ← Decimal added
         ],
         [
+          { text: "⬅️ Back", callback_data: "num_back" },   // Only Back
           { text: "✅ Done", callback_data: "num_done" }
         ]
       ]
@@ -82,7 +82,7 @@ export function initTelegramBot(token: string): TelegramBot {
     await bot.sendMessage(chatId,
       `📸 Screenshot received from ${employeeName}\n\n` +
       `Step 1: Enter the deposited amount using keypad:`,
-      numberKeyboard   // ← changed to numberKeyboard
+      numberKeyboard
     );
   });
 
@@ -93,7 +93,7 @@ export function initTelegramBot(token: string): TelegramBot {
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Numerical Keypad (used for amount and points)
+    // Numerical Keypad (Amount & Points)
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -101,8 +101,10 @@ export function initTelegramBot(token: string): TelegramBot {
 
       if (action === "back") {
         state.amountInput = state.amountInput.slice(0, -1);
-      } else if (action === "clear") {
-        state.amountInput = "";
+      } else if (action === "dot") {
+        if (!state.amountInput.includes(".")) {
+          state.amountInput += ".";
+        }
       } else if (action === "done") {
         const value = parseFloat(state.amountInput);
         if (isNaN(value) || value <= 0) {
@@ -113,12 +115,11 @@ export function initTelegramBot(token: string): TelegramBot {
         if (state.step === "amount") {
           state.amount = value;
           state.step = "game";
-          await bot.sendMessage(chatId, 
-            `✅ Amount saved: $${value}\n\nStep 2: Select games:`, 
+          await bot.sendMessage(chatId,
+            `✅ Amount saved: $${value}\n\nStep 2: Select games:`,
             gameKeyboard
           );
         } else if (state.step === "per_game_points") {
-          // Points entry using keypad
           const currentGame = state.selectedGames[state.currentGameIndex];
           const now = new Date();
           const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -137,9 +138,9 @@ export function initTelegramBot(token: string): TelegramBot {
 
           if (state.currentGameIndex < state.selectedGames.length) {
             state.amountInput = "";
-            await bot.sendMessage(chatId, 
-              `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, 
-              numberKeyboard   // ← using keypad for points
+            await bot.sendMessage(chatId,
+              `Enter points for ${state.selectedGames[state.currentGameIndex]}:`,
+              numberKeyboard
             );
           } else {
             state.step = "final_confirm";
@@ -255,20 +256,11 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   });
 
-  // Daily report at midnight CST
-  setInterval(() => {
-    const now = new Date();
-    if (now.getHours() === 0 && now.getMinutes() === 0) {   // Midnight CST
-      // You can add daily summary logic here later
-      console.log("[Bot] Midnight CST - Daily report would be sent here");
-    }
-  }, 60000); // check every minute
-
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id,
       "👋 Payment Bot\n\n" +
       "1. Send screenshot\n" +
-      "2. Enter amount via keypad\n" +
+      "2. Enter amount with keypad\n" +
       "3. Select games\n" +
       "4. Enter points using keypad"
     );
