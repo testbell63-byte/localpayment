@@ -3,7 +3,6 @@ import { createServer } from "http";
 import { initTelegramBot } from "../telegramBot.js";
 import fs from "fs";
 import path from "path";
-import cookieParser from "cookie-parser";
 
 const app = express();
 const server = createServer(app);
@@ -11,187 +10,194 @@ const server = createServer(app);
 const PORT = process.env.PORT || 8080;
 const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
-const USERS_FILE = path.join(process.cwd(), "users.json");
-
-// Default main admin
-const MAIN_ADMIN = "testbell63@gmail.com";
-const MAIN_ADMIN_PASS = "Hattiban123@";
-
-// Load or create users file
-let users: any = {};
-if (fs.existsSync(USERS_FILE)) {
-  users = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
-} else {
-  users = {
-    [MAIN_ADMIN]: { password: MAIN_ADMIN_PASS, role: "admin", approved: true }
-  };
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
 
 app.use(express.json());
-app.use(cookieParser());
 
-// Middleware to protect dashboard
-const requireLogin = (req: any, res: any, next: any) => {
-  const userEmail = req.cookies?.user;
-  if (userEmail && users[userEmail] && users[userEmail].approved) {
-    next();
-  } else {
-    res.redirect("/login");
+// Root → Dashboard
+app.get("/", (req, res) => res.redirect("/dashboard"));
+
+// Dashboard with Date Selector
+app.get("/dashboard", (req, res) => {
+  let allRecords: any[] = [];
+
+  if (fs.existsSync(RECORDS_FILE)) {
+    const content = fs.readFileSync(RECORDS_FILE, "utf-8");
+    const lines = content.trim().split("\n").slice(1);
+
+    allRecords = lines.map((line) => {
+      const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      return {
+        date: parts[0] || "",
+        time: parts[1] || "",
+        day: parts[2] || "",
+        employee: (parts[3] || "").replace(/"/g, ""),
+        amount: parseFloat(parts[4]) || 0,
+        game: (parts[5] || "").replace(/"/g, ""),
+        points: parseFloat(parts[6]) || 0,
+      };
+    });
   }
-};
 
-// ====================== LOGIN & SIGNUP ======================
+  const totalAmount = allRecords.reduce((sum, r) => sum + r.amount, 0);
+  const totalTransactions = allRecords.length;
 
-// Login Page
-app.get("/login", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Login - Payment Tracker</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="bg-gray-900 flex items-center justify-center min-h-screen">
-      <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md">
-        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Payment Tracker</h1>
-        
-        <div class="mb-6">
-          <button onclick="showLogin()" class="w-full py-3 border-b-2 border-blue-600 text-blue-600 font-medium">Login</button>
-          <button onclick="showSignup()" class="w-full py-3 text-gray-500">Sign Up</button>
-        </div>
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-6">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker Dashboard</h1>
 
-        <!-- Login Form -->
-        <form id="loginForm">
-          <input type="email" id="loginEmail" placeholder="Email" class="w-full px-4 py-3 border rounded-xl mb-4" required>
-          <input type="password" id="loginPass" placeholder="Password" class="w-full px-4 py-3 border rounded-xl mb-6" required>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold">Login</button>
-        </form>
-
-        <!-- Signup Form (hidden by default) -->
-        <form id="signupForm" class="hidden">
-          <input type="email" id="signupEmail" placeholder="Your Email" class="w-full px-4 py-3 border rounded-xl mb-4" required>
-          <input type="password" id="signupPass" placeholder="Create Password" class="w-full px-4 py-3 border rounded-xl mb-6" required>
-          <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-semibold">Sign Up (Pending Approval)</button>
-          <p class="text-xs text-gray-500 text-center mt-4">Your account will be reviewed by admin (testbell63@gmail.com)</p>
-        </form>
-
-        <p id="message" class="text-center mt-4 text-sm"></p>
+    <!-- Date Selector -->
+    <div class="bg-white p-6 rounded-2xl shadow mb-8">
+      <label class="block text-sm font-medium text-gray-600 mb-2">View Totals for a Specific Day</label>
+      <div class="flex gap-4 items-end flex-wrap">
+        <input type="date" id="selectedDate" class="border border-gray-300 rounded-lg px-4 py-2">
+        <button onclick="showDayTotals()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Show Day</button>
+        <button onclick="resetToAll()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">All Time</button>
       </div>
+      <div id="daySummary" class="mt-6"></div>
+    </div>
 
-      <script>
-        function showLogin() { document.getElementById('loginForm').classList.remove('hidden'); document.getElementById('signupForm').classList.add('hidden'); }
-        function showSignup() { document.getElementById('signupForm').classList.remove('hidden'); document.getElementById('loginForm').classList.add('hidden'); }
+    <!-- Overall Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500">Total Amount (All)</p>
+        <p class="text-4xl font-bold text-green-600">$${totalAmount.toFixed(2)}</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500">Total Transactions</p>
+        <p class="text-4xl font-bold">${totalTransactions}</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow">
+        <p class="text-gray-500">Records</p>
+        <p class="text-4xl font-bold">${allRecords.length}</p>
+      </div>
+    </div>
 
-        // Login
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const email = document.getElementById('loginEmail').value;
-          const pass = document.getElementById('loginPass').value;
-          const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, pass}) });
-          const data = await res.json();
-          if (data.success) window.location.href = '/dashboard';
-          else document.getElementById('message').innerHTML = '<span class="text-red-600">' + (data.message || 'Login failed') + '</span>';
-        });
+    <!-- Recent Transactions -->
+    <div class="bg-white rounded-2xl shadow overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b font-semibold">Recent Transactions (Latest 50)</div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left">Date</th>
+              <th class="px-6 py-3 text-left">Time</th>
+              <th class="px-6 py-3 text-left">Day</th>
+              <th class="px-6 py-3 text-left">Employee</th>
+              <th class="px-6 py-3 text-left">Amount</th>
+              <th class="px-6 py-3 text-left">Game</th>
+              <th class="px-6 py-3 text-left">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allRecords.slice(0, 50).map(r => `
+              <tr class="border-t">
+                <td class="px-6 py-3">${r.date}</td>
+                <td class="px-6 py-3">${r.time}</td>
+                <td class="px-6 py-3">${r.day}</td>
+                <td class="px-6 py-3">${r.employee}</td>
+                <td class="px-6 py-3">$${r.amount}</td>
+                <td class="px-6 py-3">${r.game}</td>
+                <td class="px-6 py-3">${r.points}</td>
+              </tr>
+            `).join('')}
+            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet</td></tr>` : ''}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        // Signup
-        document.getElementById('signupForm').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const email = document.getElementById('signupEmail').value;
-          const pass = document.getElementById('signupPass').value;
-          const res = await fetch('/api/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, pass}) });
-          const data = await res.json();
-          document.getElementById('message').innerHTML = data.message;
-        });
-      </script>
-    </body>
-    </html>
-  `);
-});
+    <div class="mt-8 flex gap-4 flex-wrap">
+      <a href="/records.csv" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">Download All Records CSV</a>
+      <a href="/daily.csv" class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">Download Today CSV</a>
+      <a href="/monthly.csv" class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700">Download This Month CSV</a>
+    </div>
+  </div>
 
-// Login API
-app.post("/api/login", (req, res) => {
-  const { email, pass } = req.body;
-  if (users[email] && users[email].password === pass && users[email].approved) {
-    res.cookie("user", email, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-    res.json({ success: true });
-  } else {
-    res.json({ success: false, message: "Invalid email or password, or account not approved yet." });
-  }
-});
+  <script>
+    let allRecords = ${JSON.stringify(allRecords)};
 
-// Signup API (creates pending account)
-app.post("/api/signup", (req, res) => {
-  const { email, pass } = req.body;
-  if (!email || !pass) return res.json({ success: false, message: "Email and password required" });
+    function showDayTotals() {
+      const date = document.getElementById('selectedDate').value;
+      if (!date) return alert("Please select a date");
 
-  if (users[email]) {
-    return res.json({ success: false, message: "Account with this email already exists" });
-  }
-
-  users[email] = { password: pass, role: "user", approved: false };
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-
-  res.json({ success: true, message: "✅ Signup successful!<br>Your account is pending approval by admin (testbell63@gmail.com)" });
-});
-
-// Admin Approval Page (only main admin can access)
-app.get("/admin", requireLogin, (req, res) => {
-  if (req.cookies.user !== MAIN_ADMIN) return res.send("Access denied. Only main admin allowed.");
-
-  let pendingHTML = '';
-  Object.keys(users).forEach(email => {
-    if (!users[email].approved && email !== MAIN_ADMIN) {
-      pendingHTML += `
-        <div class="flex justify-between items-center p-4 border rounded-lg mb-3">
-          <span>${email}</span>
-          <button onclick="approve('${email}')" class="px-4 py-2 bg-green-600 text-white rounded-lg">Approve</button>
-        </div>`;
-    }
-  });
-
-  res.send(`
-    <h1 class="text-2xl font-bold p-6">Admin Panel - Approve Users</h1>
-    <div class="p-6">${pendingHTML || "<p>No pending approvals</p>"}</div>
-    <script>
-      async function approve(email) {
-        await fetch('/api/approve', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email}) });
-        location.reload();
+      const dayRecords = allRecords.filter(r => r.date === date);
+      if (dayRecords.length === 0) {
+        document.getElementById('daySummary').innerHTML = '<p class="text-red-600">No records for this date.</p>';
+        return;
       }
-    </script>
-  `);
+
+      const total = dayRecords.reduce((sum, r) => sum + r.amount, 0);
+
+      let gameHTML = '';
+      const games = {};
+      dayRecords.forEach(r => {
+        if (!games[r.game]) games[r.game] = {amt:0, pts:0, cnt:0};
+        games[r.game].amt += r.amount;
+        games[r.game].pts += r.points;
+        games[r.game].cnt++;
+      });
+      Object.keys(games).forEach(g => {
+        const gm = games[g];
+        gameHTML += \`<div class="flex justify-between py-1"><span>\${g}</span><span>\${gm.amt.toFixed(2)} • \${gm.pts} pts (\${gm.cnt})</span></div>\`;
+      });
+
+      document.getElementById('daySummary').innerHTML = \`
+        <div class="bg-green-50 p-6 rounded-2xl mt-4">
+          <p class="font-semibold mb-2">📅 \${date} Summary</p>
+          <p class="text-3xl font-bold text-green-600">Total: $\${total.toFixed(2)}</p>
+          <div class="mt-4 text-sm">\${gameHTML}</div>
+        </div>
+      \`;
+    }
+
+    function resetToAll() {
+      document.getElementById('selectedDate').value = '';
+      document.getElementById('daySummary').innerHTML = '';
+    }
+  </script>
+</body>
+</html>`;
+
+  res.send(html);
 });
 
-app.post("/api/approve", (req, res) => {
-  if (req.cookies.user !== MAIN_ADMIN) return res.status(403).send("Not authorized");
-  const { email } = req.body;
-  if (users[email]) {
-    users[email].approved = true;
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-    res.json({ success: true });
+// CSV Routes
+app.get("/records.csv", (req, res) => {
+  if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
+  else res.send("No records yet.");
+});
+
+app.get("/daily.csv", (req, res) => {
+  const today = new Date().toISOString().split("T")[0];
+  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  if (fs.existsSync(RECORDS_FILE)) {
+    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
+    lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
   }
+  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv`);
+  res.send(csv);
 });
 
-// Protected Dashboard (same as before with date selector)
-app.get("/dashboard", requireLogin, (req, res) => {
-  // ... (insert the clean dashboard HTML with date selector from previous response here)
-  // For now, I'm keeping it short. If you want the full date selector version, reply "full dashboard" and I'll give it.
-  res.send(`<h1 class="p-10 text-3xl">Welcome to Dashboard, ${req.cookies.user}!</h1><p><a href="/logout">Logout</a></p>`);
+app.get("/monthly.csv", (req, res) => {
+  const month = new Date().toISOString().slice(0, 7);
+  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  if (fs.existsSync(RECORDS_FILE)) {
+    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
+    lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
+  }
+  res.setHeader("Content-Disposition", `attachment; filename=monthly_${month}.csv`);
+  res.send(csv);
 });
 
-app.get("/logout", (req, res) => {
-  res.clearCookie("user");
-  res.redirect("/login");
-});
-
-// CSV routes protected
-app.get("/records.csv", requireLogin, (req, res) => { /* same as before */ });
-app.get("/daily.csv", requireLogin, (req, res) => { /* same */ });
-app.get("/monthly.csv", requireLogin, (req, res) => { /* same */ });
-
-// Telegram Webhook
+// Webhook
 const webhookPath = `/bot${BOT_TOKEN}`;
 app.post(webhookPath, (req, res) => {
   const bot = (global as any).telegramBot;
@@ -206,7 +212,6 @@ const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
 server.listen(PORT, () => {
-  console.log(`✅ Server running`);
-  console.log(`🌐 Login: ${baseUrl}/login`);
-  console.log(`🌐 Admin Panel: ${baseUrl}/admin (only testbell63@gmail.com)`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Dashboard → ${baseUrl}/dashboard`);
 });
