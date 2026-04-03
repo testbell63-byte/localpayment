@@ -13,7 +13,7 @@ const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 
 app.use(express.json());
 
-// Dashboard
+// ====================== DASHBOARD ======================
 app.get("/dashboard", (req, res) => {
   let records = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -37,24 +37,167 @@ app.get("/dashboard", (req, res) => {
   const today = new Date().toISOString().split("T")[0];
   const thisMonth = today.substring(0, 7);
 
-  const daily = records.filter(r => r.date === today);
-  const monthly = records.filter(r => r.date.startsWith(thisMonth));
+  const dailyRecords = records.filter(r => r.date === today);
+  const monthlyRecords = records.filter(r => r.date.startsWith(thisMonth));
 
-  const dailyAmount = daily.reduce((sum, r) => sum + r.amount, 0);
-  const monthlyAmount = monthly.reduce((sum, r) => sum + r.amount, 0);
+  const dailyAmount = dailyRecords.reduce((sum, r) => sum + r.amount, 0);
+  const monthlyAmount = monthlyRecords.reduce((sum, r) => sum + r.amount, 0);
 
-  let html = `... (full modern dashboard with Tailwind, charts, totals, table, download buttons) ...`;
+  const dailyPointsByGame = {};
+  dailyRecords.forEach(r => dailyPointsByGame[r.game] = (dailyPointsByGame[r.game] || 0) + r.points);
+
+  const monthlyPointsByGame = {};
+  monthlyRecords.forEach(r => monthlyPointsByGame[r.game] = (monthlyPointsByGame[r.game] || 0) + r.points);
+
+  let html = `
+    <html>
+    <head>
+      <title>Payment Tracker Dashboard</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <style>
+        body { font-family: system-ui; }
+        .card { transition: all 0.3s; }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+      </style>
+    </head>
+    <body class="bg-gray-50">
+      <div class="max-w-7xl mx-auto p-8">
+        <div class="flex justify-between items-center mb-10">
+          <h1 class="text-5xl font-bold flex items-center gap-4">💰 Payment Tracker</h1>
+          <div class="text-sm text-gray-500">Live • Updated just now</div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div class="bg-white rounded-3xl shadow p-8 card">
+            <p class="text-gray-500 text-sm">Today's Total Amount</p>
+            <p class="text-5xl font-bold text-green-600">$${dailyAmount.toFixed(2)}</p>
+          </div>
+          <div class="bg-white rounded-3xl shadow p-8 card">
+            <p class="text-gray-500 text-sm">This Month's Total Amount</p>
+            <p class="text-5xl font-bold text-blue-600">$${monthlyAmount.toFixed(2)}</p>
+          </div>
+          <div class="bg-white rounded-3xl shadow p-8 card">
+            <p class="text-gray-500 text-sm">Total Transactions</p>
+            <p class="text-5xl font-bold">${records.length}</p>
+          </div>
+        </div>
+
+        <!-- Download Buttons -->
+        <div class="flex flex-wrap gap-4 mb-12">
+          <a href="/records.csv" class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium flex items-center gap-2">
+            📥 Download Full Records CSV
+          </a>
+          <a href="/daily.csv" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium flex items-center gap-2">
+            📥 Today's Records CSV
+          </a>
+          <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium flex items-center gap-2">
+            📥 This Month's Records CSV
+          </a>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <h3 class="font-semibold mb-4">Points Trend (Last 30 Days)</h3>
+            <canvas id="trendChart" height="120"></canvas>
+          </div>
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <h3 class="font-semibold mb-4">Game Distribution (This Month)</h3>
+            <canvas id="pieChart" height="120"></canvas>
+          </div>
+        </div>
+
+        <!-- Recent Records Table -->
+        <div class="bg-white rounded-3xl shadow overflow-hidden">
+          <div class="px-8 py-6 border-b font-semibold text-lg">Recent Transactions</div>
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-8 py-4 text-left">Date</th>
+                <th class="px-8 py-4 text-left">Time</th>
+                <th class="px-8 py-4 text-left">Day</th>
+                <th class="px-8 py-4 text-left">Employee</th>
+                <th class="px-8 py-4 text-left">Amount</th>
+                <th class="px-8 py-4 text-left">Game</th>
+                <th class="px-8 py-4 text-left">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+  `;
+
+  records.slice(0, 100).forEach(r => {
+    html += `
+      <tr class="border-t hover:bg-gray-50">
+        <td class="px-8 py-4">${r.date}</td>
+        <td class="px-8 py-4">${r.time}</td>
+        <td class="px-8 py-4">${r.day}</td>
+        <td class="px-8 py-4">${r.employee}</td>
+        <td class="px-8 py-4 font-medium">$${r.amount}</td>
+        <td class="px-8 py-4">${r.game}</td>
+        <td class="px-8 py-4">${r.points}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table></div></div></body></html>`;
+
+  // Add simple Chart.js script
+  html = html.replace("</body>", `
+    <script>
+      const records = ${JSON.stringify(records.slice(0, 30))};
+      // Simple trend chart
+      new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: { labels: records.map(r => r.date), datasets: [{ label: 'Points', data: records.map(r => r.points), borderColor: '#3b82f6', tension: 0.4 }] },
+        options: { plugins: { legend: { display: false } } }
+      });
+      // Pie chart
+      const gameData = {};
+      records.forEach(r => gameData[r.game] = (gameData[r.game] || 0) + r.points);
+      new Chart(document.getElementById('pieChart'), {
+        type: 'pie',
+        data: { labels: Object.keys(gameData), datasets: [{ data: Object.values(gameData), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444'] }] }
+      });
+    </script>
+  </html>`);
 
   res.send(html);
 });
 
-// CSV downloads
-app.get("/records.csv", (req, res) => fs.existsSync(RECORDS_FILE) ? res.download(RECORDS_FILE) : res.send("No records yet"));
+// CSV Downloads
+app.get("/records.csv", (req, res) => {
+  if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "records.csv");
+  else res.send("No records yet.");
+});
 
-app.get("/daily.csv", (req, res) => { /* daily csv logic */ });
-app.get("/monthly.csv", (req, res) => { /* monthly csv logic */ });
+app.get("/daily.csv", (req, res) => {
+  const today = new Date().toISOString().split("T")[0];
+  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  if (fs.existsSync(RECORDS_FILE)) {
+    const lines = fs.readFileSync(RECORDS_FILE, "utf8").split("\n");
+    lines.slice(1).forEach(line => {
+      if (line.startsWith(today)) csv += line + "\n";
+    });
+  }
+  res.setHeader("Content-Disposition", `attachment; filename="daily_${today}.csv"`);
+  res.send(csv);
+});
 
-// Webhook
+app.get("/monthly.csv", (req, res) => {
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  if (fs.existsSync(RECORDS_FILE)) {
+    const lines = fs.readFileSync(RECORDS_FILE, "utf8").split("\n");
+    lines.slice(1).forEach(line => {
+      if (line.startsWith(thisMonth)) csv += line + "\n";
+    });
+  }
+  res.setHeader("Content-Disposition", `attachment; filename="monthly_${thisMonth}.csv"`);
+  res.send(csv);
+});
+
+// Webhook for Telegram Bot
 const webhookPath = `/bot${BOT_TOKEN}`;
 app.post(webhookPath, (req, res) => {
   const bot = (global as any).telegramBot;
@@ -62,9 +205,15 @@ app.post(webhookPath, (req, res) => {
   res.sendStatus(200);
 });
 
-const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
+// Start Bot
+const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
+  : `http://localhost:${PORT}`;
 
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-server.listen(PORT, () => console.log(`✅ Dashboard live at ${baseUrl}/dashboard`));
+server.listen(PORT, () => {
+  console.log(`✅ Dashboard & Bot live on port ${PORT}`);
+  console.log(`🌐 Open Dashboard: ${baseUrl}/dashboard`);
+});
