@@ -1,179 +1,333 @@
-import express from "express";
-import { createServer } from "http";
-import { initTelegramBot } from "../telegramBot.js";
+import TelegramBot from "node-telegram-bot-api";
 import fs from "fs";
 import path from "path";
 
-const app = express();
-const server = createServer(app);
-
-const PORT = process.env.PORT || 8080;
-const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
+const REPORT_GROUP_ID = -1003718366443;
 
-app.use(express.json());
+// Create CSV if not exists
+if (!fs.existsSync(RECORDS_FILE)) {
+  fs.writeFileSync(
+    RECORDS_FILE,
+    "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n"
+  );
+}
 
-// Root → Dashboard
-app.get("/", (req, res) => res.redirect("/dashboard"));
+// CST time helper
+function getCST() {
+  const now = new Date();
+  const cstTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  return {
+    date: cstTime.toISOString().split("T")[0],
+    time: cstTime.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+    day: cstTime.toLocaleDateString("en-US", { weekday: "long" }),
+  };
+}
 
-// Simple Stable Dashboard
-app.get("/dashboard", (req, res) => {
-  let allRecords = [];
+export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
+  const bot = new TelegramBot(token);
+  console.log("[Bot] Starting...");
 
-  if (fs.existsSync(RECORDS_FILE)) {
-    const content = fs.readFileSync(RECORDS_FILE, "utf-8");
-    const lines = content.trim().split("\n").slice(1);
-    allRecords = lines.map(line => {
-      const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-      return {
-        date: parts[0] || "",
-        time: parts[1] || "",
-        day: parts[2] || "",
-        group: (parts[3] || "").replace(/"/g, ""),
-        employee: (parts[4] || "").replace(/"/g, ""),
-        amount: parseFloat(parts[5]) || 0,
-        game: (parts[6] || "").replace(/"/g, ""),
-        points: parseFloat(parts[7]) || 0,
-      };
+  const userState = new Map<any, any>();
+
+  const numberKeyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "1", callback_data: "num_1" },
+          { text: "2", callback_data: "num_2" },
+          { text: "3", callback_data: "num_3" },
+        ],
+        [
+          { text: "4", callback_data: "num_4" },
+          { text: "5", callback_data: "num_5" },
+          { text: "6", callback_data: "num_6" },
+        ],
+        [
+          { text: "7", callback_data: "num_7" },
+          { text: "8", callback_data: "num_8" },
+          { text: "9", callback_data: "num_9" },
+        ],
+        [
+          { text: "0", callback_data: "num_0" },
+          { text: ".", callback_data: "num_dot" },
+        ],
+        [
+          { text: "⬅️ Back", callback_data: "num_back" },
+          { text: "✅ Done", callback_data: "num_done" },
+        ],
+      ],
+    },
+  };
+
+  const gameKeyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "FK", callback_data: "game_FK" }],
+        [{ text: "JW", callback_data: "game_JW" }],
+        [{ text: "GV", callback_data: "game_GV" }],
+        [{ text: "Orion", callback_data: "game_Orion" }],
+        [{ text: "MW", callback_data: "game_MW" }],
+        [{ text: "FunStation", callback_data: "game_FunStation" }],
+        [{ text: "VS", callback_data: "game_VS" }],
+        [{ text: "PM", callback_data: "game_PM" }],
+        [{ text: "CM", callback_data: "game_CM" }],
+        [{ text: "UP", callback_data: "game_UP" }],
+        [{ text: "Monstor", callback_data: "game_Monstor" }],
+        [{ text: "Other", callback_data: "game_Other" }],
+        [{ text: "✅ Done", callback_data: "game_done" }],
+      ],
+    },
+  };
+
+  // PHOTO RECEIVED
+  bot.on("photo", async (msg) => {
+    const chatId = msg.chat.id;
+    const groupName = msg.chat.title || "Unknown Group";
+    const employeeName =
+      msg.from?.first_name || msg.from?.username || "Unknown";
+
+    userState.set(chatId, {
+      step: "amount",
+      amountInput: "",
+      employeeName,
+      groupName,
+      selectedGames: [],
+      records: [],
+      originalMessageId: msg.message_id,
+      originalChatId: chatId,
     });
-  }
 
-  // Sort newest first
-  allRecords.sort((a, b) => {
-    if (a.date !== b.date) return b.date.localeCompare(a.date);
-    return b.time.localeCompare(a.time);
+    await bot.sendMessage(
+      chatId,
+      `📸 Screenshot received from ${employeeName} (${groupName})\n\nEnter the deposited amount:`,
+      numberKeyboard
+    );
   });
 
-  const today = new Date().toISOString().split("T")[0];
-  const todayRecords = allRecords.filter(r => r.date === today);
-  const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
-  const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
-  const todayTransactions = todayRecords.length;
+  // CALLBACK HANDLER
+  bot.on("callback_query", async (query) => {
+    const chatId = query.message?.chat.id!;
+    const data = query.data!;
+    const state = userState.get(chatId);
+    if (!state) return;
 
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Payment Tracker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 p-6">
-  <div class="max-w-6xl mx-auto">
-    <h1 class="text-4xl font-bold mb-8">💰 Payment Tracker</h1>
+    // NUMBER INPUT
+    if (data.startsWith("num_")) {
+      const action = data.replace("num_", "");
 
-    <div class="bg-white p-8 rounded-3xl shadow mb-10">
-      <h2 class="text-2xl font-semibold mb-6">📅 Today (${today})</h2>
-      <div class="grid grid-cols-3 gap-6">
-        <div>
-          <p class="text-gray-500">Total Amount</p>
-          <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
-        </div>
-        <div>
-          <p class="text-gray-500">Total Points</p>
-          <p class="text-4xl font-bold text-blue-600">${todayPoints}</p>
-        </div>
-        <div>
-          <p class="text-gray-500">Transactions</p>
-          <p class="text-4xl font-bold">${todayTransactions}</p>
-        </div>
-      </div>
-    </div>
+      if (action === "back") {
+        state.amountInput = (state.amountInput || "").slice(0, -1);
+      } else if (action === "dot") {
+        if (!state.amountInput.includes(".")) state.amountInput += ".";
+      } else if (action === "done") {
+        const value = parseFloat(state.amountInput || "0");
 
-    <div class="bg-white p-6 rounded-3xl shadow mb-10">
-      <h3 class="font-semibold mb-4">Summary by Group</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${Object.keys(groupBreakdown || {}).map(g => {
-          const data = (groupBreakdown || {})[g] || {amount:0, points:0, count:0};
-          return `<div class="border rounded-2xl p-5">
-            <p class="font-semibold">${g}</p>
-            <p class="text-3xl font-bold text-green-600">$${data.amount.toFixed(2)}</p>
-            <p class="text-sm text-gray-500">${data.points} pts • ${data.count} txns</p>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
+        if (isNaN(value) || value <= 0) {
+          await bot.sendMessage(chatId, "❌ Please enter a valid number.");
+          return;
+        }
 
-    <div class="bg-white rounded-3xl shadow overflow-hidden">
-      <div class="px-8 py-5 border-b font-semibold">Recent Transactions (Newest First)</div>
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-8 py-4 text-left">Date</th>
-              <th class="px-8 py-4 text-left">Time</th>
-              <th class="px-8 py-4 text-left">Group</th>
-              <th class="px-8 py-4 text-left">Employee</th>
-              <th class="px-8 py-4 text-left">Amount</th>
-              <th class="px-8 py-4 text-left">Game</th>
-              <th class="px-8 py-4 text-left">Points</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${allRecords.slice(0, 100).map(r => `
-              <tr class="border-t">
-                <td class="px-8 py-4">${r.date}</td>
-                <td class="px-8 py-4">${r.time}</td>
-                <td class="px-8 py-4">${r.group}</td>
-                <td class="px-8 py-4">${r.employee}</td>
-                <td class="px-8 py-4">$${r.amount}</td>
-                <td class="px-8 py-4">${r.game}</td>
-                <td class="px-8 py-4">${r.points}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
+        // STEP 1 → STEP 2
+        if (state.step === "amount") {
+          state.amount = value;
+          state.step = "game";
 
-  res.send(html);
-});
+          await bot.sendMessage(
+            chatId,
+            `✅ Amount saved: ${value}\n\nStep 2: Select games:`,
+            gameKeyboard
+          );
+        }
 
-// CSV Routes
-app.get("/records.csv", (req, res) => {
-  if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
-  else res.send("No records yet.");
-});
+        // STEP 3 → POINTS PER GAME
+        else if (state.step === "per_game_points") {
+          const currentGame = state.selectedGames[state.currentGameIndex];
+          const cst = getCST();
 
-app.get("/daily.csv", (req, res) => {
-  const today = new Date().toISOString().split("T")[0];
-  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n";
-  if (fs.existsSync(RECORDS_FILE)) {
-    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
-    lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
-  }
-  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv`);
-  res.send(csv);
-});
+          state.records.push({
+            date: cst.date,
+            time: cst.time,
+            day: cst.day,
+            employee: state.employeeName,
+            amount: state.amount,
+            game: currentGame,
+            points: value,
+          });
 
-app.get("/monthly.csv", (req, res) => {
-  const month = new Date().toISOString().slice(0, 7);
-  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n";
-  if (fs.existsSync(RECORDS_FILE)) {
-    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
-    lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
-  }
-  res.setHeader("Content-Disposition", `attachment; filename=monthly_${month}.csv`);
-  res.send(csv);
-});
+          state.currentGameIndex++;
 
-// Telegram Webhook
-const webhookPath = `/bot${BOT_TOKEN}`;
-app.post(webhookPath, (req, res) => {
-  const bot = (global as any).telegramBot;
-  if (bot) bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
+          if (state.currentGameIndex < state.selectedGames.length) {
+            state.amountInput = "";
+            await bot.sendMessage(
+              chatId,
+              `Enter points for ${state.selectedGames[state.currentGameIndex]}:`,
+              numberKeyboard
+            );
+          } else {
+            state.step = "final_confirm";
 
-// Start
-const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
+            let summaryText = `📋 **SUMMARY**\n\n**Amount Received:** ${state.amount}\n\n**Games & Points:**\n`;
 
-const bot = initTelegramBot(BOT_TOKEN, baseUrl);
-(global as any).telegramBot = bot;
+            state.records.forEach((r: any, i: number) => {
+              summaryText += `${i + 1}. ${r.game}: ${r.points} points\n`;
+            });
 
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Dashboard → ${baseUrl}/dashboard`);
-});
+            summaryText += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
+
+            await bot.sendMessage(chatId, summaryText, {
+              parse_mode: "Markdown",
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: "✅ Yes - Save", callback_data: "confirm_yes" },
+                    { text: "❌ No", callback_data: "confirm_no" },
+                  ],
+                ],
+              },
+            });
+          }
+        }
+
+        return;
+      } else {
+        state.amountInput = (state.amountInput || "") + action;
+      }
+
+      const displayText = `💰 Enter Amount:\n\n👉 ${
+        state.amountInput || "0"
+      }`;
+
+      await bot
+        .editMessageText(displayText, {
+          chat_id: chatId,
+          message_id: query.message!.message_id,
+          reply_markup: numberKeyboard.reply_markup,
+        })
+        .catch(() => {});
+
+      await bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // GAME SELECTION
+    if (state.step === "game") {
+      if (data === "game_done") {
+        if (state.selectedGames.length === 0) {
+          await bot.sendMessage(chatId, "Please select at least one game.");
+          return;
+        }
+
+        state.step = "per_game_points";
+        state.currentGameIndex = 0;
+        state.amountInput = "";
+
+        await bot.sendMessage(
+          chatId,
+          `Enter points for ${state.selectedGames[0]}:`,
+          numberKeyboard
+        );
+      } else if (data === "game_Other") {
+        state.step = "custom_game";
+        await bot.sendMessage(chatId, "Type the custom game name:");
+      } else {
+        const game = data.replace("game_", "");
+
+        if (!state.selectedGames.includes(game)) {
+          state.selectedGames.push(game);
+        }
+
+        await bot.sendMessage(
+          chatId,
+          `Selected: ${state.selectedGames.join(
+            ", "
+          )}\n\nYou can select more or press Done.`,
+          gameKeyboard
+        );
+      }
+    }
+
+    // FINAL CONFIRM
+    if (state.step === "final_confirm" && data === "confirm_yes") {
+      for (const r of state.records) {
+        const row = `${r.date},${r.time},${r.day},"${state.groupName}","${r.employee}",${r.amount},"${r.game}",${r.points},\n`;
+        fs.appendFileSync(RECORDS_FILE, row);
+      }
+
+      let successMsg = `✅ **Payment Record**\n\n`;
+      successMsg += `**Group:** ${state.groupName}\n`;
+      successMsg += `**Amount Received:** ${state.amount}\n\n`;
+      successMsg += `**Games & Points:**\n`;
+
+      state.records.forEach((r: any, i: number) => {
+        successMsg += `${i + 1}. ${r.game}: ${r.points} points\n`;
+      });
+
+      successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
+
+      await bot.sendMessage(chatId, successMsg, { parse_mode: "Markdown" });
+
+      userState.delete(chatId);
+    }
+
+    if (state.step === "final_confirm" && data === "confirm_no") {
+      await bot.sendMessage(chatId, "❌ Cancelled. Please post again.");
+      userState.delete(chatId);
+    }
+
+    await bot.answerCallbackQuery(query.id);
+  });
+
+  // DELETE COMMAND
+  bot.onText(/\/delete/, async (msg) => {
+    const chatId = msg.chat.id;
+
+    if (!fs.existsSync(RECORDS_FILE)) {
+      await bot.sendMessage(chatId, "No records found.");
+      return;
+    }
+
+    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
+
+    if (lines.length <= 1) {
+      await bot.sendMessage(chatId, "No records to delete.");
+      return;
+    }
+
+    const cst = getCST();
+    const lastLine = lines[lines.length - 1];
+    const parts = lastLine.split(",");
+
+    const negativeRow = `${cst.date},${cst.time},${cst.day},"${
+      parts[3] || ""
+    }","${parts[4] || ""}",-${parseFloat(parts[5]) || 0},"${
+      parts[6] || ""
+    }",-${parseFloat(parts[7]) || 0},DELETED\n`;
+
+    fs.appendFileSync(RECORDS_FILE, negativeRow);
+
+    await bot.sendMessage(
+      chatId,
+      "✅ Record deleted. Negative entry added."
+    );
+  });
+
+  // START
+  bot.onText(/\/start|\/help/, async (msg) => {
+    await bot.sendMessage(
+      msg.chat.id,
+      "👋 Send a screenshot to start.\n\nReply with /delete to remove."
+    );
+  });
+
+  // WEBHOOK
+  const webhookPath = `/bot${token}`;
+  bot.setWebHook(baseUrl + webhookPath);
+
+  console.log("[Bot] Ready ✅");
+  return bot;
+}
