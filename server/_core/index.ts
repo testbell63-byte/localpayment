@@ -12,10 +12,10 @@ app.use(express.json());
 
 // Health check
 app.get("/", (req, res) => {
-  res.send("✅ Payment Tracker Bot is running");
+  res.send("✅ Payment Tracker Bot is running on Railway");
 });
 
-// Webhook route
+// Webhook route for Telegram
 const webhookPath = `/bot${BOT_TOKEN}`;
 app.post(webhookPath, (req, res) => {
   const bot = (global as any).telegramBot;
@@ -25,7 +25,7 @@ app.post(webhookPath, (req, res) => {
   res.sendStatus(200);
 });
 
-// Start bot with webhook
+// Start the bot
 const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
   : `http://localhost:${PORT}`;
@@ -37,5 +37,5 @@ console.log(`🚀 Server running on port ${PORT}`);
 console.log(`🌐 Webhook URL: ${baseUrl}${webhookPath}`);
 
 server.listen(PORT, () => {
-  console.log(`✅ Bot + Dashboard is live on port ${PORT}`);
+  console.log(`✅ Bot + Server is live on port ${PORT}`);
 });
