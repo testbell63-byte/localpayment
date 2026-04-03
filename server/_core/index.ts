@@ -16,14 +16,14 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Simple & Stable Dashboard
+// Simple Stable Dashboard
 app.get("/dashboard", (req, res) => {
-  let allRecords: any[] = [];
+  let allRecords = [];
 
   if (fs.existsSync(RECORDS_FILE)) {
     const content = fs.readFileSync(RECORDS_FILE, "utf-8");
     const lines = content.trim().split("\n").slice(1);
-    allRecords = lines.map((line) => {
+    allRecords = lines.map(line => {
       const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
       return {
         date: parts[0] || "",
@@ -44,38 +44,26 @@ app.get("/dashboard", (req, res) => {
     return b.time.localeCompare(a.time);
   });
 
-  // Today Summary
   const today = new Date().toISOString().split("T")[0];
   const todayRecords = allRecords.filter(r => r.date === today);
   const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
   const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
   const todayTransactions = todayRecords.length;
 
-  // Group Breakdown
-  const groupBreakdown: any = {};
-  allRecords.forEach(r => {
-    if (!groupBreakdown[r.group]) groupBreakdown[r.group] = { amount: 0, points: 0, count: 0 };
-    groupBreakdown[r.group].amount += r.amount;
-    groupBreakdown[r.group].points += r.points;
-    groupBreakdown[r.group].count++;
-  });
-
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 p-6">
   <div class="max-w-6xl mx-auto">
-    <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker</h1>
+    <h1 class="text-4xl font-bold mb-8">💰 Payment Tracker</h1>
 
-    <!-- Today Summary -->
     <div class="bg-white p-8 rounded-3xl shadow mb-10">
       <h2 class="text-2xl font-semibold mb-6">📅 Today (${today})</h2>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-3 gap-6">
         <div>
           <p class="text-gray-500">Total Amount</p>
           <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
@@ -91,48 +79,22 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
 
-    <!-- Group Breakdown -->
     <div class="bg-white p-6 rounded-3xl shadow mb-10">
       <h3 class="font-semibold mb-4">Summary by Group</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${Object.keys(groupBreakdown).map(group => {
-          const g = groupBreakdown[group];
+        ${Object.keys(groupBreakdown || {}).map(g => {
+          const data = (groupBreakdown || {})[g] || {amount:0, points:0, count:0};
           return `<div class="border rounded-2xl p-5">
-            <p class="font-semibold">${group}</p>
-            <p class="text-3xl font-bold text-green-600">$${g.amount.toFixed(2)}</p>
-            <p class="text-sm text-gray-500">${g.points} pts • ${g.count} txns</p>
+            <p class="font-semibold">${g}</p>
+            <p class="text-3xl font-bold text-green-600">$${data.amount.toFixed(2)}</p>
+            <p class="text-sm text-gray-500">${data.points} pts • ${data.count} txns</p>
           </div>`;
         }).join('')}
       </div>
     </div>
 
-    <!-- Date Range Filter -->
-    <div class="bg-white p-6 rounded-3xl shadow mb-10">
-      <h3 class="font-semibold mb-4">Filter by Date Range</h3>
-      <div class="flex gap-4 items-end flex-wrap">
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">From Date</label>
-          <input type="date" id="fromDate" class="border border-gray-300 rounded-lg px-4 py-2">
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">To Date</label>
-          <input type="date" id="toDate" class="border border-gray-300 rounded-lg px-4 py-2">
-        </div>
-        <button onclick="applyFilter()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Apply</button>
-        <button onclick="resetFilter()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Reset</button>
-      </div>
-    </div>
-
-    <!-- Recent Transactions -->
     <div class="bg-white rounded-3xl shadow overflow-hidden">
-      <div class="px-8 py-5 border-b font-semibold flex justify-between">
-        <span>Recent Transactions (Newest First)</span>
-        <div class="flex gap-4 text-sm">
-          <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
-          <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
-          <a href="/monthly.csv" class="text-blue-600 hover:underline">This Month CSV</a>
-        </div>
-      </div>
+      <div class="px-8 py-5 border-b font-semibold">Recent Transactions (Newest First)</div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50">
@@ -148,52 +110,21 @@ app.get("/dashboard", (req, res) => {
           </thead>
           <tbody>
             ${allRecords.slice(0, 100).map(r => `
-              <tr class="border-t hover:bg-gray-50">
+              <tr class="border-t">
                 <td class="px-8 py-4">${r.date}</td>
                 <td class="px-8 py-4">${r.time}</td>
-                <td class="px-8 py-4 font-medium">${r.group}</td>
+                <td class="px-8 py-4">${r.group}</td>
                 <td class="px-8 py-4">${r.employee}</td>
-                <td class="px-8 py-4 font-medium">$${r.amount}</td>
+                <td class="px-8 py-4">$${r.amount}</td>
                 <td class="px-8 py-4">${r.game}</td>
                 <td class="px-8 py-4">${r.points}</td>
               </tr>
             `).join('')}
-            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records yet. Send screenshots in Telegram.</td></tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
   </div>
-
-  <script>
-    function applyFilter() {
-      const from = document.getElementById('fromDate').value;
-      const to = document.getElementById('toDate').value;
-      let filtered = allRecords;
-      if (from) filtered = filtered.filter(r => r.date >= from);
-      if (to) filtered = filtered.filter(r => r.date <= to);
-
-      let html = '';
-      filtered.forEach(r => {
-        html += `<tr class="border-t hover:bg-gray-50">
-          <td class="px-8 py-4">${r.date}</td>
-          <td class="px-8 py-4">${r.time}</td>
-          <td class="px-8 py-4 font-medium">${r.group}</td>
-          <td class="px-8 py-4">${r.employee}</td>
-          <td class="px-8 py-4 font-medium">$${r.amount}</td>
-          <td class="px-8 py-4">${r.game}</td>
-          <td class="px-8 py-4">${r.points}</td>
-        </tr>`;
-      });
-      document.querySelector('tbody').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records in selected range</td></tr>';
-    }
-
-    function resetFilter() {
-      document.getElementById('fromDate').value = '';
-      document.getElementById('toDate').value = '';
-      location.reload();
-    }
-  </script>
 </body>
 </html>`;
 
