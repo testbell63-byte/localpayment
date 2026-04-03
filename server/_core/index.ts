@@ -13,12 +13,12 @@ const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 
 app.use(express.json());
 
-// Root → Dashboard
+// Root route - redirect to dashboard
 app.get("/", (req, res) => {
   res.redirect("/dashboard");
 });
 
-// Simple Working Dashboard
+// Main Dashboard
 app.get("/dashboard", (req, res) => {
   let records = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -38,26 +38,72 @@ app.get("/dashboard", (req, res) => {
     });
   }
 
+  // Daily & Monthly calculations
+  const today = new Date().toISOString().split("T")[0];
+  const thisMonth = today.substring(0, 7);
+
+  const dailyRecords = records.filter(r => r.date === today);
+  const monthlyRecords = records.filter(r => r.date.startsWith(thisMonth));
+
+  const dailyAmount = dailyRecords.reduce((sum, r) => sum + r.amount, 0);
+  const monthlyAmount = monthlyRecords.reduce((sum, r) => sum + r.amount, 0);
+
   let html = `
     <html>
     <head>
-      <title>Payment Tracker</title>
+      <title>Payment Tracker Dashboard</title>
       <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <style>
+        body { font-family: system-ui; }
+        .card { transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); }
+      </style>
     </head>
     <body class="bg-gray-50 p-8">
-      <div class="max-w-6xl mx-auto">
-        <h1 class="text-4xl font-bold mb-8">💰 Payment Tracker Dashboard</h1>
+      <div class="max-w-7xl mx-auto">
+        <h1 class="text-5xl font-bold mb-10">💰 Payment Tracker</h1>
 
-        <div class="flex gap-4 mb-8">
-          <a href="/records.csv" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">📥 Download Full CSV</a>
-          <a href="/daily.csv" class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">📥 Today's CSV</a>
-          <a href="/monthly.csv" class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700">📥 This Month CSV</a>
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">Today's Total</p>
+            <p class="text-5xl font-bold text-green-600">$${dailyAmount.toFixed(2)}</p>
+          </div>
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">This Month's Total</p>
+            <p class="text-5xl font-bold text-blue-600">$${monthlyAmount.toFixed(2)}</p>
+          </div>
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">Total Transactions</p>
+            <p class="text-5xl font-bold">${records.length}</p>
+          </div>
         </div>
 
-        <h2 class="text-2xl font-semibold mb-4">Recent Records</h2>
-        <div class="bg-white rounded-2xl shadow overflow-x-auto">
+        <!-- Download Buttons -->
+        <div class="flex flex-wrap gap-4 mb-12">
+          <a href="/records.csv" class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium">📥 Full Records CSV</a>
+          <a href="/daily.csv" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium">📥 Today's CSV</a>
+          <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium">📥 This Month CSV</a>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <h3 class="font-semibold mb-4">Points Trend</h3>
+            <canvas id="trendChart" height="140"></canvas>
+          </div>
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <h3 class="font-semibold mb-4">Game Distribution</h3>
+            <canvas id="pieChart" height="140"></canvas>
+          </div>
+        </div>
+
+        <!-- Records Table -->
+        <div class="bg-white rounded-3xl shadow overflow-hidden">
+          <div class="px-8 py-6 border-b font-semibold text-lg">Recent Transactions</div>
           <table class="w-full">
-            <thead class="bg-gray-100">
+            <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-4 text-left">Date</th>
                 <th class="px-6 py-4 text-left">Time</th>
@@ -84,21 +130,40 @@ app.get("/dashboard", (req, res) => {
       </tr>`;
   });
 
-  if (records.length === 0) {
-    html += `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet. Send screenshots in Telegram to see data here.</td></tr>`;
-  }
-
   html += `</tbody></table></div></div></body></html>`;
+
+  // Add charts script
+  html = html.replace("</body>", `
+    <script>
+      const records = ${JSON.stringify(records.slice(0, 30))};
+      new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+          labels: records.map(r => r.date),
+          datasets: [{ label: 'Points', data: records.map(r => r.points), borderColor: '#3b82f6', tension: 0.4 }]
+        },
+        options: { plugins: { legend: { display: false } } }
+      });
+
+      const gameData = {};
+      records.forEach(r => gameData[r.game] = (gameData[r.game] || 0) + r.points);
+      new Chart(document.getElementById('pieChart'), {
+        type: 'pie',
+        data: {
+          labels: Object.keys(gameData),
+          datasets: [{ data: Object.values(gameData), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }]
+        }
+      });
+    </script>
+  </html>`);
+
   res.send(html);
 });
 
 // CSV Downloads
 app.get("/records.csv", (req, res) => {
-  if (fs.existsSync(RECORDS_FILE)) {
-    res.download(RECORDS_FILE, "records.csv");
-  } else {
-    res.send("No records.csv yet.");
-  }
+  if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "records.csv");
+  else res.send("No records yet.");
 });
 
 app.get("/daily.csv", (req, res) => {
@@ -144,6 +209,6 @@ const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
 server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Dashboard: ${baseUrl}/dashboard`);
+  console.log(`✅ Dashboard & Bot live on port ${PORT}`);
+  console.log(`🌐 Open: ${baseUrl}/dashboard`);
 });
