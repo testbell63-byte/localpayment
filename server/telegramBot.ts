@@ -8,14 +8,15 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
+// === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003782105748;
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Starting in Webhook mode - Report group:", REPORT_GROUP_ID);
+  console.log("[Bot] Webhook mode - Summary goes ONLY to report group:", REPORT_GROUP_ID);
 
-  const userState = new Map();
+  const userState = new Map<any, any>();
 
   const numberKeyboard = {
     reply_markup: {
@@ -62,7 +63,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       originalMessageId: msg.message_id
     });
 
-    await bot.sendMessage(chatId, `📸 Screenshot received from ${employeeName}\n\nEnter the deposited amount:`, numberKeyboard);
+    await bot.sendMessage(chatId,
+      `📸 Screenshot received from ${employeeName}\n\nEnter the deposited amount:`,
+      numberKeyboard
+    );
   });
 
   bot.on("callback_query", async (query) => {
@@ -163,22 +167,27 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
+    // FINAL STEP - Send ONLY to report group, no message in main group
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
         fs.appendFileSync(RECORDS_FILE, row);
       }
 
-      let successMsg = `✅ **Payment Record**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
+      let successMsg = `✅ **Payment Record**\n\n`;
+      successMsg += `**Amount Received:** $${state.amount}\n\n`;
+      successMsg += `**Games & Points:**\n`;
       state.records.forEach((r: any, i: number) => {
         successMsg += `${i+1}. ${r.game}: ${r.points} points\n`;
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
+      // Send to NEW REPORT GROUP with screenshot attached
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
           reply_to_message_id: state.originalMessageId
         });
+        console.log(`✅ Summary + screenshot sent to report group ${REPORT_GROUP_ID}`);
       } catch (e) {
         console.error("Failed to send to report group:", e);
       }
@@ -207,6 +216,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
+  // Set webhook
   const webhookPath = `/bot${token}`;
   bot.setWebHook(baseUrl + webhookPath)
     .then(() => console.log("✅ Webhook set successfully"))
