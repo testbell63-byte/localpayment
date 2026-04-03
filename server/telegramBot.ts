@@ -12,12 +12,16 @@ const REPORT_GROUP_ID = -1003718366443;
 
 function getCST() {
   const now = new Date();
-  const cstOffset = -6 * 60 * 60 * 1000;
-  const cstTime = new Date(now.getTime() + cstOffset);
+  // Proper CST (UTC-6, fixed offset)
+  const cstTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
   return {
     date: cstTime.toISOString().split("T")[0],
-    time: cstTime.toLocaleTimeString("en-US", { hour12: true, timeZone: "America/Chicago" }),
-    day: cstTime.toLocaleString("en-US", { weekday: "long", timeZone: "America/Chicago" })
+    time: cstTime.toLocaleTimeString("en-US", { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    }),
+    day: cstTime.toLocaleString("en-US", { weekday: "long" })
   };
 }
 
@@ -177,7 +181,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -192,7 +195,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // 1. Send to Report Group (with screenshot)
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
@@ -200,7 +202,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         console.error("Report group error:", e);
       }
 
-      // 2. Send Bright Blue Final Summary in MAIN GROUP
+      // Bright blue summary in main group
       const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
         `**Amount:** $${state.amount}\n\n` +
         `**Games & Points:**\n` +
@@ -209,7 +211,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
       await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
 
-      // 3. Thank you message
       await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
 
       userState.delete(chatId);
@@ -237,7 +238,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
-  // Webhook
   const webhookPath = `/bot${token}`;
   bot.setWebHook(baseUrl + webhookPath)
     .then(() => console.log("✅ Webhook set successfully"))
