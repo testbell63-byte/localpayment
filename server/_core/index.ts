@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Dashboard
+// Simple & Stable Dashboard
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
 
@@ -38,7 +38,7 @@ app.get("/dashboard", (req, res) => {
     });
   }
 
-  // Sort by newest first
+  // Sort newest first
   allRecords.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.time.localeCompare(a.time);
@@ -123,10 +123,10 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
 
-    <!-- Recent Transactions (Newest First) -->
+    <!-- Recent Transactions -->
     <div class="bg-white rounded-3xl shadow overflow-hidden">
       <div class="px-8 py-5 border-b font-semibold flex justify-between">
-        <span>Recent Transactions</span>
+        <span>Recent Transactions (Newest First)</span>
         <div class="flex gap-4 text-sm">
           <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
           <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
@@ -147,7 +147,7 @@ app.get("/dashboard", (req, res) => {
             </tr>
           </thead>
           <tbody>
-            ${allRecords.map(r => `
+            ${allRecords.slice(0, 100).map(r => `
               <tr class="border-t hover:bg-gray-50">
                 <td class="px-8 py-4">${r.date}</td>
                 <td class="px-8 py-4">${r.time}</td>
@@ -172,7 +172,7 @@ app.get("/dashboard", (req, res) => {
       let filtered = allRecords;
       if (from) filtered = filtered.filter(r => r.date >= from);
       if (to) filtered = filtered.filter(r => r.date <= to);
-      // Re-render table (simple version)
+
       let html = '';
       filtered.forEach(r => {
         html += `<tr class="border-t hover:bg-gray-50">
