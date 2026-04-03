@@ -11,10 +11,10 @@ if (!fs.existsSync(RECORDS_FILE)) {
 // === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003782105748;
 
-export function initTelegramBot(token: string): TelegramBot {
-  const bot = new TelegramBot(token, { polling: true });
+export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
+  const bot = new TelegramBot(token);
 
-  console.log("[Bot] Started - Final summary goes ONLY to report group:", REPORT_GROUP_ID);
+  console.log("[Bot] Starting in Webhook mode - Report group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -50,7 +50,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // PHOTO → Start flow
+  // ====================== PHOTO ======================
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -70,14 +70,13 @@ export function initTelegramBot(token: string): TelegramBot {
     );
   });
 
-  // CALLBACK HANDLER
+  // ====================== CALLBACK ======================
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Numeric keypad (amount + points)
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -127,7 +126,7 @@ export function initTelegramBot(token: string): TelegramBot {
             await bot.sendMessage(chatId, summaryText, {
               reply_markup: {
                 inline_keyboard: [[
-                  { text: "✅ Yes - Save & Send to Report Group", callback_data: "confirm_yes" },
+                  { text: "✅ Yes - Save", callback_data: "confirm_yes" },
                   { text: "❌ No", callback_data: "confirm_no" }
                 ]]
               }
@@ -148,7 +147,6 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
-    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -172,15 +170,13 @@ export function initTelegramBot(token: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION - ONLY send to report group, NO message in main group
+    // FINAL STEP - ONLY send to report group, no message in main group
     if (state.step === "final_confirm" && data === "confirm_yes") {
-      // Save to CSV
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
         fs.appendFileSync(RECORDS_FILE, row);
       }
 
-      // Build summary
       let successMsg = `✅ **Payment Record**\n\n`;
       successMsg += `**Amount Received:** $${state.amount}\n\n`;
       successMsg += `**Games & Points:**\n`;
@@ -194,24 +190,22 @@ export function initTelegramBot(token: string): TelegramBot {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
           reply_to_message_id: state.originalMessageId
         });
-        console.log(`✅ Summary + screenshot sent to report group ${REPORT_GROUP_ID}`);
+        console.log("✅ Summary sent to report group");
       } catch (e) {
         console.error("Failed to send to report group:", e);
       }
 
-      // NO confirmation message in main group (as requested)
       userState.delete(chatId);
     }
 
     if (state.step === "final_confirm" && data === "confirm_no") {
       userState.delete(chatId);
-      // Optional: silent discard (no message)
     }
 
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game
+  // Custom game name
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -226,11 +220,15 @@ export function initTelegramBot(token: string): TelegramBot {
   });
 
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id,
-      "👋 Send a screenshot to start.\nUse keypad for amount and points."
-    );
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
-  console.log("[Bot] Ready");
+  // Set webhook (this will be called from index.ts)
+  const webhookPath = `/bot${token}`;
+  bot.setWebHook(baseUrl + webhookPath).then(() => {
+    console.log(`✅ Webhook set: ${baseUrl}${webhookPath}`);
+  }).catch(err => console.error("Webhook set failed:", err));
+
+  console.log("[Bot] Ready (Webhook mode)");
   return bot;
 }
