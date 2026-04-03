@@ -3,17 +3,23 @@ import { createServer } from "http";
 import { initTelegramBot } from "../telegramBot.js";
 import fs from "fs";
 import path from "path";
+
 const app = express();
 const server = createServer(app);
+
 const PORT = process.env.PORT || 8080;
 const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
+
 app.use(express.json());
+
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
-// Dashboard with Date Selector
+
+// Improved Dashboard
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
+
   if (fs.existsSync(RECORDS_FILE)) {
     const content = fs.readFileSync(RECORDS_FILE, "utf-8");
     const lines = content.trim().split("\n").slice(1);
@@ -23,15 +29,32 @@ app.get("/dashboard", (req, res) => {
         date: parts[0] || "",
         time: parts[1] || "",
         day: parts[2] || "",
-        employee: (parts[3] || "").replace(/"/g, ""),
-        amount: parseFloat(parts[4]) || 0,
-        game: (parts[5] || "").replace(/"/g, ""),
-        points: parseFloat(parts[6]) || 0,
+        group: (parts[3] || "").replace(/"/g, ""),
+        employee: (parts[4] || "").replace(/"/g, ""),
+        amount: parseFloat(parts[5]) || 0,
+        game: (parts[6] || "").replace(/"/g, ""),
+        points: parseFloat(parts[7]) || 0,
       };
     });
   }
-  const totalAmount = allRecords.reduce((sum, r) => sum + r.amount, 0);
-  const totalTransactions = allRecords.length;
+
+  // Today Summary
+  const today = new Date().toISOString().split("T")[0];
+  const todayRecords = allRecords.filter(r => r.date === today);
+  const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
+  const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
+  const todayTransactions = todayRecords.length;
+  const avgAmount = todayTransactions > 0 ? (todayAmount / todayTransactions).toFixed(2) : "0.00";
+
+  // Game Breakdown
+  const gameBreakdown: any = {};
+  todayRecords.forEach(r => {
+    if (!gameBreakdown[r.game]) gameBreakdown[r.game] = { amount: 0, points: 0, count: 0 };
+    gameBreakdown[r.game].amount += r.amount;
+    gameBreakdown[r.game].points += r.points;
+    gameBreakdown[r.game].count++;
+  });
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,122 +62,156 @@ app.get("/dashboard", (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-50 p-6">
-  <div class="max-w-6xl mx-auto">
-    <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker Dashboard</h1>
-    <!-- Date Selector -->
-    <div class="bg-white p-6 rounded-2xl shadow mb-8">
-      <label class="block text-sm font-medium text-gray-600 mb-2">View Totals for a Specific Day</label>
-      <div class="flex gap-4 items-end flex-wrap">
-        <input type="date" id="selectedDate" class="border border-gray-300 rounded-lg px-4 py-2">
-        <button onclick="showDayTotals()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Show Day</button>
-        <button onclick="resetToAll()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">All Time</button>
-      </div>
-      <div id="daySummary" class="mt-6"></div>
+  <div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-4xl font-bold text-gray-800">💰 Payment Tracker</h1>
+      <div class="text-sm text-gray-500">Live • Auto-refresh every 15s</div>
     </div>
-    <!-- Overall Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-      <div class="bg-white p-6 rounded-2xl shadow">
-        <p class="text-gray-500">Total Amount (All)</p>
-        <p class="text-4xl font-bold text-green-600">$${totalAmount.toFixed(2)}</p>
+
+    <!-- Today Summary -->
+    <div class="bg-white p-8 rounded-3xl shadow mb-10">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800">📅 Today Summary (${today})</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div>
+          <p class="text-gray-500 text-sm">Total Amount</p>
+          <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
+        </div>
+        <div>
+          <p class="text-gray-500 text-sm">Total Points</p>
+          <p class="text-4xl font-bold text-blue-600">${todayPoints}</p>
+        </div>
+        <div>
+          <p class="text-gray-500 text-sm">Transactions</p>
+          <p class="text-4xl font-bold">${todayTransactions}</p>
+        </div>
+        <div>
+          <p class="text-gray-500 text-sm">Avg Amount</p>
+          <p class="text-4xl font-bold">$${avgAmount}</p>
+        </div>
       </div>
-      <div class="bg-white p-6 rounded-2xl shadow">
-        <p class="text-gray-500">Total Transactions</p>
-        <p class="text-4xl font-bold">${totalTransactions}</p>
-      </div>
-      <div class="bg-white p-6 rounded-2xl shadow">
-        <p class="text-gray-500">Records</p>
-        <p class="text-4xl font-bold">${allRecords.length}</p>
+
+      <!-- Game Breakdown -->
+      <div class="mt-8">
+        <p class="text-gray-600 font-medium mb-3">Game Breakdown Today</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          ${Object.keys(gameBreakdown).map(game => {
+            const g = gameBreakdown[game];
+            return `<div class="bg-gray-50 p-4 rounded-2xl">
+              <p class="font-semibold">${game}</p>
+              <p class="text-lg">$${g.amount.toFixed(2)}</p>
+              <p class="text-sm text-gray-500">${g.points} pts • ${g.count} txns</p>
+            </div>`;
+          }).join('')}
+        </div>
       </div>
     </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      <div class="bg-white p-6 rounded-3xl shadow">
+        <h3 class="font-semibold mb-4">Daily Trend (Last 7 Days)</h3>
+        <canvas id="trendChart" height="120"></canvas>
+      </div>
+      <div class="bg-white p-6 rounded-3xl shadow">
+        <h3 class="font-semibold mb-4">Game Distribution</h3>
+        <canvas id="pieChart" height="120"></canvas>
+      </div>
+    </div>
+
     <!-- Recent Transactions -->
-    <div class="bg-white rounded-2xl shadow overflow-hidden">
-      <div class="px-6 py-4 bg-gray-50 border-b font-semibold">Recent Transactions (Latest 50)</div>
+    <div class="bg-white rounded-3xl shadow overflow-hidden">
+      <div class="px-8 py-5 border-b flex justify-between items-center">
+        <h3 class="font-semibold text-lg">Recent Transactions</h3>
+        <div class="flex gap-3">
+          <a href="/records.csv" class="text-blue-600 hover:underline text-sm">↓ All CSV</a>
+          <a href="/daily.csv" class="text-blue-600 hover:underline text-sm">Today CSV</a>
+        </div>
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-6 py-3 text-left">Date</th>
-              <th class="px-6 py-3 text-left">Time</th>
-              <th class="px-6 py-3 text-left">Day</th>
-              <th class="px-6 py-3 text-left">Employee</th>
-              <th class="px-6 py-3 text-left">Amount</th>
-              <th class="px-6 py-3 text-left">Game</th>
-              <th class="px-6 py-3 text-left">Points</th>
+              <th class="px-8 py-4 text-left">Date</th>
+              <th class="px-8 py-4 text-left">Time</th>
+              <th class="px-8 py-4 text-left">Group</th>
+              <th class="px-8 py-4 text-left">Employee</th>
+              <th class="px-8 py-4 text-left">Amount</th>
+              <th class="px-8 py-4 text-left">Game</th>
+              <th class="px-8 py-4 text-left">Points</th>
             </tr>
           </thead>
           <tbody>
             ${allRecords.slice(0, 50).map(r => `
-              <tr class="border-t">
-                <td class="px-6 py-3">${r.date}</td>
-                <td class="px-6 py-3">${r.time}</td>
-                <td class="px-6 py-3">${r.day}</td>
-                <td class="px-6 py-3">${r.employee}</td>
-                <td class="px-6 py-3">$${r.amount}</td>
-                <td class="px-6 py-3">${r.game}</td>
-                <td class="px-6 py-3">${r.points}</td>
+              <tr class="border-t hover:bg-gray-50">
+                <td class="px-8 py-4">${r.date}</td>
+                <td class="px-8 py-4">${r.time}</td>
+                <td class="px-8 py-4 font-medium">${r.group}</td>
+                <td class="px-8 py-4">${r.employee}</td>
+                <td class="px-8 py-4 font-medium">$${r.amount}</td>
+                <td class="px-8 py-4">${r.game}</td>
+                <td class="px-8 py-4">${r.points}</td>
               </tr>
             `).join('')}
-            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet</td></tr>` : ''}
+            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records yet. Send screenshots in your cash-in groups.</td></tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
-    <div class="mt-8 flex gap-4 flex-wrap">
-      <a href="/records.csv" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">Download All Records CSV</a>
-      <a href="/daily.csv" class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">Download Today CSV</a>
-      <a href="/monthly.csv" class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700">Download This Month CSV</a>
-    </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     let allRecords = ${JSON.stringify(allRecords)};
-    function showDayTotals() {
-      const date = document.getElementById('selectedDate').value;
-      if (!date) return alert("Please select a date");
-      const dayRecords = allRecords.filter(r => r.date === date);
-      if (dayRecords.length === 0) {
-        document.getElementById('daySummary').innerHTML = '<p class="text-red-600">No records for this date.</p>';
-        return;
+
+    // Simple Trend Chart (last 7 days)
+    const dates = [...new Set(allRecords.map(r => r.date))].slice(-7);
+    const amounts = dates.map(d => allRecords.filter(r => r.date === d).reduce((sum, r) => sum + r.amount, 0));
+
+    new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: [{ label: 'Amount ($)', data: amounts, borderColor: '#10b981', tension: 0.3 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    // Pie Chart - Game Distribution
+    const gameMap = {};
+    allRecords.forEach(r => {
+      gameMap[r.game] = (gameMap[r.game] || 0) + r.amount;
+    });
+    new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: {
+        labels: Object.keys(gameMap),
+        datasets: [{ data: Object.values(gameMap), backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'] }]
       }
-      const total = dayRecords.reduce((sum, r) => sum + r.amount, 0);
-      let gameHTML = '';
-      const games = {};
-      dayRecords.forEach(r => {
-        if (!games[r.game]) games[r.game] = {amt:0, pts:0, cnt:0};
-        games[r.game].amt += r.amount;
-        games[r.game].pts += r.points;
-        games[r.game].cnt++;
-      });
-      Object.keys(games).forEach(g => {
-        const gm = games[g];
-        gameHTML += \`<div class="flex justify-between py-1"><span>\${g}</span><span>\${gm.amt.toFixed(2)} • \${gm.pts} pts (\${gm.cnt})</span></div>\`;
-      });
-      document.getElementById('daySummary').innerHTML = \`
-        <div class="bg-green-50 p-6 rounded-2xl mt-4">
-          <p class="font-semibold mb-2">📅 \${date} Summary</p>
-          <p class="text-3xl font-bold text-green-600">Total: $\${total.toFixed(2)}</p>
-          <div class="mt-4 text-sm">\${gameHTML}</div>
-        </div>
-      \`;
-    }
-    function resetToAll() {
-      document.getElementById('selectedDate').value = '';
-      document.getElementById('daySummary').innerHTML = '';
-    }
+    });
+
+    // Auto refresh every 15 seconds
+    setInterval(() => {
+      location.reload();
+    }, 15000);
   </script>
 </body>
 </html>`;
+
   res.send(html);
 });
+
 // CSV Routes
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
 });
+
 app.get("/daily.csv", (req, res) => {
   const today = new Date().toISOString().split("T")[0];
-  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points\n";
   if (fs.existsSync(RECORDS_FILE)) {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
@@ -162,9 +219,10 @@ app.get("/daily.csv", (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv`);
   res.send(csv);
 });
+
 app.get("/monthly.csv", (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
-  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points\n";
   if (fs.existsSync(RECORDS_FILE)) {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
@@ -172,17 +230,21 @@ app.get("/monthly.csv", (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename=monthly_${month}.csv`);
   res.send(csv);
 });
-// Webhook
+
+// Telegram Webhook
 const webhookPath = `/bot${BOT_TOKEN}`;
 app.post(webhookPath, (req, res) => {
   const bot = (global as any).telegramBot;
   if (bot) bot.processUpdate(req.body);
   res.sendStatus(200);
 });
+
 // Start
 const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
+
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
+
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌐 Dashboard → ${baseUrl}/dashboard`);
