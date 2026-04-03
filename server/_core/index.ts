@@ -16,14 +16,12 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Dashboard with Date Selector
+// Dashboard (your original with date selector)
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
-
   if (fs.existsSync(RECORDS_FILE)) {
     const content = fs.readFileSync(RECORDS_FILE, "utf-8");
     const lines = content.trim().split("\n").slice(1);
-
     allRecords = lines.map((line) => {
       const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
       return {
@@ -108,7 +106,7 @@ app.get("/dashboard", (req, res) => {
                 <td class="px-6 py-3">${r.points}</td>
               </tr>
             `).join('')}
-            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet</td></tr>` : ''}
+            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet. Send a screenshot in Telegram.</td></tr>` : ''}
           </tbody>
         </table>
       </div>
@@ -123,19 +121,15 @@ app.get("/dashboard", (req, res) => {
 
   <script>
     let allRecords = ${JSON.stringify(allRecords)};
-
     function showDayTotals() {
       const date = document.getElementById('selectedDate').value;
       if (!date) return alert("Please select a date");
-
       const dayRecords = allRecords.filter(r => r.date === date);
       if (dayRecords.length === 0) {
         document.getElementById('daySummary').innerHTML = '<p class="text-red-600">No records for this date.</p>';
         return;
       }
-
       const total = dayRecords.reduce((sum, r) => sum + r.amount, 0);
-
       let gameHTML = '';
       const games = {};
       dayRecords.forEach(r => {
@@ -146,18 +140,16 @@ app.get("/dashboard", (req, res) => {
       });
       Object.keys(games).forEach(g => {
         const gm = games[g];
-        gameHTML += \`<div class="flex justify-between py-1"><span>\${g}</span><span>\${gm.amt.toFixed(2)} • \${gm.pts} pts (\${gm.cnt})</span></div>\`;
+        gameHTML += `<div class="flex justify-between py-1"><span>${g}</span><span>$${gm.amt.toFixed(2)} • ${gm.pts} pts (${gm.cnt})</span></div>`;
       });
-
-      document.getElementById('daySummary').innerHTML = \`
+      document.getElementById('daySummary').innerHTML = `
         <div class="bg-green-50 p-6 rounded-2xl mt-4">
-          <p class="font-semibold mb-2">📅 \${date} Summary</p>
-          <p class="text-3xl font-bold text-green-600">Total: $\${total.toFixed(2)}</p>
-          <div class="mt-4 text-sm">\${gameHTML}</div>
+          <p class="font-semibold mb-2">📅 ${date} Summary</p>
+          <p class="text-3xl font-bold text-green-600">Total: $${total.toFixed(2)}</p>
+          <div class="mt-4 text-sm">${gameHTML}</div>
         </div>
-      \`;
+      `;
     }
-
     function resetToAll() {
       document.getElementById('selectedDate').value = '';
       document.getElementById('daySummary').innerHTML = '';
@@ -182,36 +174,4 @@ app.get("/daily.csv", (req, res) => {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
   }
-  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv`);
-  res.send(csv);
-});
-
-app.get("/monthly.csv", (req, res) => {
-  const month = new Date().toISOString().slice(0, 7);
-  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
-  if (fs.existsSync(RECORDS_FILE)) {
-    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
-    lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
-  }
-  res.setHeader("Content-Disposition", `attachment; filename=monthly_${month}.csv`);
-  res.send(csv);
-});
-
-// Webhook
-const webhookPath = `/bot${BOT_TOKEN}`;
-app.post(webhookPath, (req, res) => {
-  const bot = (global as any).telegramBot;
-  if (bot) bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
-
-// Start
-const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
-
-const bot = initTelegramBot(BOT_TOKEN, baseUrl);
-(global as any).telegramBot = bot;
-
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Dashboard → ${baseUrl}/dashboard`);
-});
+  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv
