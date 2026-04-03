@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Main Dashboard with Date Range Filter
+// Clean Dashboard with Date Range Filter
 app.get("/dashboard", (req, res) => {
   let records = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -41,45 +41,37 @@ app.get("/dashboard", (req, res) => {
     <head>
       <title>Payment Tracker Dashboard</title>
       <script src="https://cdn.tailwindcss.com"></script>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <style>
-        body { font-family: system-ui; }
-        .card { transition: transform 0.2s; }
-        .card:hover { transform: translateY(-4px); }
-      </style>
     </head>
     <body class="bg-gray-50 p-8">
       <div class="max-w-7xl mx-auto">
-        <div class="flex justify-between items-center mb-8">
-          <h1 class="text-5xl font-bold">💰 Payment Tracker</h1>
-          <div class="text-sm text-green-600">Texas • Live</div>
-        </div>
+        <h1 class="text-5xl font-bold mb-8">💰 Payment Tracker</h1>
 
         <!-- Date Range Filter -->
         <div class="bg-white p-6 rounded-3xl shadow mb-10">
           <div class="flex flex-wrap items-end gap-6">
             <div>
               <label class="block text-sm text-gray-500 mb-1">From Date</label>
-              <input type="date" id="fromDate" class="border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500">
+              <input type="date" id="fromDate" class="border border-gray-300 rounded-xl px-4 py-3">
             </div>
             <div>
               <label class="block text-sm text-gray-500 mb-1">To Date</label>
-              <input type="date" id="toDate" class="border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500">
+              <input type="date" id="toDate" class="border border-gray-300 rounded-xl px-4 py-3">
             </div>
-            <button onclick="applyFilter()" 
-                    class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium">
-              Filter
-            </button>
-            <button onclick="clearFilter()" 
-                    class="px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-2xl font-medium">
-              Clear Filter
-            </button>
+            <button onclick="applyFilter()" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-medium">Apply Filter</button>
+            <button onclick="clearFilter()" class="px-8 py-3 bg-gray-200 text-gray-700 rounded-2xl font-medium">Clear</button>
           </div>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12" id="summary-cards">
-          <!-- Filled by JavaScript -->
+        <!-- Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12" id="summary">
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <p class="text-gray-500">Filtered Total Amount</p>
+            <p class="text-5xl font-bold text-green-600" id="total-amount">$0.00</p>
+          </div>
+          <div class="bg-white p-8 rounded-3xl shadow">
+            <p class="text-gray-500">Records in Range</p>
+            <p class="text-5xl font-bold" id="total-records">0</p>
+          </div>
         </div>
 
         <!-- Download Buttons -->
@@ -89,10 +81,10 @@ app.get("/dashboard", (req, res) => {
           <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium">📥 This Month CSV</a>
         </div>
 
-        <!-- Records Table -->
+        <!-- Table -->
         <div class="bg-white rounded-3xl shadow overflow-hidden">
           <div class="px-8 py-6 border-b font-semibold text-lg">Transactions</div>
-          <table class="w-full" id="records-table">
+          <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-8 py-4 text-left">Date</th>
@@ -112,27 +104,21 @@ app.get("/dashboard", (req, res) => {
       <script>
         let allRecords = ${JSON.stringify(records)};
 
-        function renderTable(filteredRecords) {
+        function renderTable(filtered) {
           let html = '';
-          filteredRecords.forEach(r => {
-            html += `
-              <tr class="border-t hover:bg-gray-50">
-                <td class="px-8 py-4">${r.date}</td>
-                <td class="px-8 py-4">${r.time}</td>
-                <td class="px-8 py-4">${r.day}</td>
-                <td class="px-8 py-4">${r.employee}</td>
-                <td class="px-8 py-4 font-medium">$${r.amount}</td>
-                <td class="px-8 py-4">${r.game}</td>
-                <td class="px-8 py-4">${r.points}</td>
-              </tr>`;
+          filtered.forEach(r => {
+            html += `<tr class="border-t hover:bg-gray-50">
+              <td class="px-8 py-4">${r.date}</td>
+              <td class="px-8 py-4">${r.time}</td>
+              <td class="px-8 py-4">${r.day}</td>
+              <td class="px-8 py-4">${r.employee}</td>
+              <td class="px-8 py-4 font-medium">$${r.amount}</td>
+              <td class="px-8 py-4">${r.game}</td>
+              <td class="px-8 py-4">${r.points}</td>
+            </tr>`;
           });
           document.getElementById('table-body').innerHTML = html || 
-            '<tr><td colspan="7" class="px-8 py-12 text-center text-gray-500">No records in selected date range</td></tr>';
-        }
-
-        function calculateTotals(filteredRecords) {
-          const totalAmount = filteredRecords.reduce((sum, r) => sum + r.amount, 0);
-          return totalAmount;
+            '<tr><td colspan="7" class="px-8 py-12 text-center text-gray-500">No records found in selected range</td></tr>';
         }
 
         function applyFilter() {
@@ -140,58 +126,32 @@ app.get("/dashboard", (req, res) => {
           const to = document.getElementById('toDate').value;
 
           let filtered = allRecords;
-
           if (from) filtered = filtered.filter(r => r.date >= from);
           if (to) filtered = filtered.filter(r => r.date <= to);
 
           renderTable(filtered);
 
-          // Update summary cards
-          const total = calculateTotals(filtered);
-          document.getElementById('summary-cards').innerHTML = `
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Filtered Total Amount</p>
-              <p class="text-5xl font-bold text-green-600">$${total.toFixed(2)}</p>
-            </div>
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Records in Range</p>
-              <p class="text-5xl font-bold">${filtered.length}</p>
-            </div>
-          `;
+          const total = filtered.reduce((sum, r) => sum + r.amount, 0);
+          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
+          document.getElementById('total-records').textContent = filtered.length;
         }
 
         function clearFilter() {
           document.getElementById('fromDate').value = '';
           document.getElementById('toDate').value = '';
           renderTable(allRecords);
-          // Reset summary
-          const total = calculateTotals(allRecords);
-          document.getElementById('summary-cards').innerHTML = `
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Total Amount</p>
-              <p class="text-5xl font-bold text-green-600">$${total.toFixed(2)}</p>
-            </div>
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Total Records</p>
-              <p class="text-5xl font-bold">${allRecords.length}</p>
-            </div>
-          `;
+
+          const total = allRecords.reduce((sum, r) => sum + r.amount, 0);
+          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
+          document.getElementById('total-records').textContent = allRecords.length;
         }
 
-        // Initial render
+        // Initial load
         window.onload = () => {
           renderTable(allRecords);
-          const total = calculateTotals(allRecords);
-          document.getElementById('summary-cards').innerHTML = `
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Total Amount</p>
-              <p class="text-5xl font-bold text-green-600">$${total.toFixed(2)}</p>
-            </div>
-            <div class="bg-white p-8 rounded-3xl shadow card">
-              <p class="text-gray-500">Total Records</p>
-              <p class="text-5xl font-bold">${allRecords.length}</p>
-            </div>
-          `;
+          const total = allRecords.reduce((sum, r) => sum + r.amount, 0);
+          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
+          document.getElementById('total-records').textContent = allRecords.length;
         };
       </script>
     </body>
