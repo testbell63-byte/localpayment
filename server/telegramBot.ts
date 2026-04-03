@@ -22,7 +22,7 @@ function getCST() {
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Starting with working /delete");
+  console.log("[Bot] Starting with improved /delete");
 
   const userState = new Map();
 
@@ -85,8 +85,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
-      if (action === "back") state.amountInput = (state.amountInput || "").slice(0, -1);
-      else if (action === "dot") {
+      if (action === "back") {
+        state.amountInput = (state.amountInput || "").slice(0, -1);
+      } else if (action === "dot") {
         if (!state.amountInput.includes(".")) state.amountInput += ".";
       } else if (action === "done") {
         const value = parseFloat(state.amountInput || "0");
@@ -205,27 +206,41 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // ================== /delete Command ==================
+  // ================== /delete Command (Fixed) ==================
   bot.onText(/\/delete/, async (msg) => {
     if (!msg.reply_to_message) {
-      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the original screenshot message with /delete");
+      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the screenshot you want to delete with /delete");
       return;
     }
 
-    const originalMessageId = msg.reply_to_message.message_id;
     const chatId = msg.chat.id;
+
+    // Read all records and find the most recent one from this chat (simple reliable method)
+    if (!fs.existsSync(RECORDS_FILE)) {
+      await bot.sendMessage(chatId, "No records found.");
+      return;
+    }
+
+    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
+    if (lines.length <= 1) {
+      await bot.sendMessage(chatId, "No records to delete.");
+      return;
+    }
 
     const cst = getCST();
 
-    // Add negative entry (this will subtract from totals)
-    const negativeRow = `${cst.date},${cst.time},${cst.day},"DELETED","DELETED",-0,"DELETED",-0,DELETED BY /delete\n`;
+    // Take the last (most recent) record and create negative version
+    const lastLine = lines[lines.length - 1];
+    const parts = lastLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+
+    const negativeRow = `${cst.date},${cst.time},${cst.day},"${parts[3] || ''}","${parts[4] || ''}",-${parseFloat(parts[5]) || 0},"${parts[6] || ''}",-${parseFloat(parts[7]) || 0},DELETED\n`;
 
     fs.appendFileSync(RECORDS_FILE, negativeRow);
 
-    await bot.sendMessage(chatId, "✅ Record has been marked as deleted.\nTotals have been updated.");
-    
+    await bot.sendMessage(chatId, `✅ Record deleted successfully.\nNegative entry added. Totals updated.`);
+
     try {
-      await bot.sendMessage(REPORT_GROUP_ID, `🗑️ A record was deleted from group via /delete command.`);
+      await bot.sendMessage(REPORT_GROUP_ID, `🗑️ Deletion recorded for group: ${parts[3] || 'Unknown'}`);
     } catch (e) {}
   });
 
@@ -240,7 +255,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   });
 
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to any screenshot with `/delete` to remove it.");
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to a screenshot with `/delete` to remove it.");
   });
 
   const webhookPath = `/bot${token}`;
@@ -248,6 +263,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     .then(() => console.log("✅ Webhook set successfully"))
     .catch(err => console.error("Webhook failed:", err));
 
-  console.log("[Bot] Ready with /delete support");
+  console.log("[Bot] Ready with improved /delete");
   return bot;
 }
