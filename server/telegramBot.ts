@@ -8,13 +8,13 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR NEW REPORT GROUP ID ===
+// === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003782105748;
 
 export function initTelegramBot(token: string): TelegramBot {
   const bot = new TelegramBot(token, { polling: true });
 
-  console.log("[Bot] Started - Reports will go to group:", REPORT_GROUP_ID);
+  console.log("[Bot] Started - Final summary goes ONLY to report group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -50,7 +50,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // ====================== PHOTO ======================
+  // PHOTO → Start flow
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -61,7 +61,7 @@ export function initTelegramBot(token: string): TelegramBot {
       employeeName,
       selectedGames: [],
       records: [],
-      originalMessageId: msg.message_id   // ← Crucial for attaching screenshot
+      originalMessageId: msg.message_id
     });
 
     await bot.sendMessage(chatId,
@@ -70,25 +70,25 @@ export function initTelegramBot(token: string): TelegramBot {
     );
   });
 
-  // ====================== CALLBACK ======================
+  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
-    let state = userState.get(chatId);
+    const state = userState.get(chatId);
     if (!state) return;
 
-    // ==================== NUMERIC KEYPAD ====================
+    // Numeric keypad (amount + points)
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
       if (action === "back") {
-        state.amountInput = state.amountInput.slice(0, -1);
+        state.amountInput = (state.amountInput || "").slice(0, -1);
       } else if (action === "dot") {
         if (!state.amountInput.includes(".")) state.amountInput += ".";
       } else if (action === "done") {
         const value = parseFloat(state.amountInput || "0");
         if (isNaN(value) || value <= 0) {
-          await bot.sendMessage(chatId, "❌ Please enter a valid amount.");
+          await bot.sendMessage(chatId, "❌ Please enter a valid number.");
           return;
         }
 
@@ -117,17 +117,17 @@ export function initTelegramBot(token: string): TelegramBot {
             state.amountInput = "";
             await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, numberKeyboard);
           } else {
-            // Go to final confirmation
             state.step = "final_confirm";
             let summaryText = `📋 **SUMMARY**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
             state.records.forEach((r: any, i: number) => {
               summaryText += `${i+1}. ${r.game}: ${r.points} points\n`;
             });
+            summaryText += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
             await bot.sendMessage(chatId, summaryText, {
               reply_markup: {
                 inline_keyboard: [[
-                  { text: "✅ Yes - Save", callback_data: "confirm_yes" },
+                  { text: "✅ Yes - Save & Send to Report Group", callback_data: "confirm_yes" },
                   { text: "❌ No", callback_data: "confirm_no" }
                 ]]
               }
@@ -139,18 +139,16 @@ export function initTelegramBot(token: string): TelegramBot {
         state.amountInput = (state.amountInput || "") + action;
       }
 
-      // Update keypad message
       await bot.editMessageText(`💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`, {
         chat_id: chatId,
         message_id: query.message!.message_id,
         reply_markup: numberKeyboard.reply_markup
       });
-
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    // ==================== GAME SELECTION ====================
+    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -167,11 +165,14 @@ export function initTelegramBot(token: string): TelegramBot {
       } else {
         const game = data.replace("game_", "");
         if (!state.selectedGames.includes(game)) state.selectedGames.push(game);
-        await bot.sendMessage(chatId, `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`, gameKeyboard);
+        await bot.sendMessage(chatId,
+          `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`,
+          gameKeyboard
+        );
       }
     }
 
-    // ==================== FINAL CONFIRMATION ====================
+    // FINAL CONFIRMATION - ONLY send to report group, NO message in main group
     if (state.step === "final_confirm" && data === "confirm_yes") {
       // Save to CSV
       for (const r of state.records) {
@@ -179,8 +180,8 @@ export function initTelegramBot(token: string): TelegramBot {
         fs.appendFileSync(RECORDS_FILE, row);
       }
 
-      // Build success message
-      let successMsg = `✅ **Saved Successfully!**\n\n`;
+      // Build summary
+      let successMsg = `✅ **Payment Record**\n\n`;
       successMsg += `**Amount Received:** $${state.amount}\n\n`;
       successMsg += `**Games & Points:**\n`;
       state.records.forEach((r: any, i: number) => {
@@ -188,43 +189,46 @@ export function initTelegramBot(token: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // CRITICAL: Send to NEW GROUP with original screenshot attached
+      // Send ONLY to report group with screenshot attached
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
           reply_to_message_id: state.originalMessageId
         });
-        console.log(`✅ Summary sent to report group ${REPORT_GROUP_ID}`);
+        console.log(`✅ Summary + screenshot sent to report group ${REPORT_GROUP_ID}`);
       } catch (e) {
         console.error("Failed to send to report group:", e);
       }
 
-      // Confirmation in main group
-      await bot.sendMessage(chatId, "✅ Record saved and sent to report group.");
-
+      // NO confirmation message in main group (as requested)
       userState.delete(chatId);
     }
 
     if (state.step === "final_confirm" && data === "confirm_no") {
       userState.delete(chatId);
-      await bot.sendMessage(chatId, "❌ Discarded. Send screenshot again.");
+      // Optional: silent discard (no message)
     }
 
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game name
+  // Custom game
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
     if (state && state.step === "custom_game") {
       state.selectedGames.push(msg.text!.trim());
       state.step = "game";
-      await bot.sendMessage(chatId, `Added "${msg.text}"\nSelected: ${state.selectedGames.join(", ")}`, gameKeyboard);
+      await bot.sendMessage(chatId,
+        `Added "${msg.text}"\nSelected: ${state.selectedGames.join(", ")}`,
+        gameKeyboard
+      );
     }
   });
 
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\nUse keypad for amount and points.");
+    await bot.sendMessage(msg.chat.id,
+      "👋 Send a screenshot to start.\nUse keypad for amount and points."
+    );
   });
 
   console.log("[Bot] Ready");
