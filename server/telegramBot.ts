@@ -22,7 +22,7 @@ function getCST() {
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Starting with fixed /delete");
+  console.log("[Bot] Starting with improved /delete");
 
   const userState = new Map();
 
@@ -85,9 +85,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
-      if (action === "back") {
-        state.amountInput = (state.amountInput || "").slice(0, -1);
-      } else if (action === "dot") {
+      if (action === "back") state.amountInput = (state.amountInput || "").slice(0, -1);
+      else if (action === "dot") {
         if (!state.amountInput.includes(".")) state.amountInput += ".";
       } else if (action === "done") {
         const value = parseFloat(state.amountInput || "0");
@@ -209,7 +208,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   // ================== FIXED /delete Command ==================
   bot.onText(/\/delete/, async (msg) => {
     if (!msg.reply_to_message) {
-      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the screenshot you want to delete with /delete");
+      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the screenshot message with /delete");
       return;
     }
 
@@ -217,7 +216,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const cst = getCST();
 
     // Read the most recent record
-    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
+    let lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
     if (lines.length <= 1) {
       await bot.sendMessage(chatId, "No records to delete.");
       return;
@@ -226,7 +225,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const lastLine = lines[lines.length - 1];
     const parts = lastLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-    const originalAmount = Math.abs(parseFloat(parts[5]) || 0);   // Make sure it's positive
+    const originalAmount = Math.abs(parseFloat(parts[5]) || 0);
     const originalGame = parts[6] ? parts[6].replace(/"/g, "") : "Unknown";
     const originalEmployee = parts[4] ? parts[4].replace(/"/g, "") : "Unknown";
     const originalGroup = parts[3] ? parts[3].replace(/"/g, "") : "Unknown";
@@ -236,7 +235,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     fs.appendFileSync(RECORDS_FILE, negativeRow);
 
-    // Send confirmation in main group
+    // Confirmation in main group
     await bot.sendMessage(chatId, `✅ Deletion recorded.\nAmount of $${originalAmount} has been deducted.\nPoints were not refunded (already spent).`);
 
     // Send to report group with original screenshot attached
@@ -251,7 +250,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         { parse_mode: "Markdown" }
       );
     } catch (e) {
-      console.error("Failed to send deletion to report group:", e);
+      console.error("Report send failed:", e);
     }
   });
 
