@@ -3,20 +3,15 @@ import { createServer } from "http";
 import { initTelegramBot } from "../telegramBot.js";
 import fs from "fs";
 import path from "path";
-
 const app = express();
 const server = createServer(app);
-
 const PORT = process.env.PORT || 8080;
 const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
-
 app.use(express.json());
-
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
-
-// Dashboard (your original with date selector)
+// Dashboard with Date Selector
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -35,10 +30,8 @@ app.get("/dashboard", (req, res) => {
       };
     });
   }
-
   const totalAmount = allRecords.reduce((sum, r) => sum + r.amount, 0);
   const totalTransactions = allRecords.length;
-
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,7 +43,6 @@ app.get("/dashboard", (req, res) => {
 <body class="bg-gray-50 p-6">
   <div class="max-w-6xl mx-auto">
     <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker Dashboard</h1>
-
     <!-- Date Selector -->
     <div class="bg-white p-6 rounded-2xl shadow mb-8">
       <label class="block text-sm font-medium text-gray-600 mb-2">View Totals for a Specific Day</label>
@@ -61,7 +53,6 @@ app.get("/dashboard", (req, res) => {
       </div>
       <div id="daySummary" class="mt-6"></div>
     </div>
-
     <!-- Overall Summary -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
       <div class="bg-white p-6 rounded-2xl shadow">
@@ -77,7 +68,6 @@ app.get("/dashboard", (req, res) => {
         <p class="text-4xl font-bold">${allRecords.length}</p>
       </div>
     </div>
-
     <!-- Recent Transactions -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
       <div class="px-6 py-4 bg-gray-50 border-b font-semibold">Recent Transactions (Latest 50)</div>
@@ -106,19 +96,17 @@ app.get("/dashboard", (req, res) => {
                 <td class="px-6 py-3">${r.points}</td>
               </tr>
             `).join('')}
-            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet. Send a screenshot in Telegram.</td></tr>` : ''}
+            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">No records yet</td></tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
-
     <div class="mt-8 flex gap-4 flex-wrap">
       <a href="/records.csv" class="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700">Download All Records CSV</a>
       <a href="/daily.csv" class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">Download Today CSV</a>
       <a href="/monthly.csv" class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700">Download This Month CSV</a>
     </div>
   </div>
-
   <script>
     let allRecords = ${JSON.stringify(allRecords)};
     function showDayTotals() {
@@ -140,15 +128,15 @@ app.get("/dashboard", (req, res) => {
       });
       Object.keys(games).forEach(g => {
         const gm = games[g];
-        gameHTML += `<div class="flex justify-between py-1"><span>${g}</span><span>$${gm.amt.toFixed(2)} • ${gm.pts} pts (${gm.cnt})</span></div>`;
+        gameHTML += \`<div class="flex justify-between py-1"><span>\${g}</span><span>\${gm.amt.toFixed(2)} • \${gm.pts} pts (\${gm.cnt})</span></div>\`;
       });
-      document.getElementById('daySummary').innerHTML = `
+      document.getElementById('daySummary').innerHTML = \`
         <div class="bg-green-50 p-6 rounded-2xl mt-4">
-          <p class="font-semibold mb-2">📅 ${date} Summary</p>
-          <p class="text-3xl font-bold text-green-600">Total: $${total.toFixed(2)}</p>
-          <div class="mt-4 text-sm">${gameHTML}</div>
+          <p class="font-semibold mb-2">📅 \${date} Summary</p>
+          <p class="text-3xl font-bold text-green-600">Total: $\${total.toFixed(2)}</p>
+          <div class="mt-4 text-sm">\${gameHTML}</div>
         </div>
-      `;
+      \`;
     }
     function resetToAll() {
       document.getElementById('selectedDate').value = '';
@@ -157,16 +145,13 @@ app.get("/dashboard", (req, res) => {
   </script>
 </body>
 </html>`;
-
   res.send(html);
 });
-
 // CSV Routes
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
 });
-
 app.get("/daily.csv", (req, res) => {
   const today = new Date().toISOString().split("T")[0];
   let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
@@ -174,4 +159,31 @@ app.get("/daily.csv", (req, res) => {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
   }
-  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv
+  res.setHeader("Content-Disposition", `attachment; filename=daily_${today}.csv`);
+  res.send(csv);
+});
+app.get("/monthly.csv", (req, res) => {
+  const month = new Date().toISOString().slice(0, 7);
+  let csv = "Date,Time,Day,Employee,Amount,Game,Points\n";
+  if (fs.existsSync(RECORDS_FILE)) {
+    const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
+    lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
+  }
+  res.setHeader("Content-Disposition", `attachment; filename=monthly_${month}.csv`);
+  res.send(csv);
+});
+// Webhook
+const webhookPath = `/bot${BOT_TOKEN}`;
+app.post(webhookPath, (req, res) => {
+  const bot = (global as any).telegramBot;
+  if (bot) bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+// Start
+const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
+const bot = initTelegramBot(BOT_TOKEN, baseUrl);
+(global as any).telegramBot = bot;
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Dashboard → ${baseUrl}/dashboard`);
+});
