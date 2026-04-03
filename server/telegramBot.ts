@@ -10,26 +10,21 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
-// Most reliable Chicago Time (auto CST/CDT)
+// Force correct Central Time (handles CST/CDT automatically)
 function getCST() {
   const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    weekday: "long"
-  });
-
-  const parts = formatter.formatToParts(now);
-  const date = `${parts.find(p => p.type === "year").value}-${parts.find(p => p.type === "month").value}-${parts.find(p => p.type === "day").value}`;
-  const time = `${parts.find(p => p.type === "hour").value}:${parts.find(p => p.type === "minute").value} ${parts.find(p => p.type === "dayPeriod").value}`;
-  const day = parts.find(p => p.type === "weekday").value;
-
-  return { date, time, day };
+  // This is the most reliable way for Chicago time
+  const cstTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+  
+  return {
+    date: cstTime.toISOString().split("T")[0],
+    time: cstTime.toLocaleTimeString("en-US", { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    }),
+    day: cstTime.toLocaleDateString("en-US", { weekday: "long" })
+  };
 }
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
