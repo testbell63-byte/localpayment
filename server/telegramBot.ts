@@ -8,13 +8,24 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003718366443;
+
+function getCST() {
+  const now = new Date();
+  const cstOffset = -6 * 60 * 60 * 1000; // CST = UTC-6
+  const cstTime = new Date(now.getTime() + cstOffset);
+  return {
+    date: cstTime.toISOString().split("T")[0],
+    time: cstTime.toLocaleTimeString("en-US", { hour12: true, timeZone: "America/Chicago" }),
+    day: cstTime.toLocaleString("en-US", { weekday: "long", timeZone: "America/Chicago" }),
+    fullDate: cstTime
+  };
+}
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Webhook mode - Summary goes to report group:", REPORT_GROUP_ID);
+  console.log("[Bot] Webhook mode active - Daily & Monthly reports scheduled for report group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -50,6 +61,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
+  // PHOTO
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -61,7 +73,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       selectedGames: [],
       records: [],
       originalMessageId: msg.message_id,
-      originalChatId: chatId   // Save main group chat ID
+      originalChatId: chatId
     });
 
     await bot.sendMessage(chatId,
@@ -70,6 +82,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
+  // CALLBACK
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -96,13 +109,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           await bot.sendMessage(chatId, `✅ Amount saved: $${value}\n\nStep 2: Select games:`, gameKeyboard);
         } else if (state.step === "per_game_points") {
           const currentGame = state.selectedGames[state.currentGameIndex];
-          const now = new Date();
-          const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+          const cst = getCST();
 
           state.records.push({
-            date: now.toISOString().split("T")[0],
-            time: now.toLocaleTimeString(),
-            day: days[now.getDay()],
+            date: cst.date,
+            time: cst.time,
+            day: cst.day,
             employee: state.employeeName,
             amount: state.amount,
             game: currentGame,
@@ -168,7 +180,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL STEP - Send to report group + forward screenshot
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -183,20 +194,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send summary text to report group
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
-        console.log("✅ Summary text sent to report group");
+        await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
+        console.log(`✅ Record sent to report group`);
       } catch (e) {
-        console.error("Failed to send summary text:", e);
-      }
-
-      // Forward the original screenshot to report group
-      try {
-        await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId || state.originalMessageId ? chatId : chatId, state.originalMessageId);
-        console.log("✅ Screenshot forwarded to report group");
-      } catch (e) {
-        console.error("Failed to forward screenshot:", e);
+        console.error("Failed to send record:", e);
       }
 
       userState.delete(chatId);
@@ -219,16 +222,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   });
 
-  bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
-  });
+  // Daily summary at 00:00 CST
+  setInterval(() => {
+    const now = new Date();
+    const cst = getCST();
+    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) { // 00:00 CST = 06:00 UTC
+      bot.sendMessage(REPORT_GROUP_ID, `📊 **Daily Summary - ${cst.date} (${cst.day})**\n\nAll records saved in records.csv\nTotal transactions today: Check CSV for details.`);
+      console.log("Daily summary sent to report group");
+    }
+  }, 60000); // Check every minute
 
-  // Set webhook
-  const webhookPath = `/bot${token}`;
-  bot.setWebHook(baseUrl + webhookPath)
-    .then(() => console.log("✅ Webhook set successfully"))
-    .catch(err => console.error("Webhook failed:", err));
-
-  console.log("[Bot] Ready (Webhook mode)");
-  return bot;
-}
+  // Monthly summary at end of month 00
