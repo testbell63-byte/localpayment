@@ -49,7 +49,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // PHOTO
+  // ====================== PHOTO ======================
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -69,13 +69,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // CALLBACK
+  // ====================== CALLBACK ======================
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
+    // ==================== NUMERIC KEYPAD ====================
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -93,7 +94,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         if (state.step === "amount") {
           state.amount = value;
           state.step = "game";
-          await bot.sendMessage(chatId, `✅ Amount: $${value}\n\nSelect games:`, gameKeyboard);
+          await bot.sendMessage(chatId, `✅ Amount saved: $${value}\n\nStep 2: Select games (you can choose multiple):`, gameKeyboard);
         } else if (state.step === "per_game_points") {
           const currentGame = state.selectedGames[state.currentGameIndex];
           const now = new Date();
@@ -137,19 +138,19 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         state.amountInput = (state.amountInput || "") + action;
       }
 
-      // FIXED: Only update if content actually changed
-      const currentText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
-      await bot.editMessageText(currentText, {
+      // Update keypad (ignore "not modified" error)
+      const displayText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
+      await bot.editMessageText(displayText, {
         chat_id: chatId,
         message_id: query.message!.message_id,
         reply_markup: numberKeyboard.reply_markup
-      }).catch(() => {}); // Ignore "message is not modified" error
+      }).catch(() => {});
 
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    // Game selection
+    // ==================== GAME SELECTION ====================
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -165,7 +166,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         await bot.sendMessage(chatId, "Type the custom game name:");
       } else {
         const game = data.replace("game_", "");
-        if (!state.selectedGames.includes(game)) state.selectedGames.push(game);
+        if (!state.selectedGames.includes(game)) {
+          state.selectedGames.push(game);
+        }
         await bot.sendMessage(chatId,
           `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`,
           gameKeyboard
@@ -173,7 +176,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION - ONLY to report group
+    // ==================== FINAL CONFIRMATION ====================
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -207,7 +210,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game
+  // Custom game name handler
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -222,15 +225,4 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   });
 
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
-  });
-
-  // Set webhook
-  const webhookPath = `/bot${token}`;
-  bot.setWebHook(baseUrl + webhookPath)
-    .then(() => console.log(`✅ Webhook set successfully`))
-    .catch(err => console.error("Webhook set failed:", err));
-
-  console.log("[Bot] Ready (Webhook mode)");
-  return bot;
-}
+    await bot.sendMessage(msg.chat.id, "👋 Send a
