@@ -63,7 +63,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       originalMessageId: msg.message_id,
       originalChatId: chatId
     });
-    await bot.sendMessage(chatId, 📸 Screenshot received from $  {employeeName} (  ${groupName})\n\nEnter the deposited amount:, numberKeyboard);
+    await bot.sendMessage(chatId, 📸 Screenshot received from ${employeeName} (${groupName})\n\nEnter the deposited amount:, numberKeyboard);
   });
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
@@ -85,7 +85,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         if (state.step === "amount") {
           state.amount = value;
           state.step = "game";
-          await bot.sendMessage(chatId, ✅ Amount saved:    {value}\n\nStep 2: Select games:, gameKeyboard);
+          await bot.sendMessage(chatId, ✅ Amount saved: $${value}\n\nStep 2: Select games:, gameKeyboard);
         } else if (state.step === "per_game_points") {
           const currentGame = state.selectedGames[state.currentGameIndex];
           const cst = getCST();
@@ -104,7 +104,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             await bot.sendMessage(chatId, Enter points for ${state.selectedGames[state.currentGameIndex]}:, numberKeyboard);
           } else {
             state.step = "final_confirm";
-            let summaryText = 📋 **SUMMARY**\n\n**Amount Received:**    {state.amount}\n\n**Games & Points:**\n;
+            let summaryText = 📋 **SUMMARY**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n;
             state.records.forEach((r: any, i: number) => {
               summaryText += ${i+1}. ${r.game}: ${r.points} points\n;
             });
@@ -153,12 +153,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
-        const row = $  {r.date},  ${r.time},$  {r.day},"  ${state.groupName}","$  {r.employee}",  ${r.amount},"$  {r.game}",  ${r.points},\n;
+        const row = ${r.date},${r.time},${r.day},"${state.groupName}","${r.employee}",${r.amount},"${r.game}",${r.points},\n;
         fs.appendFileSync(RECORDS_FILE, row);
       }
       let successMsg = ✅ **Payment Record**\n\n;
       successMsg += **Group:** ${state.groupName}\n;
-      successMsg += **Amount Received:**    {state.amount}\n\n;
+      successMsg += **Amount Received:** $${state.amount}\n\n;
       successMsg += **Games & Points:**\n;
       state.records.forEach((r: any, i: number) => {
         successMsg += ${i+1}. ${r.game}: ${r.points} points\n;
@@ -170,7 +170,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       } catch (e) {}
       const blueSummary = ✅ **Transaction Confirmed!**\n\n +
         **Group:** ${state.groupName}\n +
-        **Amount:**    {state.amount}\n\n +
+        **Amount:** $${state.amount}\n\n +
         **Games & Points:**\n +
         state.records.map((r: any, i: number) => ${i+1}. ${r.game}: ${r.points} points).join("\n") +
         \n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time};
@@ -205,7 +205,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     // Take the last (most recent) record and create negative version
     const lastLine = lines[lines.length - 1];
     const parts = lastLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-    const negativeRow = $  {cst.date},  ${cst.time},$  {cst.day},"  ${parts[3] || ''}","$  {parts[4] || ''}",-  ${parseFloat(parts[5]) || 0},"$  {parts[6] || ''}",-  ${parseFloat(parts[7]) || 0},DELETED\n;
+    const negativeRow = ${cst.date},${cst.time},${cst.day},"${parts[3] || ''}","${parts[4] || ''}",-${parseFloat(parts[5]) || 0},"${parts[6] || ''}",-${parseFloat(parts[7]) || 0},DELETED\n;
     fs.appendFileSync(RECORDS_FILE, negativeRow);
     await bot.sendMessage(chatId, ✅ Record deleted successfully.\nNegative entry added. Totals updated.);
     try {
