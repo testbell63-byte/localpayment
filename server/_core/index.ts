@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Improved Dashboard with Filters + Group Breakdown
+// Dashboard with Filters + Group Breakdown
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
 
@@ -62,63 +62,52 @@ app.get("/dashboard", (req, res) => {
   <title>Payment Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    .filter-input { transition: all 0.2s; }
-    .filter-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-  </style>
 </head>
 <body class="bg-gray-50">
-  <div class="flex h-screen">
+  <div class="flex min-h-screen">
     <!-- Sidebar Filters -->
     <div class="w-72 bg-white border-r p-6 overflow-y-auto">
       <h2 class="font-semibold text-lg mb-6">Filters</h2>
       
       <div class="space-y-6">
-        <!-- Date Range -->
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-2">Date Range</label>
-          <input type="date" id="fromDate" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
-          <input type="date" id="toDate" class="filter-input w-full border rounded-lg px-3 py-2 text-sm mt-2">
+          <label class="block text-sm font-medium mb-2">Date Range</label>
+          <input type="date" id="fromDate" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <input type="date" id="toDate" class="w-full border rounded-lg px-3 py-2 text-sm mt-2">
         </div>
 
-        <!-- Employee -->
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-2">Employee</label>
-          <select id="employeeFilter" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
+          <label class="block text-sm font-medium mb-2">Employee</label>
+          <select id="employeeFilter" class="w-full border rounded-lg px-3 py-2 text-sm">
             <option value="">All Employees</option>
-            ${[...new Set(allRecords.map(r => r.employee))].map(emp => 
+            ${[...new Set(allRecords.map(r => r.employee))].sort().map(emp => 
               `<option value="${emp}">${emp}</option>`
             ).join('')}
           </select>
         </div>
 
-        <!-- Platform (Game) -->
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-2">Platform</label>
-          <select id="gameFilter" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
+          <label class="block text-sm font-medium mb-2">Platform</label>
+          <select id="gameFilter" class="w-full border rounded-lg px-3 py-2 text-sm">
             <option value="">All Platforms</option>
-            ${[...new Set(allRecords.map(r => r.game))].map(game => 
+            ${[...new Set(allRecords.map(r => r.game))].sort().map(game => 
               `<option value="${game}">${game}</option>`
             ).join('')}
           </select>
         </div>
 
-        <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium">
-          Apply Filters
-        </button>
-        <button onclick="resetFilters()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">
-          Reset All
-        </button>
+        <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl">Apply Filters</button>
+        <button onclick="resetFilters()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl">Reset Filters</button>
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="flex-1 p-8 overflow-y-auto">
-      <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker</h1>
+    <div class="flex-1 p-8">
+      <h1 class="text-4xl font-bold mb-8">💰 Payment Tracker</h1>
 
       <!-- Today Summary -->
       <div class="bg-white p-8 rounded-3xl shadow mb-10">
-        <h2 class="text-2xl font-semibold mb-6">📅 Today Summary (${today})</h2>
+        <h2 class="text-2xl font-semibold mb-6">📅 Today (${today})</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div>
             <p class="text-gray-500">Total Amount</p>
@@ -134,7 +123,7 @@ app.get("/dashboard", (req, res) => {
           </div>
           <div>
             <p class="text-gray-500">Avg Amount</p>
-            <p class="text-4xl font-bold">$${(todayTransactions > 0 ? todayAmount / todayTransactions : 0).toFixed(2)}</p>
+            <p class="text-4xl font-bold">$${(todayTransactions ? (todayAmount / todayTransactions).toFixed(2) : '0.00')}</p>
           </div>
         </div>
       </div>
@@ -146,9 +135,9 @@ app.get("/dashboard", (req, res) => {
           ${Object.keys(groupBreakdown).map(group => {
             const g = groupBreakdown[group];
             return `<div class="border rounded-2xl p-6">
-              <p class="font-semibold text-lg">${group}</p>
-              <p class="text-3xl font-bold text-green-600 mt-2">$${g.amount.toFixed(2)}</p>
-              <p class="text-sm text-gray-500">${g.points} points • ${g.count} transactions</p>
+              <p class="font-semibold">${group}</p>
+              <p class="text-3xl font-bold text-green-600 mt-1">$${g.amount.toFixed(2)}</p>
+              <p class="text-sm text-gray-500">${g.points} points • ${g.count} txns</p>
             </div>`;
           }).join('')}
         </div>
@@ -166,15 +155,9 @@ app.get("/dashboard", (req, res) => {
         </div>
       </div>
 
-      <!-- Recent Transactions -->
+      <!-- Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b flex justify-between">
-          <h3 class="font-semibold text-lg">Recent Transactions</h3>
-          <div class="flex gap-4 text-sm">
-            <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
-            <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
-          </div>
-        </div>
+        <div class="px-8 py-5 border-b font-semibold">Recent Transactions</div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
@@ -189,7 +172,7 @@ app.get("/dashboard", (req, res) => {
               </tr>
             </thead>
             <tbody id="table-body">
-              ${allRecords.slice(0, 50).map(r => `
+              ${allRecords.slice(0, 100).map(r => `
                 <tr class="border-t hover:bg-gray-50">
                   <td class="px-8 py-4">${r.date}</td>
                   <td class="px-8 py-4">${r.time}</td>
@@ -200,6 +183,7 @@ app.get("/dashboard", (req, res) => {
                   <td class="px-8 py-4">${r.points}</td>
                 </tr>
               `).join('')}
+              ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records yet</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -218,7 +202,6 @@ app.get("/dashboard", (req, res) => {
       const game = document.getElementById('gameFilter').value;
 
       let filtered = allRecords;
-
       if (from) filtered = filtered.filter(r => r.date >= from);
       if (to) filtered = filtered.filter(r => r.date <= to);
       if (employee) filtered = filtered.filter(r => r.employee === employee);
@@ -237,7 +220,7 @@ app.get("/dashboard", (req, res) => {
 
     function renderTable(records) {
       let html = '';
-      records.slice(0, 100).forEach(r => {
+      records.forEach(r => {
         html += `<tr class="border-t hover:bg-gray-50">
           <td class="px-8 py-4">${r.date}</td>
           <td class="px-8 py-4">${r.time}</td>
@@ -248,13 +231,10 @@ app.get("/dashboard", (req, res) => {
           <td class="px-8 py-4">${r.points}</td>
         </tr>`;
       });
-      document.getElementById('table-body').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No matching records found</td></tr>';
+      document.getElementById('table-body').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No matching records</td></tr>';
     }
 
-    // Initial render
-    window.onload = () => {
-      renderTable(allRecords);
-    };
+    window.onload = () => renderTable(allRecords);
 
     // Auto refresh
     setInterval(() => location.reload(), 15000);
@@ -265,7 +245,7 @@ app.get("/dashboard", (req, res) => {
   res.send(html);
 });
 
-// CSV Routes (unchanged)
+// CSV Routes
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
