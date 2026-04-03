@@ -1,18 +1,17 @@
 import TelegramBot from "node-telegram-bot-api";
 import fs from "fs";
 import path from "path";
-
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
-
 const REPORT_GROUP_ID = -1003718366443;
-
 // Manual offset for Chicago Time (UTC-5 for CDT in April)
 function getCST() {
   const now = new Date();
+  // UTC-5 for April (CDT)
   const cstTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+ 
   return {
     date: cstTime.toISOString().split("T")[0],
     time: cstTime.toLocaleTimeString("en-US", {
@@ -23,14 +22,10 @@ function getCST() {
     day: cstTime.toLocaleDateString("en-US", { weekday: "long" })
   };
 }
-
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
-
   console.log("[Bot] Starting - Report group:", REPORT_GROUP_ID);
-
   const userState = new Map();
-
   const numberKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -42,7 +37,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       ]
     }
   };
-
   const gameKeyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -62,7 +56,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       ]
     }
   };
-
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -77,13 +70,11 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     });
     await bot.sendMessage(chatId, `📸 Screenshot received from ${employeeName}\n\nEnter the deposited amount:`, numberKeyboard);
   });
-
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
-
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
       if (action === "back") {
@@ -146,7 +137,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       await bot.answerCallbackQuery(query.id);
       return;
     }
-
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -166,7 +156,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         await bot.sendMessage(chatId, `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`, gameKeyboard);
       }
     }
-
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -192,15 +181,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
       userState.delete(chatId);
     }
-
     if (state.step === "final_confirm" && data === "confirm_no") {
       await bot.sendMessage(chatId, "❌ **Cancelled.** Please post the picture again.");
       userState.delete(chatId);
     }
-
     await bot.answerCallbackQuery(query.id);
   });
-
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -210,16 +196,13 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       await bot.sendMessage(chatId, `Added "${msg.text}"\nSelected: ${state.selectedGames.join(", ")}`, gameKeyboard);
     }
   });
-
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
-
   const webhookPath = `/bot${token}`;
   bot.setWebHook(baseUrl + webhookPath)
     .then(() => console.log("✅ Webhook set successfully"))
     .catch(err => console.error("Webhook failed:", err));
-
   console.log("[Bot] Ready (Webhook mode)");
   return bot;
 }
