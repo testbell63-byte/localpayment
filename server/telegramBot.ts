@@ -12,7 +12,7 @@ const REPORT_GROUP_ID = -1003718366443;
 
 function getCST() {
   const now = new Date();
-  const cstOffset = -6 * 60 * 60 * 1000; // CST = UTC-6
+  const cstOffset = -6 * 60 * 60 * 1000;
   const cstTime = new Date(now.getTime() + cstOffset);
   return {
     date: cstTime.toISOString().split("T")[0],
@@ -24,7 +24,7 @@ function getCST() {
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Webhook mode active - Daily & Monthly reports scheduled");
+  console.log("[Bot] Webhook mode active - Report group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -60,7 +60,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // PHOTO HANDLER
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -81,7 +80,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -179,6 +177,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
+    // FINAL CONFIRMATION
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -193,18 +192,31 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
+      // 1. Send to Report Group (with screenshot)
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-        console.log("✅ Record sent to report group");
       } catch (e) {
-        console.error("Failed to send record:", e);
+        console.error("Report group error:", e);
       }
+
+      // 2. Send Bright Blue Final Summary in MAIN GROUP
+      const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
+        `**Amount:** $${state.amount}\n\n` +
+        `**Games & Points:**\n` +
+        state.records.map((r: any, i: number) => `${i+1}. ${r.game}: ${r.points} points`).join("\n") +
+        `\n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
+
+      await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
+
+      // 3. Thank you message
+      await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
 
       userState.delete(chatId);
     }
 
     if (state.step === "final_confirm" && data === "confirm_no") {
+      await bot.sendMessage(chatId, "❌ **Cancelled.** Please post the picture again.");
       userState.delete(chatId);
     }
 
@@ -221,32 +233,11 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   });
 
-  // Daily summary at 00:00 CST (06:00 UTC)
-  setInterval(() => {
-    const now = new Date();
-    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {
-      const cst = getCST();
-      bot.sendMessage(REPORT_GROUP_ID, `📊 **Daily Summary - ${cst.date} (${cst.day})**\n\nAll today's records are saved in records.csv`);
-      console.log("Daily summary sent");
-    }
-  }, 60000);
-
-  // Monthly summary at 00:00 CST on the 1st of the month
-  setInterval(() => {
-    const now = new Date();
-    if (now.getDate() === 1 && now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const monthName = lastMonth.toLocaleString('default', { month: 'long' });
-      bot.sendMessage(REPORT_GROUP_ID, `📅 **Monthly Summary - ${monthName} ${lastMonth.getFullYear()}**\n\nAll records for last month are saved in records.csv`);
-      console.log("Monthly summary sent");
-    }
-  }, 60000);
-
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
-  // Webhook setup
+  // Webhook
   const webhookPath = `/bot${token}`;
   bot.setWebHook(baseUrl + webhookPath)
     .then(() => console.log("✅ Webhook set successfully"))
