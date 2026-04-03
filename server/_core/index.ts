@@ -1,35 +1,46 @@
-import { initTelegramBot } from "../telegramBot.js";
+import "dotenv/config";
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+import { createServer } from "http";
+import TelegramBot from "node-telegram-bot-api";
+import { initTelegramBot } from "../telegramBot";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const BOT_TOKEN = "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
-
-console.log("🚀 Starting Payment Tracker Bot...");
-
-try {
-  const bot = initTelegramBot(BOT_TOKEN);
-  console.log("✅ Telegram Bot started successfully");
-} catch (error) {
-  console.error("❌ Bot failed to start:", error);
-}
-
-// Simple Dashboard
 const app = express();
-const PORT = process.env.PORT || 8080;
+const server = createServer(app);
 
+const PORT = process.env.PORT || 8080;
+const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE"; // your token
+
+// Middleware
+app.use(express.json());
+
+// Health check
 app.get("/", (req, res) => {
-  res.send(`
-    <h1 style="text-align:center; margin-top:100px; font-family:sans-serif; color:#10b981;">
-      💰 Payment Tracker Dashboard<br><br>
-      <small style="color:#666">Send a screenshot to the Telegram bot to see data here</small>
-    </h1>
-  `);
+  res.send("Payment Tracker Bot + Dashboard is running");
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Dashboard running on port ${PORT}`);
+// Webhook route for Telegram
+const webhookPath = `/bot${BOT_TOKEN}`;
+app.post(webhookPath, (req, res) => {
+  const bot = (global as any).telegramBot as TelegramBot;
+  if (bot) {
+    bot.processUpdate(req.body);
+  }
+  res.sendStatus(200);
+});
+
+// Start the bot with webhook
+const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
+  : `http://localhost:${PORT}`;
+
+const bot = initTelegramBot(BOT_TOKEN, baseUrl);
+(global as any).telegramBot = bot;   // Store for webhook handler
+
+console.log(`🚀 Bot started in webhook mode`);
+console.log(`🌐 Webhook URL: ${baseUrl}${webhookPath}`);
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🔗 Public URL (after Railway domain): https://your-project.railway.app`);
 });
