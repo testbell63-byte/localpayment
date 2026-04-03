@@ -10,13 +10,19 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
+// Correct Chicago Central Time with automatic DST
 function getCST() {
   const now = new Date();
-  const cstTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  const options = { timeZone: "America/Chicago" };
   return {
-    date: cstTime.toISOString().split("T")[0],
-    time: cstTime.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true }),
-    day: cstTime.toLocaleString("en-US", { weekday: "long" })
+    date: now.toLocaleDateString("en-CA", options),           // YYYY-MM-DD
+    time: now.toLocaleTimeString("en-US", { 
+      ...options, 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    }),
+    day: now.toLocaleDateString("en-US", { ...options, weekday: "long" })
   };
 }
 
@@ -82,7 +88,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Numeric Keypad
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -154,7 +159,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -175,32 +179,31 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // Final Confirmation
+    // FINAL CONFIRMATION
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
         fs.appendFileSync(RECORDS_FILE, row);
       }
 
-      let successMsg = `✅ **Payment Record**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
+      let successMsg = `✅ **Payment Record**\n\n`;
+      successMsg += `**Amount Received:** $${state.amount}\n\n`;
+      successMsg += `**Games & Points:**\n`;
       state.records.forEach((r: any, i: number) => {
         successMsg += `${i+1}. ${r.game}: ${r.points} points\n`;
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
+      // Send to REPORT GROUP only + forward screenshot
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-      } catch (e) {}
+        console.log("✅ Record sent to report group");
+      } catch (e) {
+        console.error("Report group error:", e);
+      }
 
-      // Bright Blue Summary in Main Group
-      const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
-        `**Amount:** $${state.amount}\n\n` +
-        `**Games & Points:**\n` +
-        state.records.map((r: any, i: number) => `${i+1}. ${r.game}: ${r.points} points`).join("\n") +
-        `\n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-
-      await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
+      // Thank you in main group
       await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
 
       userState.delete(chatId);
