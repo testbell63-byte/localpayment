@@ -8,7 +8,6 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003782105748;
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
@@ -50,7 +49,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // ====================== PHOTO ======================
+  // PHOTO
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -70,7 +69,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // ====================== CALLBACK ======================
+  // CALLBACK
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -138,15 +137,19 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         state.amountInput = (state.amountInput || "") + action;
       }
 
-      await bot.editMessageText(`💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`, {
+      // FIXED: Only update if content actually changed
+      const currentText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
+      await bot.editMessageText(currentText, {
         chat_id: chatId,
         message_id: query.message!.message_id,
         reply_markup: numberKeyboard.reply_markup
-      });
+      }).catch(() => {}); // Ignore "message is not modified" error
+
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
+    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -170,7 +173,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL STEP - ONLY send to report group, no message in main group
+    // FINAL CONFIRMATION - ONLY to report group
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -185,7 +188,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send ONLY to report group with screenshot attached
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
           reply_to_message_id: state.originalMessageId
@@ -205,7 +207,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game name
+  // Custom game
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -223,11 +225,11 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
-  // Set webhook (this will be called from index.ts)
+  // Set webhook
   const webhookPath = `/bot${token}`;
-  bot.setWebHook(baseUrl + webhookPath).then(() => {
-    console.log(`✅ Webhook set: ${baseUrl}${webhookPath}`);
-  }).catch(err => console.error("Webhook set failed:", err));
+  bot.setWebHook(baseUrl + webhookPath)
+    .then(() => console.log(`✅ Webhook set successfully`))
+    .catch(err => console.error("Webhook set failed:", err));
 
   console.log("[Bot] Ready (Webhook mode)");
   return bot;
