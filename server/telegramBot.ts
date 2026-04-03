@@ -22,7 +22,7 @@ function getCST() {
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Starting with improved /delete");
+  console.log("[Bot] Starting with smart /delete");
 
   const userState = new Map();
 
@@ -206,7 +206,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // ================== /delete Command (Fixed) ==================
+  // ================== /delete Command (Improved) ==================
   bot.onText(/\/delete/, async (msg) => {
     if (!msg.reply_to_message) {
       await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the screenshot you want to delete with /delete");
@@ -214,33 +214,32 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
 
     const chatId = msg.chat.id;
+    const cst = getCST();
 
-    // Read all records and find the most recent one from this chat (simple reliable method)
-    if (!fs.existsSync(RECORDS_FILE)) {
-      await bot.sendMessage(chatId, "No records found.");
-      return;
-    }
-
+    // Read the last record (most recent one)
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
     if (lines.length <= 1) {
       await bot.sendMessage(chatId, "No records to delete.");
       return;
     }
 
-    const cst = getCST();
-
-    // Take the last (most recent) record and create negative version
     const lastLine = lines[lines.length - 1];
     const parts = lastLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-    const negativeRow = `${cst.date},${cst.time},${cst.day},"${parts[3] || ''}","${parts[4] || ''}",-${parseFloat(parts[5]) || 0},"${parts[6] || ''}",-${parseFloat(parts[7]) || 0},DELETED\n`;
+    const originalAmount = parseFloat(parts[5]) || 0;
+    const originalGame = parts[6] ? parts[6].replace(/"/g, "") : "Unknown";
+    const originalEmployee = parts[4] ? parts[4].replace(/"/g, "") : "Unknown";
+    const originalGroup = parts[3] ? parts[3].replace(/"/g, "") : "Unknown";
+
+    // Add negative amount only (points remain as spent)
+    const negativeRow = `${cst.date},${cst.time},${cst.day},"${originalGroup}","${originalEmployee}",-${originalAmount},"${originalGame}",0,DELETED - Original Amount Refunded\n`;
 
     fs.appendFileSync(RECORDS_FILE, negativeRow);
 
-    await bot.sendMessage(chatId, `✅ Record deleted successfully.\nNegative entry added. Totals updated.`);
+    await bot.sendMessage(chatId, `✅ Deletion recorded.\nAmount of $${originalAmount} has been deducted.\nPoints were not refunded (already spent).`);
 
     try {
-      await bot.sendMessage(REPORT_GROUP_ID, `🗑️ Deletion recorded for group: ${parts[3] || 'Unknown'}`);
+      await bot.sendMessage(REPORT_GROUP_ID, `🗑️ Deletion: ${originalGroup} - $${originalAmount} deducted (points not refunded)`);
     } catch (e) {}
   });
 
@@ -263,6 +262,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     .then(() => console.log("✅ Webhook set successfully"))
     .catch(err => console.error("Webhook failed:", err));
 
-  console.log("[Bot] Ready with improved /delete");
+  console.log("[Bot] Ready with smart /delete");
   return bot;
 }
