@@ -10,13 +10,12 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
-// Correct Chicago Time (automatic CST/CDT adjustment)
+// Correct Chicago Time (auto CST/CDT)
 function getCST() {
   const now = new Date();
   const options = { timeZone: "America/Chicago" };
-  
   return {
-    date: now.toLocaleDateString("en-CA", options),           // YYYY-MM-DD
+    date: now.toLocaleDateString("en-CA", options),
     time: now.toLocaleTimeString("en-US", { 
       ...options, 
       hour: 'numeric', 
@@ -199,7 +198,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
       } catch (e) {}
 
-      // Bright Blue Summary in Main Group
       const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
         `**Amount:** $${state.amount}\n\n` +
         `**Games & Points:**\n` +
@@ -207,7 +205,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         `\n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
       await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
-
       await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
 
       userState.delete(chatId);
@@ -235,6 +232,29 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
   });
 
+  // ====================== AUTO REPORTS ======================
+  // Daily at 00:00 Chicago time
+  setInterval(() => {
+    const now = new Date();
+    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {   // 00:00 Chicago = 06:00 UTC
+      const cst = getCST();
+      bot.sendMessage(REPORT_GROUP_ID, `📊 **Daily Summary - ${cst.date} (${cst.day})**\n\nAll today's records saved in records.csv`);
+      console.log("Daily summary sent to report group");
+    }
+  }, 60000);
+
+  // Monthly at 00:00 on the 1st of the month
+  setInterval(() => {
+    const now = new Date();
+    if (now.getDate() === 1 && now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const monthName = lastMonth.toLocaleString('default', { month: 'long' });
+      bot.sendMessage(REPORT_GROUP_ID, `📅 **Monthly Summary - ${monthName} ${lastMonth.getFullYear()}**\n\nAll records for last month saved in records.csv`);
+      console.log("Monthly summary sent to report group");
+    }
+  }, 60000);
+
+  // Webhook
   const webhookPath = `/bot${token}`;
   bot.setWebHook(baseUrl + webhookPath)
     .then(() => console.log("✅ Webhook set successfully"))
