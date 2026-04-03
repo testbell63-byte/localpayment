@@ -49,7 +49,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // ====================== PHOTO ======================
+  // PHOTO HANDLER
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -69,14 +69,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // ====================== CALLBACK ======================
+  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
-    // ==================== NUMERIC KEYPAD ====================
+    // Numeric Keypad
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -138,7 +138,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         state.amountInput = (state.amountInput || "") + action;
       }
 
-      // Update keypad (ignore "not modified" error)
       const displayText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
       await bot.editMessageText(displayText, {
         chat_id: chatId,
@@ -150,7 +149,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // ==================== GAME SELECTION ====================
+    // Game Selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -176,7 +175,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // ==================== FINAL CONFIRMATION ====================
+    // Final Confirmation - Only to report group
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -210,7 +209,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game name handler
+  // Custom game name
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -225,4 +224,15 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   });
 
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
+  });
+
+  // Set webhook
+  const webhookPath = `/bot${token}`;
+  bot.setWebHook(baseUrl + webhookPath)
+    .then(() => console.log(`✅ Webhook set successfully`))
+    .catch(err => console.error("Webhook set failed:", err));
+
+  console.log("[Bot] Ready (Webhook mode)");
+  return bot;
+}
