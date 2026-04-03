@@ -8,13 +8,13 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR REPORT GROUP ID ===
-const REPORT_GROUP_ID = -920244681;
+// === NEW REPORT GROUP ID (updated as per your message) ===
+const REPORT_GROUP_ID = -1003782105748;
 
 export function initTelegramBot(token: string): TelegramBot {
   const bot = new TelegramBot(token, { polling: true });
 
-  console.log("[Bot] Improved Version Started");
+  console.log("[Bot] Improved Version Started - Report Group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -79,7 +79,8 @@ export function initTelegramBot(token: string): TelegramBot {
       employeeName,
       selectedGames: [],
       records: [],
-      originalMessageId: msg.message_id
+      originalMessageId: msg.message_id,   // Important for attaching screenshot
+      originalChatId: chatId
     });
 
     await bot.sendMessage(chatId,
@@ -96,6 +97,7 @@ export function initTelegramBot(token: string): TelegramBot {
     const state = userState.get(chatId);
     if (!state) return;
 
+    // Numerical Keypad Logic (Amount + Points)
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -146,19 +148,15 @@ export function initTelegramBot(token: string): TelegramBot {
             state.step = "final_confirm";
 
             let summaryText = `📋 **SUMMARY**\n\n`;
-            summaryText += `Amount Received: $${state.amount}\n`;
-            summaryText += `Games: ${state.selectedGames.join(", ")}\n\n`;
-            summaryText += `**Points per game:**\n`;
-
+            summaryText += `**Amount Received:** $${state.amount}\n\n`;
+            summaryText += `**Games & Points:**\n`;
             let totalPoints = 0;
-            state.records.forEach((r: any, index: number) => {
-              summaryText += `${index + 1}. ${r.game}: ${r.points} points\n`;
+            state.records.forEach((r: any, i: number) => {
+              summaryText += `${i + 1}. ${r.game}: ${r.points} points\n`;
               totalPoints += r.points;
             });
 
-            summaryText += `\nDate: ${state.records[0].date}\n`;
-            summaryText += `Day : ${state.records[0].day}\n`;
-            summaryText += `Time: ${state.records[0].time}\n\n`;
+            summaryText += `\nDate: ${state.records[0].date} | Day: ${state.records[0].day} | Time: ${state.records[0].time}\n\n`;
             summaryText += `Is everything correct?`;
 
             await bot.sendMessage(chatId, summaryText, {
@@ -191,6 +189,7 @@ export function initTelegramBot(token: string): TelegramBot {
       return;
     }
 
+    // Game Selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -204,9 +203,6 @@ export function initTelegramBot(token: string): TelegramBot {
       } else if (data === "game_Other") {
         state.step = "custom_game";
         await bot.sendMessage(chatId, "Type custom game name:");
-      } else if (data === "reset") {
-        userState.delete(chatId);
-        await bot.sendMessage(chatId, "🔄 Reset done. Send screenshot again.");
       } else {
         const game = data.replace("game_", "");
         if (!state.selectedGames.includes(game)) {
@@ -219,7 +215,7 @@ export function initTelegramBot(token: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION - Send full summary + screenshot to REPORT GROUP
+    // FINAL CONFIRMATION → Send to NEW REPORT GROUP with screenshot attached
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -227,19 +223,20 @@ export function initTelegramBot(token: string): TelegramBot {
       }
 
       let successMsg = `✅ **Saved Successfully!**\n\n`;
-      successMsg += `**Amount:** $${state.amount}\n\n`;
+      successMsg += `**Amount Received:** $${state.amount}\n\n`;
       successMsg += `**Games & Points:**\n`;
       state.records.forEach((r: any, i: number) => {
         successMsg += `${i + 1}. ${r.game}: ${r.points} points\n`;
       });
+      successMsg += `\nDate: ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send to REPORT GROUP with attached original screenshot
+      // Send full summary + attached original screenshot to the NEW REPORT GROUP
       await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
-        reply_to_message_id: state.originalMessageId
+        reply_to_message_id: state.originalMessageId   // This attaches the screenshot
       });
 
-      // Short confirmation in main group
-      await bot.sendMessage(chatId, "✅ Record saved and sent to report group.");
+      // Short confirmation in the main group
+      await bot.sendMessage(chatId, "✅ Record saved and forwarded to report group.");
 
       userState.delete(chatId);
     }
@@ -252,15 +249,13 @@ export function initTelegramBot(token: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Text handler for custom game
+  // Custom game name handler
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text?.trim() || "";
     const state = userState.get(chatId);
 
-    if (!state) return;
-
-    if (state.step === "custom_game") {
+    if (state && state.step === "custom_game") {
       state.selectedGames.push(text);
       state.step = "game";
       await bot.sendMessage(chatId,
@@ -270,14 +265,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   });
 
-  // Daily Report at Midnight CST to REPORT GROUP
-  setInterval(() => {
-    const now = new Date();
-    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {  // Midnight CST = 06:00 UTC
-      bot.sendMessage(REPORT_GROUP_ID, "📊 **Daily Report**\nTotal Amount: $0.00\nTotal Points: 0\n(Report logic can be expanded later)");
-    }
-  }, 60000);
-
+  // Help command
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id,
       "👋 Payment Bot\n\n" +
@@ -288,11 +276,6 @@ export function initTelegramBot(token: string): TelegramBot {
     );
   });
 
-  // Monthly Report Command
-  bot.onText(/\/monthly/, async (msg) => {
-    await bot.sendMessage(REPORT_GROUP_ID, "📅 **Monthly Report**\nTotal Amount: $0.00\nTotal Points: 0\n(Report logic can be expanded later)");
-  });
-
-  console.log("[Bot] Ready");
+  console.log("[Bot] Ready - Reports will go to group:", REPORT_GROUP_ID);
   return bot;
 }
