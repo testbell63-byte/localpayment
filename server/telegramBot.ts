@@ -10,11 +10,11 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
-// Force correct Central Time (handles CST/CDT automatically)
+// Manual offset for Chicago Time (UTC-5 for CDT in April)
 function getCST() {
   const now = new Date();
-  // This is the most reliable way for Chicago time
-  const cstTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+  // UTC-5 for April (CDT)
+  const cstTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
   
   return {
     date: cstTime.toISOString().split("T")[0],
