@@ -13,9 +13,14 @@ const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 
 app.use(express.json());
 
-// ====================== DASHBOARD ======================
+// Root → Dashboard
+app.get("/", (req, res) => res.redirect("/dashboard"));
+
+// Smart Auto-Refresh Dashboard
 app.get("/dashboard", (req, res) => {
   let records = [];
+  let lastModified = "Never";
+
   if (fs.existsSync(RECORDS_FILE)) {
     const data = fs.readFileSync(RECORDS_FILE, "utf8");
     const lines = data.trim().split("\n").slice(1);
@@ -31,9 +36,9 @@ app.get("/dashboard", (req, res) => {
         points: parseFloat(cols[6]) || 0
       };
     });
+    lastModified = new Date(fs.statSync(RECORDS_FILE).mtime).toLocaleString();
   }
 
-  // Daily & Monthly calculations
   const today = new Date().toISOString().split("T")[0];
   const thisMonth = today.substring(0, 7);
 
@@ -43,12 +48,6 @@ app.get("/dashboard", (req, res) => {
   const dailyAmount = dailyRecords.reduce((sum, r) => sum + r.amount, 0);
   const monthlyAmount = monthlyRecords.reduce((sum, r) => sum + r.amount, 0);
 
-  const dailyPointsByGame = {};
-  dailyRecords.forEach(r => dailyPointsByGame[r.game] = (dailyPointsByGame[r.game] || 0) + r.points);
-
-  const monthlyPointsByGame = {};
-  monthlyRecords.forEach(r => monthlyPointsByGame[r.game] = (monthlyPointsByGame[r.game] || 0) + r.points);
-
   let html = `
     <html>
     <head>
@@ -57,59 +56,41 @@ app.get("/dashboard", (req, res) => {
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <style>
         body { font-family: system-ui; }
-        .card { transition: all 0.3s; }
-        .card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .card { transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); }
       </style>
     </head>
-    <body class="bg-gray-50">
-      <div class="max-w-7xl mx-auto p-8">
+    <body class="bg-gray-50 p-8">
+      <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-center mb-10">
-          <h1 class="text-5xl font-bold flex items-center gap-4">💰 Payment Tracker</h1>
-          <div class="text-sm text-gray-500">Live • Updated just now</div>
+          <h1 class="text-5xl font-bold">💰 Payment Tracker</h1>
+          <div class="text-sm text-green-600">Last updated: ${lastModified}</div>
         </div>
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div class="bg-white rounded-3xl shadow p-8 card">
-            <p class="text-gray-500 text-sm">Today's Total Amount</p>
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">Today's Total Amount</p>
             <p class="text-5xl font-bold text-green-600">$${dailyAmount.toFixed(2)}</p>
           </div>
-          <div class="bg-white rounded-3xl shadow p-8 card">
-            <p class="text-gray-500 text-sm">This Month's Total Amount</p>
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">This Month's Total Amount</p>
             <p class="text-5xl font-bold text-blue-600">$${monthlyAmount.toFixed(2)}</p>
           </div>
-          <div class="bg-white rounded-3xl shadow p-8 card">
-            <p class="text-gray-500 text-sm">Total Transactions</p>
+          <div class="bg-white p-8 rounded-3xl shadow card">
+            <p class="text-gray-500">Total Transactions</p>
             <p class="text-5xl font-bold">${records.length}</p>
           </div>
         </div>
 
         <!-- Download Buttons -->
         <div class="flex flex-wrap gap-4 mb-12">
-          <a href="/records.csv" class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium flex items-center gap-2">
-            📥 Download Full Records CSV
-          </a>
-          <a href="/daily.csv" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium flex items-center gap-2">
-            📥 Today's Records CSV
-          </a>
-          <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium flex items-center gap-2">
-            📥 This Month's Records CSV
-          </a>
+          <a href="/records.csv" class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium">📥 Full Records CSV</a>
+          <a href="/daily.csv" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium">📥 Today's CSV</a>
+          <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium">📥 This Month CSV</a>
         </div>
 
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          <div class="bg-white p-8 rounded-3xl shadow">
-            <h3 class="font-semibold mb-4">Points Trend (Last 30 Days)</h3>
-            <canvas id="trendChart" height="120"></canvas>
-          </div>
-          <div class="bg-white p-8 rounded-3xl shadow">
-            <h3 class="font-semibold mb-4">Game Distribution (This Month)</h3>
-            <canvas id="pieChart" height="120"></canvas>
-          </div>
-        </div>
-
-        <!-- Recent Records Table -->
+        <!-- Recent Records -->
         <div class="bg-white rounded-3xl shadow overflow-hidden">
           <div class="px-8 py-6 border-b font-semibold text-lg">Recent Transactions</div>
           <table class="w-full">
@@ -141,26 +122,6 @@ app.get("/dashboard", (req, res) => {
   });
 
   html += `</tbody></table></div></div></body></html>`;
-
-  // Add simple Chart.js script
-  html = html.replace("</body>", `
-    <script>
-      const records = ${JSON.stringify(records.slice(0, 30))};
-      // Simple trend chart
-      new Chart(document.getElementById('trendChart'), {
-        type: 'line',
-        data: { labels: records.map(r => r.date), datasets: [{ label: 'Points', data: records.map(r => r.points), borderColor: '#3b82f6', tension: 0.4 }] },
-        options: { plugins: { legend: { display: false } } }
-      });
-      // Pie chart
-      const gameData = {};
-      records.forEach(r => gameData[r.game] = (gameData[r.game] || 0) + r.points);
-      new Chart(document.getElementById('pieChart'), {
-        type: 'pie',
-        data: { labels: Object.keys(gameData), datasets: [{ data: Object.values(gameData), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444'] }] }
-      });
-    </script>
-  </html>`);
 
   res.send(html);
 });
@@ -197,7 +158,7 @@ app.get("/monthly.csv", (req, res) => {
   res.send(csv);
 });
 
-// Webhook for Telegram Bot
+// Telegram Webhook
 const webhookPath = `/bot${BOT_TOKEN}`;
 app.post(webhookPath, (req, res) => {
   const bot = (global as any).telegramBot;
@@ -214,6 +175,5 @@ const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
 server.listen(PORT, () => {
-  console.log(`✅ Dashboard & Bot live on port ${PORT}`);
-  console.log(`🌐 Open Dashboard: ${baseUrl}/dashboard`);
+  console.log(`✅ Dashboard live at ${baseUrl}/dashboard`);
 });
