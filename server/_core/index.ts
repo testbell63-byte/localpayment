@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Clean Dashboard with Group column + Today focus
+// Dashboard
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
 
@@ -37,6 +37,12 @@ app.get("/dashboard", (req, res) => {
       };
     });
   }
+
+  // Sort by newest first (date + time)
+  allRecords.sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return b.time.localeCompare(a.time);
+  });
 
   // Today Summary
   const today = new Date().toISOString().split("T")[0];
@@ -104,7 +110,7 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
 
-    <!-- Recent Transactions -->
+    <!-- Recent Transactions (Newest First) -->
     <div class="bg-white rounded-3xl shadow overflow-hidden">
       <div class="px-8 py-5 border-b font-semibold flex justify-between">
         <span>Recent Transactions</span>
@@ -144,13 +150,31 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
   </div>
+
+  <script>
+    // Auto refresh when new data is detected
+    let lastRecordCount = ${allRecords.length};
+    setInterval(() => {
+      fetch(window.location.href)
+        .then(r => r.text())
+        .then(html => {
+          const match = html.match(/Transactions<\/p>\s*<p class="text-4xl font-bold">(\d+)<\/p>/);
+          if (match) {
+            const currentCount = parseInt(match[1]);
+            if (currentCount > lastRecordCount) {
+              location.reload();
+            }
+          }
+        });
+    }, 10000); // Check every 10 seconds
+  </script>
 </body>
 </html>`;
 
   res.send(html);
 });
 
-// CSV Routes
+// CSV Routes - Newest first
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
