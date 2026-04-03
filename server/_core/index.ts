@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Improved Dashboard
+// Improved Dashboard with Filters + Group Breakdown
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
 
@@ -44,15 +44,14 @@ app.get("/dashboard", (req, res) => {
   const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
   const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
   const todayTransactions = todayRecords.length;
-  const avgAmount = todayTransactions > 0 ? (todayAmount / todayTransactions).toFixed(2) : "0.00";
 
-  // Game Breakdown
-  const gameBreakdown: any = {};
-  todayRecords.forEach(r => {
-    if (!gameBreakdown[r.game]) gameBreakdown[r.game] = { amount: 0, points: 0, count: 0 };
-    gameBreakdown[r.game].amount += r.amount;
-    gameBreakdown[r.game].points += r.points;
-    gameBreakdown[r.game].count++;
+  // Group Breakdown
+  const groupBreakdown: any = {};
+  allRecords.forEach(r => {
+    if (!groupBreakdown[r.group]) groupBreakdown[r.group] = { amount: 0, points: 0, count: 0 };
+    groupBreakdown[r.group].amount += r.amount;
+    groupBreakdown[r.group].points += r.points;
+    groupBreakdown[r.group].count++;
   });
 
   const html = `<!DOCTYPE html>
@@ -63,101 +62,147 @@ app.get("/dashboard", (req, res) => {
   <title>Payment Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .filter-input { transition: all 0.2s; }
+    .filter-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+  </style>
 </head>
-<body class="bg-gray-50 p-6">
-  <div class="max-w-7xl mx-auto">
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-4xl font-bold text-gray-800">💰 Payment Tracker</h1>
-      <div class="text-sm text-gray-500">Live • Auto-refresh every 15s</div>
+<body class="bg-gray-50">
+  <div class="flex h-screen">
+    <!-- Sidebar Filters -->
+    <div class="w-72 bg-white border-r p-6 overflow-y-auto">
+      <h2 class="font-semibold text-lg mb-6">Filters</h2>
+      
+      <div class="space-y-6">
+        <!-- Date Range -->
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-2">Date Range</label>
+          <input type="date" id="fromDate" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
+          <input type="date" id="toDate" class="filter-input w-full border rounded-lg px-3 py-2 text-sm mt-2">
+        </div>
+
+        <!-- Employee -->
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-2">Employee</label>
+          <select id="employeeFilter" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">All Employees</option>
+            ${[...new Set(allRecords.map(r => r.employee))].map(emp => 
+              `<option value="${emp}">${emp}</option>`
+            ).join('')}
+          </select>
+        </div>
+
+        <!-- Platform (Game) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-2">Platform</label>
+          <select id="gameFilter" class="filter-input w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">All Platforms</option>
+            ${[...new Set(allRecords.map(r => r.game))].map(game => 
+              `<option value="${game}">${game}</option>`
+            ).join('')}
+          </select>
+        </div>
+
+        <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium">
+          Apply Filters
+        </button>
+        <button onclick="resetFilters()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">
+          Reset All
+        </button>
+      </div>
     </div>
 
-    <!-- Today Summary -->
-    <div class="bg-white p-8 rounded-3xl shadow mb-10">
-      <h2 class="text-2xl font-semibold mb-6 text-gray-800">📅 Today Summary (${today})</h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div>
-          <p class="text-gray-500 text-sm">Total Amount</p>
-          <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
-        </div>
-        <div>
-          <p class="text-gray-500 text-sm">Total Points</p>
-          <p class="text-4xl font-bold text-blue-600">${todayPoints}</p>
-        </div>
-        <div>
-          <p class="text-gray-500 text-sm">Transactions</p>
-          <p class="text-4xl font-bold">${todayTransactions}</p>
-        </div>
-        <div>
-          <p class="text-gray-500 text-sm">Avg Amount</p>
-          <p class="text-4xl font-bold">$${avgAmount}</p>
+    <!-- Main Content -->
+    <div class="flex-1 p-8 overflow-y-auto">
+      <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker</h1>
+
+      <!-- Today Summary -->
+      <div class="bg-white p-8 rounded-3xl shadow mb-10">
+        <h2 class="text-2xl font-semibold mb-6">📅 Today Summary (${today})</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p class="text-gray-500">Total Amount</p>
+            <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Total Points</p>
+            <p class="text-4xl font-bold text-blue-600">${todayPoints}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Transactions</p>
+            <p class="text-4xl font-bold">${todayTransactions}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Avg Amount</p>
+            <p class="text-4xl font-bold">$${(todayTransactions > 0 ? todayAmount / todayTransactions : 0).toFixed(2)}</p>
+          </div>
         </div>
       </div>
 
-      <!-- Game Breakdown -->
-      <div class="mt-8">
-        <p class="text-gray-600 font-medium mb-3">Game Breakdown Today</p>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          ${Object.keys(gameBreakdown).map(game => {
-            const g = gameBreakdown[game];
-            return `<div class="bg-gray-50 p-4 rounded-2xl">
-              <p class="font-semibold">${game}</p>
-              <p class="text-lg">$${g.amount.toFixed(2)}</p>
-              <p class="text-sm text-gray-500">${g.points} pts • ${g.count} txns</p>
+      <!-- Group Breakdown -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-10">
+        <h3 class="font-semibold mb-4">Summary by Group</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          ${Object.keys(groupBreakdown).map(group => {
+            const g = groupBreakdown[group];
+            return `<div class="border rounded-2xl p-6">
+              <p class="font-semibold text-lg">${group}</p>
+              <p class="text-3xl font-bold text-green-600 mt-2">$${g.amount.toFixed(2)}</p>
+              <p class="text-sm text-gray-500">${g.points} points • ${g.count} transactions</p>
             </div>`;
           }).join('')}
         </div>
       </div>
-    </div>
 
-    <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-      <div class="bg-white p-6 rounded-3xl shadow">
-        <h3 class="font-semibold mb-4">Daily Trend (Last 7 Days)</h3>
-        <canvas id="trendChart" height="120"></canvas>
-      </div>
-      <div class="bg-white p-6 rounded-3xl shadow">
-        <h3 class="font-semibold mb-4">Game Distribution</h3>
-        <canvas id="pieChart" height="120"></canvas>
-      </div>
-    </div>
-
-    <!-- Recent Transactions -->
-    <div class="bg-white rounded-3xl shadow overflow-hidden">
-      <div class="px-8 py-5 border-b flex justify-between items-center">
-        <h3 class="font-semibold text-lg">Recent Transactions</h3>
-        <div class="flex gap-3">
-          <a href="/records.csv" class="text-blue-600 hover:underline text-sm">↓ All CSV</a>
-          <a href="/daily.csv" class="text-blue-600 hover:underline text-sm">Today CSV</a>
+      <!-- Charts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="font-semibold mb-4">Daily Trend</h3>
+          <canvas id="trendChart" height="140"></canvas>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="font-semibold mb-4">Platform Distribution</h3>
+          <canvas id="pieChart" height="140"></canvas>
         </div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-8 py-4 text-left">Date</th>
-              <th class="px-8 py-4 text-left">Time</th>
-              <th class="px-8 py-4 text-left">Group</th>
-              <th class="px-8 py-4 text-left">Employee</th>
-              <th class="px-8 py-4 text-left">Amount</th>
-              <th class="px-8 py-4 text-left">Game</th>
-              <th class="px-8 py-4 text-left">Points</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${allRecords.slice(0, 50).map(r => `
-              <tr class="border-t hover:bg-gray-50">
-                <td class="px-8 py-4">${r.date}</td>
-                <td class="px-8 py-4">${r.time}</td>
-                <td class="px-8 py-4 font-medium">${r.group}</td>
-                <td class="px-8 py-4">${r.employee}</td>
-                <td class="px-8 py-4 font-medium">$${r.amount}</td>
-                <td class="px-8 py-4">${r.game}</td>
-                <td class="px-8 py-4">${r.points}</td>
+
+      <!-- Recent Transactions -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b flex justify-between">
+          <h3 class="font-semibold text-lg">Recent Transactions</h3>
+          <div class="flex gap-4 text-sm">
+            <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
+            <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-8 py-4 text-left">Date</th>
+                <th class="px-8 py-4 text-left">Time</th>
+                <th class="px-8 py-4 text-left">Group</th>
+                <th class="px-8 py-4 text-left">Employee</th>
+                <th class="px-8 py-4 text-left">Amount</th>
+                <th class="px-8 py-4 text-left">Game</th>
+                <th class="px-8 py-4 text-left">Points</th>
               </tr>
-            `).join('')}
-            ${allRecords.length === 0 ? `<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records yet. Send screenshots in your cash-in groups.</td></tr>` : ''}
-          </tbody>
-        </table>
+            </thead>
+            <tbody id="table-body">
+              ${allRecords.slice(0, 50).map(r => `
+                <tr class="border-t hover:bg-gray-50">
+                  <td class="px-8 py-4">${r.date}</td>
+                  <td class="px-8 py-4">${r.time}</td>
+                  <td class="px-8 py-4 font-medium">${r.group}</td>
+                  <td class="px-8 py-4">${r.employee}</td>
+                  <td class="px-8 py-4 font-medium">$${r.amount}</td>
+                  <td class="px-8 py-4">${r.game}</td>
+                  <td class="px-8 py-4">${r.points}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -166,36 +211,53 @@ app.get("/dashboard", (req, res) => {
   <script>
     let allRecords = ${JSON.stringify(allRecords)};
 
-    // Simple Trend Chart (last 7 days)
-    const dates = [...new Set(allRecords.map(r => r.date))].slice(-7);
-    const amounts = dates.map(d => allRecords.filter(r => r.date === d).reduce((sum, r) => sum + r.amount, 0));
+    function applyFilters() {
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      const employee = document.getElementById('employeeFilter').value;
+      const game = document.getElementById('gameFilter').value;
 
-    new Chart(document.getElementById('trendChart'), {
-      type: 'line',
-      data: {
-        labels: dates,
-        datasets: [{ label: 'Amount ($)', data: amounts, borderColor: '#10b981', tension: 0.3 }]
-      },
-      options: { responsive: true, plugins: { legend: { display: false } } }
-    });
+      let filtered = allRecords;
 
-    // Pie Chart - Game Distribution
-    const gameMap = {};
-    allRecords.forEach(r => {
-      gameMap[r.game] = (gameMap[r.game] || 0) + r.amount;
-    });
-    new Chart(document.getElementById('pieChart'), {
-      type: 'pie',
-      data: {
-        labels: Object.keys(gameMap),
-        datasets: [{ data: Object.values(gameMap), backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'] }]
-      }
-    });
+      if (from) filtered = filtered.filter(r => r.date >= from);
+      if (to) filtered = filtered.filter(r => r.date <= to);
+      if (employee) filtered = filtered.filter(r => r.employee === employee);
+      if (game) filtered = filtered.filter(r => r.game === game);
 
-    // Auto refresh every 15 seconds
-    setInterval(() => {
-      location.reload();
-    }, 15000);
+      renderTable(filtered);
+    }
+
+    function resetFilters() {
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      document.getElementById('employeeFilter').value = '';
+      document.getElementById('gameFilter').value = '';
+      renderTable(allRecords);
+    }
+
+    function renderTable(records) {
+      let html = '';
+      records.slice(0, 100).forEach(r => {
+        html += `<tr class="border-t hover:bg-gray-50">
+          <td class="px-8 py-4">${r.date}</td>
+          <td class="px-8 py-4">${r.time}</td>
+          <td class="px-8 py-4 font-medium">${r.group}</td>
+          <td class="px-8 py-4">${r.employee}</td>
+          <td class="px-8 py-4 font-medium">$${r.amount}</td>
+          <td class="px-8 py-4">${r.game}</td>
+          <td class="px-8 py-4">${r.points}</td>
+        </tr>`;
+      });
+      document.getElementById('table-body').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No matching records found</td></tr>';
+    }
+
+    // Initial render
+    window.onload = () => {
+      renderTable(allRecords);
+    };
+
+    // Auto refresh
+    setInterval(() => location.reload(), 15000);
   </script>
 </body>
 </html>`;
@@ -203,7 +265,7 @@ app.get("/dashboard", (req, res) => {
   res.send(html);
 });
 
-// CSV Routes
+// CSV Routes (unchanged)
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
