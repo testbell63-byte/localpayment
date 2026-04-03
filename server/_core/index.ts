@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Clean Dashboard with Date Range Filter
+// Simple Dashboard with Date Range Filter
 app.get("/dashboard", (req, res) => {
   let records = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -39,61 +39,47 @@ app.get("/dashboard", (req, res) => {
   let html = `
     <html>
     <head>
-      <title>Payment Tracker Dashboard</title>
+      <title>Payment Tracker</title>
       <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-50 p-8">
-      <div class="max-w-7xl mx-auto">
-        <h1 class="text-5xl font-bold mb-8">💰 Payment Tracker</h1>
+      <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8">💰 Payment Tracker Dashboard</h1>
 
         <!-- Date Range Filter -->
-        <div class="bg-white p-6 rounded-3xl shadow mb-10">
-          <div class="flex flex-wrap items-end gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow mb-10">
+          <div class="flex gap-6 items-end">
             <div>
               <label class="block text-sm text-gray-500 mb-1">From Date</label>
-              <input type="date" id="fromDate" class="border border-gray-300 rounded-xl px-4 py-3">
+              <input type="date" id="fromDate" class="border border-gray-300 rounded-lg px-4 py-2">
             </div>
             <div>
               <label class="block text-sm text-gray-500 mb-1">To Date</label>
-              <input type="date" id="toDate" class="border border-gray-300 rounded-xl px-4 py-3">
+              <input type="date" id="toDate" class="border border-gray-300 rounded-lg px-4 py-2">
             </div>
-            <button onclick="applyFilter()" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-medium">Apply Filter</button>
-            <button onclick="clearFilter()" class="px-8 py-3 bg-gray-200 text-gray-700 rounded-2xl font-medium">Clear</button>
+            <button onclick="applyFilter()" class="px-6 py-2 bg-blue-600 text-white rounded-lg">Apply Filter</button>
+            <button onclick="clearFilter()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg">Clear</button>
           </div>
         </div>
 
         <!-- Summary -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12" id="summary">
-          <div class="bg-white p-8 rounded-3xl shadow">
-            <p class="text-gray-500">Filtered Total Amount</p>
-            <p class="text-5xl font-bold text-green-600" id="total-amount">$0.00</p>
-          </div>
-          <div class="bg-white p-8 rounded-3xl shadow">
-            <p class="text-gray-500">Records in Range</p>
-            <p class="text-5xl font-bold" id="total-records">0</p>
-          </div>
-        </div>
-
-        <!-- Download Buttons -->
-        <div class="flex flex-wrap gap-4 mb-12">
-          <a href="/records.csv" class="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium">📥 Full Records CSV</a>
-          <a href="/daily.csv" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium">📥 Today's CSV</a>
-          <a href="/monthly.csv" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-medium">📥 This Month CSV</a>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10" id="summary-cards">
+          <!-- Filled by JS -->
         </div>
 
         <!-- Table -->
-        <div class="bg-white rounded-3xl shadow overflow-hidden">
-          <div class="px-8 py-6 border-b font-semibold text-lg">Transactions</div>
+        <div class="bg-white rounded-2xl shadow overflow-hidden">
+          <div class="px-6 py-4 border-b font-semibold">Transactions</div>
           <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-8 py-4 text-left">Date</th>
-                <th class="px-8 py-4 text-left">Time</th>
-                <th class="px-8 py-4 text-left">Day</th>
-                <th class="px-8 py-4 text-left">Employee</th>
-                <th class="px-8 py-4 text-left">Amount</th>
-                <th class="px-8 py-4 text-left">Game</th>
-                <th class="px-8 py-4 text-left">Points</th>
+                <th class="px-6 py-3 text-left">Date</th>
+                <th class="px-6 py-3 text-left">Time</th>
+                <th class="px-6 py-3 text-left">Day</th>
+                <th class="px-6 py-3 text-left">Employee</th>
+                <th class="px-6 py-3 text-left">Amount</th>
+                <th class="px-6 py-3 text-left">Game</th>
+                <th class="px-6 py-3 text-left">Points</th>
               </tr>
             </thead>
             <tbody id="table-body"></tbody>
@@ -107,18 +93,17 @@ app.get("/dashboard", (req, res) => {
         function renderTable(filtered) {
           let html = '';
           filtered.forEach(r => {
-            html += `<tr class="border-t hover:bg-gray-50">
-              <td class="px-8 py-4">${r.date}</td>
-              <td class="px-8 py-4">${r.time}</td>
-              <td class="px-8 py-4">${r.day}</td>
-              <td class="px-8 py-4">${r.employee}</td>
-              <td class="px-8 py-4 font-medium">$${r.amount}</td>
-              <td class="px-8 py-4">${r.game}</td>
-              <td class="px-8 py-4">${r.points}</td>
+            html += `<tr class="border-t">
+              <td class="px-6 py-3">${r.date}</td>
+              <td class="px-6 py-3">${r.time}</td>
+              <td class="px-6 py-3">${r.day}</td>
+              <td class="px-6 py-3">${r.employee}</td>
+              <td class="px-6 py-3">$${r.amount}</td>
+              <td class="px-6 py-3">${r.game}</td>
+              <td class="px-6 py-3">${r.points}</td>
             </tr>`;
           });
-          document.getElementById('table-body').innerHTML = html || 
-            '<tr><td colspan="7" class="px-8 py-12 text-center text-gray-500">No records found in selected range</td></tr>';
+          document.getElementById('table-body').innerHTML = html || '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No records found</td></tr>';
         }
 
         function applyFilter() {
@@ -132,8 +117,16 @@ app.get("/dashboard", (req, res) => {
           renderTable(filtered);
 
           const total = filtered.reduce((sum, r) => sum + r.amount, 0);
-          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
-          document.getElementById('total-records').textContent = filtered.length;
+          document.getElementById('summary-cards').innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Filtered Total</p>
+              <p class="text-4xl font-bold text-green-600">$${total.toFixed(2)}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Records Shown</p>
+              <p class="text-4xl font-bold">${filtered.length}</p>
+            </div>
+          `;
         }
 
         function clearFilter() {
@@ -142,16 +135,32 @@ app.get("/dashboard", (req, res) => {
           renderTable(allRecords);
 
           const total = allRecords.reduce((sum, r) => sum + r.amount, 0);
-          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
-          document.getElementById('total-records').textContent = allRecords.length;
+          document.getElementById('summary-cards').innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Total Amount</p>
+              <p class="text-4xl font-bold text-green-600">$${total.toFixed(2)}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Total Records</p>
+              <p class="text-4xl font-bold">${allRecords.length}</p>
+            </div>
+          `;
         }
 
         // Initial load
         window.onload = () => {
           renderTable(allRecords);
           const total = allRecords.reduce((sum, r) => sum + r.amount, 0);
-          document.getElementById('total-amount').textContent = '$' + total.toFixed(2);
-          document.getElementById('total-records').textContent = allRecords.length;
+          document.getElementById('summary-cards').innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Total Amount</p>
+              <p class="text-4xl font-bold text-green-600">$${total.toFixed(2)}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow">
+              <p class="text-gray-500">Total Records</p>
+              <p class="text-4xl font-bold">${allRecords.length}</p>
+            </div>
+          `;
         };
       </script>
     </body>
