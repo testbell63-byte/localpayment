@@ -38,7 +38,7 @@ app.get("/dashboard", (req, res) => {
     });
   }
 
-  // Sort by newest first (date + time)
+  // Sort by newest first
   allRecords.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.time.localeCompare(a.time);
@@ -75,7 +75,7 @@ app.get("/dashboard", (req, res) => {
     <!-- Today Summary -->
     <div class="bg-white p-8 rounded-3xl shadow mb-10">
       <h2 class="text-2xl font-semibold mb-6">📅 Today (${today})</h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
         <div>
           <p class="text-gray-500">Total Amount</p>
           <p class="text-4xl font-bold text-green-600">$${todayAmount.toFixed(2)}</p>
@@ -87,10 +87,6 @@ app.get("/dashboard", (req, res) => {
         <div>
           <p class="text-gray-500">Transactions</p>
           <p class="text-4xl font-bold">${todayTransactions}</p>
-        </div>
-        <div>
-          <p class="text-gray-500">Avg Amount</p>
-          <p class="text-4xl font-bold">$${(todayTransactions ? (todayAmount / todayTransactions).toFixed(2) : '0.00')}</p>
         </div>
       </div>
     </div>
@@ -110,6 +106,23 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
 
+    <!-- Date Range Filter -->
+    <div class="bg-white p-6 rounded-3xl shadow mb-10">
+      <h3 class="font-semibold mb-4">Filter by Date Range</h3>
+      <div class="flex gap-4 items-end flex-wrap">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">From Date</label>
+          <input type="date" id="fromDate" class="border border-gray-300 rounded-lg px-4 py-2">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">To Date</label>
+          <input type="date" id="toDate" class="border border-gray-300 rounded-lg px-4 py-2">
+        </div>
+        <button onclick="applyFilter()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Apply</button>
+        <button onclick="resetFilter()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Reset</button>
+      </div>
+    </div>
+
     <!-- Recent Transactions (Newest First) -->
     <div class="bg-white rounded-3xl shadow overflow-hidden">
       <div class="px-8 py-5 border-b font-semibold flex justify-between">
@@ -117,6 +130,7 @@ app.get("/dashboard", (req, res) => {
         <div class="flex gap-4 text-sm">
           <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
           <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
+          <a href="/monthly.csv" class="text-blue-600 hover:underline">This Month CSV</a>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -133,7 +147,7 @@ app.get("/dashboard", (req, res) => {
             </tr>
           </thead>
           <tbody>
-            ${allRecords.slice(0, 100).map(r => `
+            ${allRecords.map(r => `
               <tr class="border-t hover:bg-gray-50">
                 <td class="px-8 py-4">${r.date}</td>
                 <td class="px-8 py-4">${r.time}</td>
@@ -152,21 +166,33 @@ app.get("/dashboard", (req, res) => {
   </div>
 
   <script>
-    // Auto refresh when new data is detected
-    let lastRecordCount = ${allRecords.length};
-    setInterval(() => {
-      fetch(window.location.href)
-        .then(r => r.text())
-        .then(html => {
-          const match = html.match(/Transactions<\/p>\s*<p class="text-4xl font-bold">(\d+)<\/p>/);
-          if (match) {
-            const currentCount = parseInt(match[1]);
-            if (currentCount > lastRecordCount) {
-              location.reload();
-            }
-          }
-        });
-    }, 10000); // Check every 10 seconds
+    function applyFilter() {
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      let filtered = allRecords;
+      if (from) filtered = filtered.filter(r => r.date >= from);
+      if (to) filtered = filtered.filter(r => r.date <= to);
+      // Re-render table (simple version)
+      let html = '';
+      filtered.forEach(r => {
+        html += `<tr class="border-t hover:bg-gray-50">
+          <td class="px-8 py-4">${r.date}</td>
+          <td class="px-8 py-4">${r.time}</td>
+          <td class="px-8 py-4 font-medium">${r.group}</td>
+          <td class="px-8 py-4">${r.employee}</td>
+          <td class="px-8 py-4 font-medium">$${r.amount}</td>
+          <td class="px-8 py-4">${r.game}</td>
+          <td class="px-8 py-4">${r.points}</td>
+        </tr>`;
+      });
+      document.querySelector('tbody').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records in selected range</td></tr>';
+    }
+
+    function resetFilter() {
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      location.reload();
+    }
   </script>
 </body>
 </html>`;
@@ -174,7 +200,7 @@ app.get("/dashboard", (req, res) => {
   res.send(html);
 });
 
-// CSV Routes - Newest first
+// CSV Routes
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
@@ -182,7 +208,7 @@ app.get("/records.csv", (req, res) => {
 
 app.get("/daily.csv", (req, res) => {
   const today = new Date().toISOString().split("T")[0];
-  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points\n";
+  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n";
   if (fs.existsSync(RECORDS_FILE)) {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(today)) csv += line + "\n"; });
@@ -193,7 +219,7 @@ app.get("/daily.csv", (req, res) => {
 
 app.get("/monthly.csv", (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
-  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points\n";
+  let csv = "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n";
   if (fs.existsSync(RECORDS_FILE)) {
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").split("\n");
     lines.slice(1).forEach(line => { if (line.startsWith(month)) csv += line + "\n"; });
