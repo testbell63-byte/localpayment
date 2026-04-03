@@ -17,15 +17,14 @@ function getCST() {
   return {
     date: cstTime.toISOString().split("T")[0],
     time: cstTime.toLocaleTimeString("en-US", { hour12: true, timeZone: "America/Chicago" }),
-    day: cstTime.toLocaleString("en-US", { weekday: "long", timeZone: "America/Chicago" }),
-    fullDate: cstTime
+    day: cstTime.toLocaleString("en-US", { weekday: "long", timeZone: "America/Chicago" })
   };
 }
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Webhook mode active - Daily & Monthly reports scheduled for report group:", REPORT_GROUP_ID);
+  console.log("[Bot] Webhook mode active - Daily & Monthly reports scheduled");
 
   const userState = new Map<any, any>();
 
@@ -61,7 +60,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // PHOTO
+  // PHOTO HANDLER
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -82,7 +81,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // CALLBACK
+  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -197,7 +196,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-        console.log(`✅ Record sent to report group`);
+        console.log("✅ Record sent to report group");
       } catch (e) {
         console.error("Failed to send record:", e);
       }
@@ -222,14 +221,37 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   });
 
-  // Daily summary at 00:00 CST
+  // Daily summary at 00:00 CST (06:00 UTC)
   setInterval(() => {
     const now = new Date();
-    const cst = getCST();
-    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) { // 00:00 CST = 06:00 UTC
-      bot.sendMessage(REPORT_GROUP_ID, `📊 **Daily Summary - ${cst.date} (${cst.day})**\n\nAll records saved in records.csv\nTotal transactions today: Check CSV for details.`);
-      console.log("Daily summary sent to report group");
+    if (now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {
+      const cst = getCST();
+      bot.sendMessage(REPORT_GROUP_ID, `📊 **Daily Summary - ${cst.date} (${cst.day})**\n\nAll today's records are saved in records.csv`);
+      console.log("Daily summary sent");
     }
-  }, 60000); // Check every minute
+  }, 60000);
 
-  // Monthly summary at end of month 00
+  // Monthly summary at 00:00 CST on the 1st of the month
+  setInterval(() => {
+    const now = new Date();
+    if (now.getDate() === 1 && now.getUTCHours() === 6 && now.getUTCMinutes() === 0) {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const monthName = lastMonth.toLocaleString('default', { month: 'long' });
+      bot.sendMessage(REPORT_GROUP_ID, `📅 **Monthly Summary - ${monthName} ${lastMonth.getFullYear()}**\n\nAll records for last month are saved in records.csv`);
+      console.log("Monthly summary sent");
+    }
+  }, 60000);
+
+  bot.onText(/\/start|\/help/, async (msg) => {
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.");
+  });
+
+  // Webhook setup
+  const webhookPath = `/bot${token}`;
+  bot.setWebHook(baseUrl + webhookPath)
+    .then(() => console.log("✅ Webhook set successfully"))
+    .catch(err => console.error("Webhook failed:", err));
+
+  console.log("[Bot] Ready (Webhook mode)");
+  return bot;
+}
