@@ -10,10 +10,11 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
-// Correct Chicago Central Time with automatic DST
+// Correct Chicago Time (automatic CST/CDT adjustment)
 function getCST() {
   const now = new Date();
   const options = { timeZone: "America/Chicago" };
+  
   return {
     date: now.toLocaleDateString("en-CA", options),           // YYYY-MM-DD
     time: now.toLocaleTimeString("en-US", { 
@@ -179,7 +180,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -194,16 +194,20 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send to REPORT GROUP only + forward screenshot
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg);
         await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-        console.log("✅ Record sent to report group");
-      } catch (e) {
-        console.error("Report group error:", e);
-      }
+      } catch (e) {}
 
-      // Thank you in main group
+      // Bright Blue Summary in Main Group
+      const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
+        `**Amount:** $${state.amount}\n\n` +
+        `**Games & Points:**\n` +
+        state.records.map((r: any, i: number) => `${i+1}. ${r.game}: ${r.points} points`).join("\n") +
+        `\n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
+
+      await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
+
       await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
 
       userState.delete(chatId);
