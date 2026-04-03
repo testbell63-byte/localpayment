@@ -10,13 +10,12 @@ if (!fs.existsSync(RECORDS_FILE)) {
 
 const REPORT_GROUP_ID = -1003718366443;
 
-// Correct Central Time with automatic DST adjustment
+// Correct Central Time (America/Chicago)
 function getCST() {
   const now = new Date();
   const options = { timeZone: "America/Chicago" };
-  
   return {
-    date: now.toLocaleDateString("en-CA", options),           // YYYY-MM-DD
+    date: now.toLocaleDateString("en-CA", options), // YYYY-MM-DD
     time: now.toLocaleTimeString("en-US", { 
       ...options, 
       hour: 'numeric', 
