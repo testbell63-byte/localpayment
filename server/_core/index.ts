@@ -16,11 +16,9 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Smart Auto-Refresh Dashboard
+// Smart Live Dashboard
 app.get("/dashboard", (req, res) => {
   let records = [];
-  let lastModified = "Never";
-
   if (fs.existsSync(RECORDS_FILE)) {
     const data = fs.readFileSync(RECORDS_FILE, "utf8");
     const lines = data.trim().split("\n").slice(1);
@@ -36,14 +34,14 @@ app.get("/dashboard", (req, res) => {
         points: parseFloat(cols[6]) || 0
       };
     });
-    lastModified = new Date(fs.statSync(RECORDS_FILE).mtime).toLocaleString();
   }
 
-  const today = new Date().toISOString().split("T")[0];
-  const thisMonth = today.substring(0, 7);
+  // Today's and This Month's totals using same logic as bot
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+  const thisMonthStr = todayStr.substring(0, 7);
 
-  const dailyRecords = records.filter(r => r.date === today);
-  const monthlyRecords = records.filter(r => r.date.startsWith(thisMonth));
+  const dailyRecords = records.filter(r => r.date === todayStr);
+  const monthlyRecords = records.filter(r => r.date.startsWith(thisMonthStr));
 
   const dailyAmount = dailyRecords.reduce((sum, r) => sum + r.amount, 0);
   const monthlyAmount = monthlyRecords.reduce((sum, r) => sum + r.amount, 0);
@@ -64,22 +62,22 @@ app.get("/dashboard", (req, res) => {
       <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-center mb-10">
           <h1 class="text-5xl font-bold">💰 Payment Tracker</h1>
-          <div class="text-sm text-green-600">Last updated: ${lastModified}</div>
+          <div class="text-sm text-green-600 font-medium" id="last-update">Live • Last updated just now</div>
         </div>
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div class="bg-white p-8 rounded-3xl shadow card">
             <p class="text-gray-500">Today's Total Amount</p>
-            <p class="text-5xl font-bold text-green-600">$${dailyAmount.toFixed(2)}</p>
+            <p class="text-5xl font-bold text-green-600" id="daily-amount">$${dailyAmount.toFixed(2)}</p>
           </div>
           <div class="bg-white p-8 rounded-3xl shadow card">
             <p class="text-gray-500">This Month's Total Amount</p>
-            <p class="text-5xl font-bold text-blue-600">$${monthlyAmount.toFixed(2)}</p>
+            <p class="text-5xl font-bold text-blue-600" id="monthly-amount">$${monthlyAmount.toFixed(2)}</p>
           </div>
           <div class="bg-white p-8 rounded-3xl shadow card">
             <p class="text-gray-500">Total Transactions</p>
-            <p class="text-5xl font-bold">${records.length}</p>
+            <p class="text-5xl font-bold" id="total-transactions">${records.length}</p>
           </div>
         </div>
 
@@ -105,7 +103,7 @@ app.get("/dashboard", (req, res) => {
                 <th class="px-8 py-4 text-left">Points</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="table-body">
   `;
 
   records.slice(0, 100).forEach(r => {
@@ -121,9 +119,64 @@ app.get("/dashboard", (req, res) => {
       </tr>`;
   });
 
-  html += `</tbody></table></div></div></body></html>`;
+  html += `</tbody></table></div></div>`;
+
+  // Live refresh script
+  html += `
+    <script>
+      let lastRecordCount = ${records.length};
+
+      function refreshDashboard() {
+        fetch('/dashboard-data')
+          .then(res => res.json())
+          .then(data => {
+            if (data.count > lastRecordCount) {
+              location.reload(); // New data → full refresh
+            } else {
+              // Update totals without reload
+              document.getElementById('daily-amount').textContent = '$' + data.dailyAmount.toFixed(2);
+              document.getElementById('monthly-amount').textContent = '$' + data.monthlyAmount.toFixed(2);
+              document.getElementById('total-transactions').textContent = data.count;
+              document.getElementById('last-update').textContent = 'Live • Just updated';
+            }
+          })
+          .catch(() => {});
+      }
+
+      // Check every 8 seconds
+      setInterval(refreshDashboard, 8000);
+    </script>
+  </html>`;
 
   res.send(html);
+});
+
+// API for live refresh
+app.get("/dashboard-data", (req, res) => {
+  let records = [];
+  if (fs.existsSync(RECORDS_FILE)) {
+    const data = fs.readFileSync(RECORDS_FILE, "utf8");
+    const lines = data.trim().split("\n").slice(1);
+    records = lines.map(line => {
+      const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      return { date: cols[0] || "" };
+    });
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const thisMonth = today.substring(0, 7);
+
+  const dailyAmount = records.filter(r => r.date === today).length > 0 ? 
+    records.filter(r => r.date === today).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0) : 0;
+
+  const monthlyAmount = records.filter(r => r.date.startsWith(thisMonth)).length > 0 ? 
+    records.filter(r => r.date.startsWith(thisMonth)).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0) : 0;
+
+  res.json({
+    count: records.length,
+    dailyAmount: dailyAmount,
+    monthlyAmount: monthlyAmount
+  });
 });
 
 // CSV Downloads
