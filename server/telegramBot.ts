@@ -8,42 +8,24 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === NEW REPORT GROUP ID (updated as per your message) ===
+// === YOUR NEW REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003782105748;
 
 export function initTelegramBot(token: string): TelegramBot {
   const bot = new TelegramBot(token, { polling: true });
 
-  console.log("[Bot] Improved Version Started - Report Group:", REPORT_GROUP_ID);
+  console.log("[Bot] Started - Reports will go to group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
   const numberKeyboard = {
     reply_markup: {
       inline_keyboard: [
-        [
-          { text: "1", callback_data: "num_1" },
-          { text: "2", callback_data: "num_2" },
-          { text: "3", callback_data: "num_3" }
-        ],
-        [
-          { text: "4", callback_data: "num_4" },
-          { text: "5", callback_data: "num_5" },
-          { text: "6", callback_data: "num_6" }
-        ],
-        [
-          { text: "7", callback_data: "num_7" },
-          { text: "8", callback_data: "num_8" },
-          { text: "9", callback_data: "num_9" }
-        ],
-        [
-          { text: "0", callback_data: "num_0" },
-          { text: ".", callback_data: "num_dot" }
-        ],
-        [
-          { text: "⬅️ Back", callback_data: "num_back" },
-          { text: "✅ Done", callback_data: "num_done" }
-        ]
+        [{ text: "1", callback_data: "num_1" }, { text: "2", callback_data: "num_2" }, { text: "3", callback_data: "num_3" }],
+        [{ text: "4", callback_data: "num_4" }, { text: "5", callback_data: "num_5" }, { text: "6", callback_data: "num_6" }],
+        [{ text: "7", callback_data: "num_7" }, { text: "8", callback_data: "num_8" }, { text: "9", callback_data: "num_9" }],
+        [{ text: "0", callback_data: "num_0" }, { text: ".", callback_data: "num_dot" }],
+        [{ text: "⬅️ Back", callback_data: "num_back" }, { text: "✅ Done", callback_data: "num_done" }]
       ]
     }
   };
@@ -68,7 +50,7 @@ export function initTelegramBot(token: string): TelegramBot {
     }
   };
 
-  // PHOTO HANDLER
+  // ====================== PHOTO ======================
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -79,48 +61,41 @@ export function initTelegramBot(token: string): TelegramBot {
       employeeName,
       selectedGames: [],
       records: [],
-      originalMessageId: msg.message_id,   // Important for attaching screenshot
-      originalChatId: chatId
+      originalMessageId: msg.message_id   // ← Crucial for attaching screenshot
     });
 
     await bot.sendMessage(chatId,
-      `📸 Screenshot received from ${employeeName}\n\n` +
-      `Step 1: Enter the deposited amount using keypad:`,
+      `📸 Screenshot received from ${employeeName}\n\nEnter the deposited amount:`,
       numberKeyboard
     );
   });
 
-  // CALLBACK HANDLER
+  // ====================== CALLBACK ======================
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
-    const state = userState.get(chatId);
+    let state = userState.get(chatId);
     if (!state) return;
 
-    // Numerical Keypad Logic (Amount + Points)
+    // ==================== NUMERIC KEYPAD ====================
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
-
-      if (!state.amountInput) state.amountInput = "";
 
       if (action === "back") {
         state.amountInput = state.amountInput.slice(0, -1);
       } else if (action === "dot") {
         if (!state.amountInput.includes(".")) state.amountInput += ".";
       } else if (action === "done") {
-        const value = parseFloat(state.amountInput);
+        const value = parseFloat(state.amountInput || "0");
         if (isNaN(value) || value <= 0) {
-          await bot.sendMessage(chatId, "❌ Please enter a valid number.");
+          await bot.sendMessage(chatId, "❌ Please enter a valid amount.");
           return;
         }
 
         if (state.step === "amount") {
           state.amount = value;
           state.step = "game";
-          await bot.sendMessage(chatId,
-            `✅ Amount saved: $${value}\n\nStep 2: Select games:`,
-            gameKeyboard
-          );
+          await bot.sendMessage(chatId, `✅ Amount: $${value}\n\nSelect games:`, gameKeyboard);
         } else if (state.step === "per_game_points") {
           const currentGame = state.selectedGames[state.currentGameIndex];
           const now = new Date();
@@ -140,56 +115,42 @@ export function initTelegramBot(token: string): TelegramBot {
 
           if (state.currentGameIndex < state.selectedGames.length) {
             state.amountInput = "";
-            await bot.sendMessage(chatId,
-              `Enter points for ${state.selectedGames[state.currentGameIndex]}:`,
-              numberKeyboard
-            );
+            await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, numberKeyboard);
           } else {
+            // Go to final confirmation
             state.step = "final_confirm";
-
-            let summaryText = `📋 **SUMMARY**\n\n`;
-            summaryText += `**Amount Received:** $${state.amount}\n\n`;
-            summaryText += `**Games & Points:**\n`;
-            let totalPoints = 0;
+            let summaryText = `📋 **SUMMARY**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
             state.records.forEach((r: any, i: number) => {
-              summaryText += `${i + 1}. ${r.game}: ${r.points} points\n`;
-              totalPoints += r.points;
+              summaryText += `${i+1}. ${r.game}: ${r.points} points\n`;
             });
-
-            summaryText += `\nDate: ${state.records[0].date} | Day: ${state.records[0].day} | Time: ${state.records[0].time}\n\n`;
-            summaryText += `Is everything correct?`;
 
             await bot.sendMessage(chatId, summaryText, {
               reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: "✅ Yes", callback_data: "confirm_yes" },
-                    { text: "❌ No", callback_data: "confirm_no" }
-                  ]
-                ]
+                inline_keyboard: [[
+                  { text: "✅ Yes - Save", callback_data: "confirm_yes" },
+                  { text: "❌ No", callback_data: "confirm_no" }
+                ]]
               }
             });
           }
+          return;
         }
-        return;
       } else {
-        state.amountInput += action;
+        state.amountInput = (state.amountInput || "") + action;
       }
 
-      await bot.editMessageText(
-        `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`,
-        {
-          chat_id: chatId,
-          message_id: query.message!.message_id,
-          reply_markup: numberKeyboard.reply_markup
-        }
-      );
+      // Update keypad message
+      await bot.editMessageText(`💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`, {
+        chat_id: chatId,
+        message_id: query.message!.message_id,
+        reply_markup: numberKeyboard.reply_markup
+      });
 
       await bot.answerCallbackQuery(query.id);
       return;
     }
 
-    // Game Selection
+    // ==================== GAME SELECTION ====================
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -202,41 +163,43 @@ export function initTelegramBot(token: string): TelegramBot {
         await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[0]}:`, numberKeyboard);
       } else if (data === "game_Other") {
         state.step = "custom_game";
-        await bot.sendMessage(chatId, "Type custom game name:");
+        await bot.sendMessage(chatId, "Type the custom game name:");
       } else {
         const game = data.replace("game_", "");
-        if (!state.selectedGames.includes(game)) {
-          state.selectedGames.push(game);
-        }
-        await bot.sendMessage(chatId,
-          `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`,
-          gameKeyboard
-        );
+        if (!state.selectedGames.includes(game)) state.selectedGames.push(game);
+        await bot.sendMessage(chatId, `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`, gameKeyboard);
       }
     }
 
-    // FINAL CONFIRMATION → Send to NEW REPORT GROUP with screenshot attached
+    // ==================== FINAL CONFIRMATION ====================
     if (state.step === "final_confirm" && data === "confirm_yes") {
+      // Save to CSV
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
         fs.appendFileSync(RECORDS_FILE, row);
       }
 
+      // Build success message
       let successMsg = `✅ **Saved Successfully!**\n\n`;
       successMsg += `**Amount Received:** $${state.amount}\n\n`;
       successMsg += `**Games & Points:**\n`;
       state.records.forEach((r: any, i: number) => {
-        successMsg += `${i + 1}. ${r.game}: ${r.points} points\n`;
+        successMsg += `${i+1}. ${r.game}: ${r.points} points\n`;
       });
-      successMsg += `\nDate: ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
+      successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send full summary + attached original screenshot to the NEW REPORT GROUP
-      await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
-        reply_to_message_id: state.originalMessageId   // This attaches the screenshot
-      });
+      // CRITICAL: Send to NEW GROUP with original screenshot attached
+      try {
+        await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
+          reply_to_message_id: state.originalMessageId
+        });
+        console.log(`✅ Summary sent to report group ${REPORT_GROUP_ID}`);
+      } catch (e) {
+        console.error("Failed to send to report group:", e);
+      }
 
-      // Short confirmation in the main group
-      await bot.sendMessage(chatId, "✅ Record saved and forwarded to report group.");
+      // Confirmation in main group
+      await bot.sendMessage(chatId, "✅ Record saved and sent to report group.");
 
       userState.delete(chatId);
     }
@@ -249,33 +212,21 @@ export function initTelegramBot(token: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game name handler
+  // Custom game name
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
-    const text = msg.text?.trim() || "";
     const state = userState.get(chatId);
-
     if (state && state.step === "custom_game") {
-      state.selectedGames.push(text);
+      state.selectedGames.push(msg.text!.trim());
       state.step = "game";
-      await bot.sendMessage(chatId,
-        `Added "${text}"\nSelected: ${state.selectedGames.join(", ")}`,
-        gameKeyboard
-      );
+      await bot.sendMessage(chatId, `Added "${msg.text}"\nSelected: ${state.selectedGames.join(", ")}`, gameKeyboard);
     }
   });
 
-  // Help command
   bot.onText(/\/start|\/help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id,
-      "👋 Payment Bot\n\n" +
-      "1. Send screenshot\n" +
-      "2. Enter amount with keypad\n" +
-      "3. Select games\n" +
-      "4. Enter points using keypad"
-    );
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\nUse keypad for amount and points.");
   });
 
-  console.log("[Bot] Ready - Reports will go to group:", REPORT_GROUP_ID);
+  console.log("[Bot] Ready");
   return bot;
 }
