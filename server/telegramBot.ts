@@ -8,13 +8,13 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR REPORT GROUP ID ===
-const REPORT_GROUP_ID = -1003782105748;
+// === YOUR NEW REPORT GROUP ID ===
+const REPORT_GROUP_ID = -1003718366443;
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Webhook mode - Summary goes ONLY to report group:", REPORT_GROUP_ID);
+  console.log("[Bot] Webhook mode active - All summaries go to group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -50,6 +50,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
+  // PHOTO → Start
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -69,12 +70,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
+  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
+    // Numeric keypad
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -147,6 +150,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
+    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -167,7 +171,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL STEP - Send ONLY to report group, no message in main group
+    // FINAL CONFIRMATION → ONLY to new report group
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -182,7 +186,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send to NEW REPORT GROUP with screenshot attached
+      // Send ONLY to new report group with screenshot attached
       try {
         await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
           reply_to_message_id: state.originalMessageId
@@ -202,6 +206,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
+  // Custom game name
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
