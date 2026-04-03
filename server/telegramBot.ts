@@ -8,13 +8,13 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Employee,Amount,Game,Points\n");
 }
 
-// === YOUR NEW REPORT GROUP ID ===
+// === YOUR REPORT GROUP ID ===
 const REPORT_GROUP_ID = -1003718366443;
 
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
 
-  console.log("[Bot] Webhook mode active - All summaries go to group:", REPORT_GROUP_ID);
+  console.log("[Bot] Webhook mode - Summary goes to report group:", REPORT_GROUP_ID);
 
   const userState = new Map<any, any>();
 
@@ -50,7 +50,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // PHOTO → Start
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -61,7 +60,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       employeeName,
       selectedGames: [],
       records: [],
-      originalMessageId: msg.message_id
+      originalMessageId: msg.message_id,
+      originalChatId: chatId   // Save main group chat ID
     });
 
     await bot.sendMessage(chatId,
@@ -70,14 +70,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     );
   });
 
-  // CALLBACK HANDLER
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Numeric keypad
     if (data.startsWith("num_")) {
       const action = data.replace("num_", "");
 
@@ -150,7 +148,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // Game selection
     if (state.step === "game") {
       if (data === "game_done") {
         if (state.selectedGames.length === 0) {
@@ -171,7 +168,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
     }
 
-    // FINAL CONFIRMATION → ONLY to new report group
+    // FINAL STEP - Send to report group + forward screenshot
     if (state.step === "final_confirm" && data === "confirm_yes") {
       for (const r of state.records) {
         const row = `${r.date},${r.time},${r.day},"${r.employee}",${r.amount},"${r.game}",${r.points}\n`;
@@ -186,14 +183,20 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       });
       successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
 
-      // Send ONLY to new report group with screenshot attached
+      // Send summary text to report group
       try {
-        await bot.sendMessage(REPORT_GROUP_ID, successMsg, {
-          reply_to_message_id: state.originalMessageId
-        });
-        console.log(`✅ Summary + screenshot sent to report group ${REPORT_GROUP_ID}`);
+        await bot.sendMessage(REPORT_GROUP_ID, successMsg);
+        console.log("✅ Summary text sent to report group");
       } catch (e) {
-        console.error("Failed to send to report group:", e);
+        console.error("Failed to send summary text:", e);
+      }
+
+      // Forward the original screenshot to report group
+      try {
+        await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId || state.originalMessageId ? chatId : chatId, state.originalMessageId);
+        console.log("✅ Screenshot forwarded to report group");
+      } catch (e) {
+        console.error("Failed to forward screenshot:", e);
       }
 
       userState.delete(chatId);
@@ -206,7 +209,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.answerCallbackQuery(query.id);
   });
 
-  // Custom game name
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
