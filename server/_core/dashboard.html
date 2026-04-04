@@ -20,67 +20,133 @@
     .view-section.active { display: block; }
   </style>
 </head>
-<body class="bg-gray-50 p-6">
+<body class="bg-gray-50 p-4 md:p-6">
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
+    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
 
     <!-- Navigation Tabs -->
-    <div class="flex flex-wrap gap-3 mb-8">
-      <button class="tab-btn active" onclick="switchView('overview')">📊 Overview</button>
-      <button class="tab-btn" onclick="switchView('cashin')">💵 Cash-In</button>
-      <button class="tab-btn" onclick="switchView('cashout')">💸 Cashout</button>
-      <button class="tab-btn" onclick="switchView('gameDistribution')">🎮 Game Distribution</button>
-      <button class="tab-btn" onclick="switchView('dailyHolding')">📅 Daily Holding</button>
+    <div class="flex flex-wrap gap-2 md:gap-3 mb-8">
+      <button class="tab-btn active" data-view="overview" onclick="switchView('overview', this)">📊 Overview</button>
+      <button class="tab-btn" data-view="cashin" onclick="switchView('cashin', this)">💵 Cash-In</button>
+      <button class="tab-btn" data-view="cashout" onclick="switchView('cashout', this)">💸 Cashout</button>
+      <button class="tab-btn" data-view="gameDistribution" onclick="switchView('gameDistribution', this)">🎮 Game Distribution</button>
+      <button class="tab-btn" data-view="dailyHolding" onclick="switchView('dailyHolding', this)">📅 Daily Holding</button>
     </div>
 
     <!-- ==================== OVERVIEW ==================== -->
     <div id="view-overview" class="view-section active">
+      <!-- Filters -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Overview Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ovFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ovFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+              <select id="ovFilterMonth" class="px-3 py-2 border rounded-lg">
+                <option value="">All Months</option>
+              </select>
+            </div>
+            <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          </div>
+          <button onclick="exportOverviewExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export All Data</button>
+        </div>
+      </div>
+
       <!-- Summary Cards -->
       <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
-        <h2 class="text-2xl font-semibold mb-6">📈 Today's Summary ({{TODAY}})</h2>
+        <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div>
             <p class="text-blue-100 text-sm">Total Cash-In</p>
-            <p class="text-3xl font-bold" id="todayCashIn">$0.00</p>
+            <p class="text-3xl font-bold" id="ovTotalCashIn">$0.00</p>
           </div>
           <div>
             <p class="text-blue-100 text-sm">Points Used (Cash-In)</p>
-            <p class="text-3xl font-bold" id="todayPointsUsed">0</p>
+            <p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p>
           </div>
           <div>
             <p class="text-blue-100 text-sm">Total Cashout</p>
-            <p class="text-3xl font-bold" id="todayCashout">$0.00</p>
+            <p class="text-3xl font-bold" id="ovTotalCashout">$0.00</p>
           </div>
           <div>
             <p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p>
-            <p class="text-3xl font-bold" id="todayPointsRedeemed">0</p>
+            <p class="text-3xl font-bold" id="ovTotalPointsRedeemed">0</p>
           </div>
         </div>
       </div>
 
-      <!-- Today's Net -->
+      <!-- Net -->
       <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-3xl shadow text-white mb-6">
-        <div class="flex justify-between items-center">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
           <div>
-            <p class="text-emerald-100 text-sm">Today's Net (Cash-In - Cashout)</p>
-            <p class="text-4xl font-bold" id="todayNet">$0.00</p>
+            <p class="text-emerald-100 text-sm">Net (Cash-In - Cashout)</p>
+            <p class="text-4xl font-bold" id="ovNet">$0.00</p>
           </div>
           <div>
-            <p class="text-emerald-100 text-sm">Transactions</p>
-            <p class="text-4xl font-bold" id="todayTransactions">0</p>
+            <p class="text-emerald-100 text-sm">Cash-In Transactions</p>
+            <p class="text-4xl font-bold" id="ovCiCount">0</p>
           </div>
+          <div>
+            <p class="text-emerald-100 text-sm">Cashout Transactions</p>
+            <p class="text-4xl font-bold" id="ovCoCount">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Data -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cashout</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashout">Loading...</div>
         </div>
       </div>
 
       <!-- Charts -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">📈 Daily Cash-In Trend</h3>
+          <h3 class="text-xl font-semibold mb-4">📈 Daily Trend</h3>
           <canvas id="trendChart" height="150"></canvas>
         </div>
         <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">📊 Cash-In Platform Distribution</h3>
+          <h3 class="text-xl font-semibold mb-4">📊 Cash-In Game Distribution</h3>
           <canvas id="platformChart" height="150"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent Transactions (Combined) -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
+        <div class="px-8 py-5 border-b font-semibold">Recent Transactions (All — Newest First)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Type</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Redeem</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
+              </tr>
+            </thead>
+            <tbody id="ovRecentTable"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -89,18 +155,40 @@
     <div id="view-cashin" class="view-section">
       <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h2 class="text-xl font-semibold mb-4">⚙️ Cash-In Filters</h2>
-        <div class="flex flex-wrap gap-4 items-end">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Cash-In Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          </div>
+          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cash-In</button>
+        </div>
+      </div>
+
+      <!-- Cash-In Summary -->
+      <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">💵 Cash-In Summary</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+            <p class="text-green-100 text-sm">Total Cash-In</p>
+            <p class="text-3xl font-bold" id="ciTotalAmount">$0.00</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+            <p class="text-green-100 text-sm">Total Points Used</p>
+            <p class="text-3xl font-bold" id="ciTotalPoints">0</p>
           </div>
-          <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          <div>
+            <p class="text-green-100 text-sm">Transaction Count</p>
+            <p class="text-3xl font-bold" id="ciCount">0</p>
+          </div>
         </div>
       </div>
 
@@ -118,16 +206,18 @@
 
       <!-- Cash-In Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Recent Cash-In Transactions (Newest First)</div>
+        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First)</div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-4 text-left">Date</th>
-                <th class="px-6 py-4 text-left">Employee</th>
-                <th class="px-6 py-4 text-left">Amount</th>
-                <th class="px-6 py-4 text-left">Game</th>
-                <th class="px-6 py-4 text-left">Points</th>
+                <th class="px-5 py-4 text-left">Date</th>
+                <th class="px-5 py-4 text-left">Time</th>
+                <th class="px-5 py-4 text-left">Employee</th>
+                <th class="px-5 py-4 text-left">Group</th>
+                <th class="px-5 py-4 text-left">Amount</th>
+                <th class="px-5 py-4 text-left">Game</th>
+                <th class="px-5 py-4 text-left">Points</th>
               </tr>
             </thead>
             <tbody id="cashInTable"></tbody>
@@ -140,7 +230,7 @@
     <div id="view-cashout" class="view-section">
       <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end">
+        <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
             <div>
@@ -154,7 +244,7 @@
             <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
             <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium mt-4 lg:mt-0">📥 Export Excel</button>
+          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cashout</button>
         </div>
       </div>
 
@@ -179,25 +269,26 @@
 
       <!-- Points Redeemed by Game -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h3 class="text-2xl font-semibold mb-4">🎮 Points Redeemed by Game (Net Redeem = Points - Playback)</h3>
+        <h3 class="text-2xl font-semibold mb-4">🎮 Points Redeemed by Game (Net = Points - Playback)</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
       <!-- Cashout Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Recent Cashout Transactions (Newest First)</div>
+        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First)</div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-5 py-4 text-left">Date</th>
-                <th class="px-5 py-4 text-left">Employee</th>
-                <th class="px-5 py-4 text-left">Game</th>
-                <th class="px-5 py-4 text-left">Points</th>
-                <th class="px-5 py-4 text-left">Playback</th>
-                <th class="px-5 py-4 text-left">Net Redeem</th>
-                <th class="px-5 py-4 text-left">Tip</th>
-                <th class="px-5 py-4 text-left">Cashout</th>
+                <th class="px-4 py-4 text-left">Date</th>
+                <th class="px-4 py-4 text-left">Employee</th>
+                <th class="px-4 py-4 text-left">Group</th>
+                <th class="px-4 py-4 text-left">Game</th>
+                <th class="px-4 py-4 text-left">Points</th>
+                <th class="px-4 py-4 text-left">Playback</th>
+                <th class="px-4 py-4 text-left">Net Redeem</th>
+                <th class="px-4 py-4 text-left">Tip</th>
+                <th class="px-4 py-4 text-left">Cashout</th>
               </tr>
             </thead>
             <tbody id="cashoutTable"></tbody>
@@ -210,18 +301,21 @@
     <div id="view-gameDistribution" class="view-section">
       <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap gap-4 items-end">
-          <h2 class="text-xl font-semibold">⚙️ Game Distribution Filters</h2>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Game Distribution Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyGameDistFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetGameDistFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
-          </div>
-          <button onclick="applyGameDistFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetGameDistFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          <button onclick="exportGameDistExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Game Data</button>
         </div>
       </div>
 
@@ -266,17 +360,20 @@
     <div id="view-dailyHolding" class="view-section">
       <!-- Date Picker -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap gap-4 items-end">
-          <h2 class="text-xl font-semibold">📅 Daily Holding (Cash-In - Cashout)</h2>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
-            <input type="date" id="holdingDate" class="px-3 py-2 border rounded-lg" onchange="updateHoldingForDate()">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">📅 Daily Holding (Cash-In - Cashout)</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+              <input type="date" id="holdingDate" class="px-3 py-2 border rounded-lg" onchange="updateHoldingForDate()">
+            </div>
           </div>
+          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Holding</button>
         </div>
       </div>
 
       <!-- Selected Date Detail -->
-      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6" id="holdingDetail">
+      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6" id="holdingDateTitle">Select a date above</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div>
@@ -299,7 +396,7 @@
       </div>
 
       <!-- Daily Holding History Table -->
-      <div class="bg-white rounded-3xl shadow overflow-hidden">
+      <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
         <div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div>
         <div class="overflow-x-auto">
           <table class="w-full">
@@ -318,7 +415,7 @@
       </div>
 
       <!-- Holding Chart -->
-      <div class="bg-white p-6 rounded-3xl shadow mt-6">
+      <div class="bg-white p-6 rounded-3xl shadow">
         <h3 class="text-xl font-semibold mb-4">📈 Daily Holding Trend</h3>
         <canvas id="holdingChart" height="150"></canvas>
       </div>
@@ -331,18 +428,41 @@
     let allCashoutTransactions = [];
     let trendChart, platformChart, gdCashInChart, gdCashoutChart, holdingChart;
 
-    // Filtered data
+    // Filtered data per view
+    let filteredOvCashIn = [];
+    let filteredOvCashout = [];
     let filteredCashIn = [];
     let filteredCashout = [];
     let filteredGdCashIn = [];
     let filteredGdCashout = [];
 
+    // ========== HELPERS ==========
+    function getNetRedeem(co) {
+      const points = co.points || 0;
+      const playback = parseFloat(co.playback_id) || 0;
+      return points - playback;
+    }
+
+    function getCashoutDate(co) {
+      if (!co.created_at) return "";
+      // Handle both ISO and plain date formats
+      return co.created_at.includes("T") ? co.created_at.split("T")[0] : co.created_at.split(" ")[0];
+    }
+
+    function getCSTDate() {
+      const now = new Date();
+      const cst = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+      return cst.toISOString().split("T")[0];
+    }
+
+    const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#06b6d4","#e11d48"];
+
     // ========== VIEW SWITCHING ==========
-    function switchView(view) {
+    function switchView(view, btn) {
       document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('view-' + view).classList.add('active');
-      event.target.classList.add('active');
+      if (btn) btn.classList.add('active');
       updateAllViews();
     }
 
@@ -352,12 +472,30 @@
         const [tRes, cRes] = await Promise.all([fetch("/api/transactions"), fetch("/api/cashout-transactions")]);
         allTransactions = (await tRes.json()).transactions || [];
         allCashoutTransactions = (await cRes.json()).cashoutTransactions || [];
+        // Reset all filters to full data
+        filteredOvCashIn = [...allTransactions];
+        filteredOvCashout = [...allCashoutTransactions];
         filteredCashIn = [...allTransactions];
         filteredCashout = [...allCashoutTransactions];
         filteredGdCashIn = [...allTransactions];
         filteredGdCashout = [...allCashoutTransactions];
+        populateMonthDropdown();
         updateAllViews();
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error("Load error:", e); }
+    }
+
+    function populateMonthDropdown() {
+      const months = new Set();
+      allTransactions.forEach(t => { if (t.date) months.add(t.date.slice(0, 7)); });
+      allCashoutTransactions.forEach(t => { const d = getCashoutDate(t); if (d) months.add(d.slice(0, 7)); });
+      const sel = document.getElementById("ovFilterMonth");
+      const current = sel.value;
+      sel.innerHTML = '<option value="">All Months</option>';
+      Array.from(months).sort().reverse().forEach(m => {
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        sel.innerHTML += `<option value="${m}" ${m === current ? 'selected' : ''}>${label}</option>`;
+      });
     }
 
     function updateAllViews() {
@@ -368,62 +506,129 @@
       updateDailyHolding();
     }
 
-    // ========== HELPER: Net Redeem for cashout ==========
-    function getNetRedeem(co) {
-      const points = co.points || 0;
-      const playback = parseFloat(co.playback_id) || 0;
-      return points - playback;
-    }
-
-    function getCashoutDate(co) {
-      return (co.created_at || "").split("T")[0];
-    }
-
     // ========== OVERVIEW ==========
+    function applyOverviewFilter() {
+      const start = document.getElementById("ovFilterStart").value;
+      const end = document.getElementById("ovFilterEnd").value;
+      const month = document.getElementById("ovFilterMonth").value;
+      filteredOvCashIn = allTransactions.filter(t => {
+        if (month && !t.date.startsWith(month)) return false;
+        if (start && t.date < start) return false;
+        if (end && t.date > end) return false;
+        return true;
+      });
+      filteredOvCashout = allCashoutTransactions.filter(t => {
+        const d = getCashoutDate(t);
+        if (month && !d.startsWith(month)) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+      updateOverview();
+    }
+    function resetOverviewFilter() {
+      document.getElementById("ovFilterStart").value = "";
+      document.getElementById("ovFilterEnd").value = "";
+      document.getElementById("ovFilterMonth").value = "";
+      filteredOvCashIn = [...allTransactions];
+      filteredOvCashout = [...allCashoutTransactions];
+      updateOverview();
+    }
+
     function updateOverview() {
-      const today = new Date().toISOString().split("T")[0];
-      const todayCashInRecords = allTransactions.filter(r => r.date === today);
-      const todayCashoutRecords = allCashoutTransactions.filter(r => getCashoutDate(r) === today);
+      const ciAmount = filteredOvCashIn.reduce((s, r) => s + r.amount, 0);
+      const ciPoints = filteredOvCashIn.reduce((s, r) => s + r.points, 0);
+      const coAmount = filteredOvCashout.reduce((s, r) => s + r.amount, 0);
+      const coRedeemed = filteredOvCashout.reduce((s, r) => s + getNetRedeem(r), 0);
 
-      const ciAmount = todayCashInRecords.reduce((s, r) => s + r.amount, 0);
-      const ciPoints = todayCashInRecords.reduce((s, r) => s + r.points, 0);
-      const coAmount = todayCashoutRecords.reduce((s, r) => s + r.amount, 0);
-      const coRedeemed = todayCashoutRecords.reduce((s, r) => s + getNetRedeem(r), 0);
+      document.getElementById("ovTotalCashIn").textContent = "$" + ciAmount.toFixed(2);
+      document.getElementById("ovTotalPointsUsed").textContent = ciPoints.toFixed(0);
+      document.getElementById("ovTotalCashout").textContent = "$" + coAmount.toFixed(2);
+      document.getElementById("ovTotalPointsRedeemed").textContent = coRedeemed.toFixed(0);
+      document.getElementById("ovNet").textContent = "$" + (ciAmount - coAmount).toFixed(2);
+      document.getElementById("ovCiCount").textContent = filteredOvCashIn.length;
+      document.getElementById("ovCoCount").textContent = filteredOvCashout.length;
 
-      document.getElementById("todayCashIn").textContent = "$" + ciAmount.toFixed(2);
-      document.getElementById("todayPointsUsed").textContent = ciPoints.toFixed(0);
-      document.getElementById("todayCashout").textContent = "$" + coAmount.toFixed(2);
-      document.getElementById("todayPointsRedeemed").textContent = coRedeemed.toFixed(0);
-      document.getElementById("todayNet").textContent = "$" + (ciAmount - coAmount).toFixed(2);
-      document.getElementById("todayTransactions").textContent = todayCashInRecords.length + todayCashoutRecords.length;
+      // Monthly Cash-In
+      const mci = {};
+      filteredOvCashIn.forEach(t => { const m = t.date.slice(0, 7); mci[m] = (mci[m] || 0) + t.amount; });
+      document.getElementById("ovMonthlyCashIn").innerHTML = Object.keys(mci).sort().reverse().map(m => {
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        return `<div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${label}</span><span class="font-bold text-green-600">$${mci[m].toFixed(2)}</span></div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
 
-      // Trend Chart
+      // Monthly Cashout
+      const mco = {};
+      filteredOvCashout.forEach(t => { const m = getCashoutDate(t).slice(0, 7); if (m) mco[m] = (mco[m] || 0) + t.amount; });
+      document.getElementById("ovMonthlyCashout").innerHTML = Object.keys(mco).sort().reverse().map(m => {
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        return `<div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${label}</span><span class="font-bold text-red-600">$${mco[m].toFixed(2)}</span></div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Trend Chart (Cash-In + Cashout)
       if (trendChart) trendChart.destroy();
-      const dailyData = {};
-      allTransactions.forEach(t => { dailyData[t.date] = (dailyData[t.date] || 0) + t.amount; });
-      const dates = Object.keys(dailyData).sort();
+      const dailyCi = {}, dailyCo = {};
+      filteredOvCashIn.forEach(t => { dailyCi[t.date] = (dailyCi[t.date] || 0) + t.amount; });
+      filteredOvCashout.forEach(t => { const d = getCashoutDate(t); if (d) dailyCo[d] = (dailyCo[d] || 0) + t.amount; });
+      const allDates = [...new Set([...Object.keys(dailyCi), ...Object.keys(dailyCo)])].sort();
       const ctxTrend = document.getElementById("trendChart");
       if (ctxTrend) {
         trendChart = new Chart(ctxTrend, {
           type: "line",
-          data: { labels: dates, datasets: [{ label: "Cash-In ($)", data: dates.map(d => dailyData[d]), borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3 }] },
-          options: { responsive: true, plugins: { legend: { display: true } } }
+          data: {
+            labels: allDates,
+            datasets: [
+              { label: "Cash-In ($)", data: allDates.map(d => dailyCi[d] || 0), borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3 },
+              { label: "Cashout ($)", data: allDates.map(d => dailyCo[d] || 0), borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.1)", fill: true, tension: 0.3 }
+            ]
+          },
+          options: { responsive: true }
         });
       }
 
       // Platform Chart
       if (platformChart) platformChart.destroy();
       const pData = {};
-      allTransactions.forEach(t => { pData[t.game || "Unknown"] = (pData[t.game || "Unknown"] || 0) + t.amount; });
-      const ctxPlatform = document.getElementById("platformChart");
-      if (ctxPlatform) {
-        const colors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#06b6d4","#e11d48"];
-        platformChart = new Chart(ctxPlatform, {
+      filteredOvCashIn.forEach(t => { pData[t.game || "Unknown"] = (pData[t.game || "Unknown"] || 0) + t.amount; });
+      const ctxP = document.getElementById("platformChart");
+      if (ctxP) {
+        platformChart = new Chart(ctxP, {
           type: "doughnut",
-          data: { labels: Object.keys(pData), datasets: [{ data: Object.values(pData), backgroundColor: colors }] },
+          data: { labels: Object.keys(pData), datasets: [{ data: Object.values(pData), backgroundColor: COLORS }] },
           options: { responsive: true }
         });
       }
+
+      // Combined Recent Transactions
+      const combined = [];
+      filteredOvCashIn.forEach(t => {
+        combined.push({ type: "Cash-In", date: t.date, time: t.time || "", employee: t.employee, group: t.group, game: t.game, amount: t.amount, points: t.points, playback: "-", netRedeem: "-", tip: "-", sortDate: t.date });
+      });
+      filteredOvCashout.forEach(t => {
+        const d = getCashoutDate(t);
+        const pb = parseFloat(t.playback_id) || 0;
+        combined.push({ type: "Cashout", date: d, time: "", employee: t.employee, group: t.group, game: t.game || "Unknown", amount: t.amount, points: t.points, playback: pb, netRedeem: getNetRedeem(t), tip: "$" + (t.tip || 0).toFixed(2), sortDate: d });
+      });
+      combined.sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
+      document.getElementById("ovRecentTable").innerHTML = combined.slice(0, 100).map(r => {
+        const typeClass = r.type === "Cash-In" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
+        const amtClass = r.type === "Cash-In" ? "text-green-600" : "text-red-600";
+        return `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${typeClass}">${r.type}</span></td>
+          <td class="px-4 py-3">${r.date}</td>
+          <td class="px-4 py-3">${r.employee}</td>
+          <td class="px-4 py-3 text-sm text-gray-500">${r.group}</td>
+          <td class="px-4 py-3">${r.game}</td>
+          <td class="px-4 py-3 font-medium ${amtClass}">$${r.amount.toFixed(2)}</td>
+          <td class="px-4 py-3">${r.points}</td>
+          <td class="px-4 py-3">${r.playback}</td>
+          <td class="px-4 py-3">${r.netRedeem === "-" ? "-" : r.netRedeem.toFixed(0)}</td>
+          <td class="px-4 py-3">${r.tip}</td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="10" class="px-4 py-4 text-gray-400">No data</td></tr>';
     }
 
     // ========== CASH-IN VIEW ==========
@@ -445,36 +650,40 @@
     }
 
     function updateCashInView() {
-      // Daily Cash-In
+      const totalAmt = filteredCashIn.reduce((s, r) => s + r.amount, 0);
+      const totalPts = filteredCashIn.reduce((s, r) => s + r.points, 0);
+      document.getElementById("ciTotalAmount").textContent = "$" + totalAmt.toFixed(2);
+      document.getElementById("ciTotalPoints").textContent = totalPts.toFixed(0);
+      document.getElementById("ciCount").textContent = filteredCashIn.length;
+
+      // Daily
       const dailyTotals = {};
       filteredCashIn.forEach(t => { dailyTotals[t.date] = (dailyTotals[t.date] || 0) + t.amount; });
       document.getElementById("dailyCashIn").innerHTML = Object.keys(dailyTotals).sort().reverse().map(d => `
-        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between">
-          <span class="font-medium">${d}</span>
-          <span class="font-bold text-green-600">$${dailyTotals[d].toFixed(2)}</span>
-        </div>
+        <div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${d}</span><span class="font-bold text-green-600">$${dailyTotals[d].toFixed(2)}</span></div>
       `).join("") || '<p class="text-gray-400">No data</p>';
 
-      // Monthly Cash-In
+      // Monthly
       const monthlyTotals = {};
       filteredCashIn.forEach(t => { const m = t.date.slice(0, 7); monthlyTotals[m] = (monthlyTotals[m] || 0) + t.amount; });
-      document.getElementById("monthlyCashIn").innerHTML = Object.keys(monthlyTotals).sort().reverse().map(m => `
-        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between">
-          <span class="font-medium">${m}</span>
-          <span class="font-bold text-purple-600">$${monthlyTotals[m].toFixed(2)}</span>
-        </div>
-      `).join("") || '<p class="text-gray-400">No data</p>';
+      document.getElementById("monthlyCashIn").innerHTML = Object.keys(monthlyTotals).sort().reverse().map(m => {
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        return `<div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${label}</span><span class="font-bold text-purple-600">$${monthlyTotals[m].toFixed(2)}</span></div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
 
       // Table
       document.getElementById("cashInTable").innerHTML = filteredCashIn.slice().reverse().slice(0, 100).map(t => `
         <tr class="border-t hover:bg-gray-50">
-          <td class="px-6 py-4">${t.date}</td>
-          <td class="px-6 py-4">${t.employee}</td>
-          <td class="px-6 py-4 font-medium text-green-600">$${t.amount.toFixed(2)}</td>
-          <td class="px-6 py-4">${t.game}</td>
-          <td class="px-6 py-4">${t.points}</td>
+          <td class="px-5 py-4">${t.date}</td>
+          <td class="px-5 py-4 text-sm text-gray-500">${t.time || ""}</td>
+          <td class="px-5 py-4">${t.employee}</td>
+          <td class="px-5 py-4 text-sm text-gray-500">${t.group}</td>
+          <td class="px-5 py-4 font-medium text-green-600">$${t.amount.toFixed(2)}</td>
+          <td class="px-5 py-4">${t.game}</td>
+          <td class="px-5 py-4">${t.points}</td>
         </tr>
-      `).join("") || '<tr><td colspan="5" class="px-6 py-4 text-gray-400">No data</td></tr>';
+      `).join("") || '<tr><td colspan="7" class="px-5 py-4 text-gray-400">No data</td></tr>';
     }
 
     // ========== CASHOUT VIEW ==========
@@ -499,17 +708,13 @@
     function updateCashoutView() {
       const totalCashout = filteredCashout.reduce((s, r) => s + r.amount, 0);
       const totalRedeemed = filteredCashout.reduce((s, r) => s + getNetRedeem(r), 0);
-
       document.getElementById("coTotalCashout").textContent = "$" + totalCashout.toFixed(2);
       document.getElementById("coTotalRedeemed").textContent = totalRedeemed.toFixed(0);
       document.getElementById("coCount").textContent = filteredCashout.length;
 
       // Game breakdown
       const gamePoints = {};
-      filteredCashout.forEach(co => {
-        const game = co.game || "Unknown";
-        gamePoints[game] = (gamePoints[game] || 0) + getNetRedeem(co);
-      });
+      filteredCashout.forEach(co => { const g = co.game || "Unknown"; gamePoints[g] = (gamePoints[g] || 0) + getNetRedeem(co); });
       document.getElementById("coGameBreakdown").innerHTML = Object.entries(gamePoints).map(([game, pts]) => `
         <div class="p-4 rounded-xl bg-gray-50 border text-center">
           <p class="text-sm text-gray-500">${game}</p>
@@ -521,80 +726,19 @@
       // Table
       document.getElementById("cashoutTable").innerHTML = filteredCashout.slice().reverse().slice(0, 100).map(t => {
         const nr = getNetRedeem(t);
-        const playback = parseFloat(t.playback_id) || 0;
-        return `
-          <tr class="border-t hover:bg-gray-50">
-            <td class="px-5 py-4">${getCashoutDate(t)}</td>
-            <td class="px-5 py-4">${t.employee}</td>
-            <td class="px-5 py-4">${t.game || "Unknown"}</td>
-            <td class="px-5 py-4">${t.points}</td>
-            <td class="px-5 py-4">${playback}</td>
-            <td class="px-5 py-4 font-medium text-orange-600">${nr.toFixed(0)}</td>
-            <td class="px-5 py-4">$${t.tip.toFixed(2)}</td>
-            <td class="px-5 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td>
-          </tr>
-        `;
-      }).join("") || '<tr><td colspan="8" class="px-5 py-4 text-gray-400">No data</td></tr>';
-    }
-
-    // ========== EXCEL EXPORT ==========
-    function exportCashoutExcel() {
-      const data = filteredCashout.map(t => ({
-        Date: getCashoutDate(t),
-        Employee: t.employee,
-        Group: t.group,
-        Game: t.game || "Unknown",
-        Points: t.points,
-        Playback: parseFloat(t.playback_id) || 0,
-        "Net Redeem": getNetRedeem(t),
-        Tip: t.tip,
-        Cashout: t.amount,
-        "Cashout ID": t.id
-      }));
-
-      // Add game summary sheet
-      const gamePoints = {};
-      filteredCashout.forEach(co => {
-        const game = co.game || "Unknown";
-        gamePoints[game] = (gamePoints[game] || 0) + getNetRedeem(co);
-      });
-      const gameSummary = Object.entries(gamePoints).map(([game, pts]) => ({
-        Game: game,
-        "Points Redeemed (Net)": pts
-      }));
-      gameSummary.push({ Game: "TOTAL", "Points Redeemed (Net)": Object.values(gamePoints).reduce((a, b) => a + b, 0) });
-
-      // Total cashout row
-      data.push({
-        Date: "", Employee: "", Group: "", Game: "", Points: "", Playback: "",
-        "Net Redeem": "", Tip: "TOTAL CASHOUT:",
-        Cashout: filteredCashout.reduce((s, r) => s + r.amount, 0),
-        "Cashout ID": ""
-      });
-
-      const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws1, "Cashout Transactions");
-      const ws2 = XLSX.utils.json_to_sheet(gameSummary);
-      XLSX.utils.book_append_sheet(wb, ws2, "Points Redeemed by Game");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-        filteredCashout.reduce((acc, co) => {
-          const d = getCashoutDate(co);
-          if (!acc.find(x => x.Date === d)) {
-            const dayRecords = filteredCashout.filter(c => getCashoutDate(c) === d);
-            const dayCashout = dayRecords.reduce((s, r) => s + r.amount, 0);
-            const dayRedeemed = dayRecords.reduce((s, r) => s + getNetRedeem(r), 0);
-            const dayGames = {};
-            dayRecords.forEach(r => { dayGames[r.game || "Unknown"] = (dayGames[r.game || "Unknown"] || 0) + getNetRedeem(r); });
-            const row = { Date: d, "Total Cashout": dayCashout, "Total Points Redeemed": dayRedeemed };
-            Object.entries(dayGames).forEach(([g, p]) => { row[g + " (Redeemed)"] = p; });
-            acc.push(row);
-          }
-          return acc;
-        }, []).sort((a, b) => b.Date.localeCompare(a.Date))
-      ), "Daily Summary");
-
-      XLSX.writeFile(wb, "cashout_report.xlsx");
+        const pb = parseFloat(t.playback_id) || 0;
+        return `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-4">${getCashoutDate(t)}</td>
+          <td class="px-4 py-4">${t.employee}</td>
+          <td class="px-4 py-4 text-sm text-gray-500">${t.group}</td>
+          <td class="px-4 py-4">${t.game || "Unknown"}</td>
+          <td class="px-4 py-4">${t.points}</td>
+          <td class="px-4 py-4">${pb}</td>
+          <td class="px-4 py-4 font-medium text-orange-600">${nr.toFixed(0)}</td>
+          <td class="px-4 py-4">$${(t.tip || 0).toFixed(2)}</td>
+          <td class="px-4 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="9" class="px-4 py-4 text-gray-400">No data</td></tr>';
     }
 
     // ========== GAME DISTRIBUTION ==========
@@ -623,102 +767,86 @@
     }
 
     function updateGameDistribution() {
-      const colors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#06b6d4","#e11d48"];
-
       // Daily Cash-In by Game
       const dailyCiGames = {};
       filteredGdCashIn.forEach(t => {
         if (!dailyCiGames[t.date]) dailyCiGames[t.date] = {};
-        const game = t.game || "Unknown";
-        dailyCiGames[t.date][game] = (dailyCiGames[t.date][game] || 0) + t.points;
+        const g = t.game || "Unknown";
+        dailyCiGames[t.date][g] = (dailyCiGames[t.date][g] || 0) + t.points;
       });
       document.getElementById("gdDailyCashIn").innerHTML = Object.keys(dailyCiGames).sort().reverse().map(d => {
         const games = dailyCiGames[d];
         const total = Object.values(games).reduce((a, b) => a + b, 0);
-        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
-        return `<div class="p-4 rounded-lg bg-gray-50 border">
-          <div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-blue-600">Total: ${total}</span></div>
-          <div class="text-gray-600">${gameList}</div>
-        </div>`;
+        const list = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
+        return `<div class="p-3 rounded-lg bg-gray-50 border"><div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-blue-600">Total: ${total}</span></div><div class="text-gray-600">${list}</div></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
       // Daily Cashout by Game
       const dailyCoGames = {};
       filteredGdCashout.forEach(t => {
         const d = getCashoutDate(t);
+        if (!d) return;
         if (!dailyCoGames[d]) dailyCoGames[d] = {};
-        const game = t.game || "Unknown";
-        dailyCoGames[d][game] = (dailyCoGames[d][game] || 0) + getNetRedeem(t);
+        const g = t.game || "Unknown";
+        dailyCoGames[d][g] = (dailyCoGames[d][g] || 0) + getNetRedeem(t);
       });
       document.getElementById("gdDailyCashout").innerHTML = Object.keys(dailyCoGames).sort().reverse().map(d => {
         const games = dailyCoGames[d];
         const total = Object.values(games).reduce((a, b) => a + b, 0);
-        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
-        return `<div class="p-4 rounded-lg bg-gray-50 border">
-          <div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div>
-          <div class="text-gray-600">${gameList}</div>
-        </div>`;
+        const list = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
+        return `<div class="p-3 rounded-lg bg-gray-50 border"><div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div><div class="text-gray-600">${list}</div></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
       // Monthly Cash-In by Game
-      const monthlyCiGames = {};
+      const mCiGames = {};
       filteredGdCashIn.forEach(t => {
         const m = t.date.slice(0, 7);
-        if (!monthlyCiGames[m]) monthlyCiGames[m] = {};
-        const game = t.game || "Unknown";
-        monthlyCiGames[m][game] = (monthlyCiGames[m][game] || 0) + t.points;
+        if (!mCiGames[m]) mCiGames[m] = {};
+        const g = t.game || "Unknown";
+        mCiGames[m][g] = (mCiGames[m][g] || 0) + t.points;
       });
-      document.getElementById("gdMonthlyCashIn").innerHTML = Object.keys(monthlyCiGames).sort().reverse().map(m => {
-        const games = monthlyCiGames[m];
+      document.getElementById("gdMonthlyCashIn").innerHTML = Object.keys(mCiGames).sort().reverse().map(m => {
+        const games = mCiGames[m];
         const total = Object.values(games).reduce((a, b) => a + b, 0);
-        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
-        return `<div class="p-4 rounded-lg bg-gray-50 border">
-          <div class="flex justify-between mb-1"><span class="font-medium">${m}</span><span class="font-bold text-blue-600">Total: ${total}</span></div>
-          <div class="text-gray-600">${gameList}</div>
-        </div>`;
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        const list = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
+        return `<div class="p-3 rounded-lg bg-gray-50 border"><div class="flex justify-between mb-1"><span class="font-medium">${label}</span><span class="font-bold text-blue-600">Total: ${total}</span></div><div class="text-gray-600">${list}</div></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
       // Monthly Cashout by Game
-      const monthlyCoGames = {};
+      const mCoGames = {};
       filteredGdCashout.forEach(t => {
         const m = getCashoutDate(t).slice(0, 7);
-        if (!monthlyCoGames[m]) monthlyCoGames[m] = {};
-        const game = t.game || "Unknown";
-        monthlyCoGames[m][game] = (monthlyCoGames[m][game] || 0) + getNetRedeem(t);
+        if (!m) return;
+        if (!mCoGames[m]) mCoGames[m] = {};
+        const g = t.game || "Unknown";
+        mCoGames[m][g] = (mCoGames[m][g] || 0) + getNetRedeem(t);
       });
-      document.getElementById("gdMonthlyCashout").innerHTML = Object.keys(monthlyCoGames).sort().reverse().map(m => {
-        const games = monthlyCoGames[m];
+      document.getElementById("gdMonthlyCashout").innerHTML = Object.keys(mCoGames).sort().reverse().map(m => {
+        const games = mCoGames[m];
         const total = Object.values(games).reduce((a, b) => a + b, 0);
-        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
-        return `<div class="p-4 rounded-lg bg-gray-50 border">
-          <div class="flex justify-between mb-1"><span class="font-medium">${m}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div>
-          <div class="text-gray-600">${gameList}</div>
-        </div>`;
+        const [y, mo] = m.split("-");
+        const label = new Date(y, parseInt(mo) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        const list = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
+        return `<div class="p-3 rounded-lg bg-gray-50 border"><div class="flex justify-between mb-1"><span class="font-medium">${label}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div><div class="text-gray-600">${list}</div></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
       // Charts
       if (gdCashInChart) gdCashInChart.destroy();
-      const ciGameTotals = {};
-      filteredGdCashIn.forEach(t => { ciGameTotals[t.game || "Unknown"] = (ciGameTotals[t.game || "Unknown"] || 0) + t.points; });
-      const ctxCi = document.getElementById("gdCashInChart");
-      if (ctxCi) {
-        gdCashInChart = new Chart(ctxCi, {
-          type: "doughnut",
-          data: { labels: Object.keys(ciGameTotals), datasets: [{ data: Object.values(ciGameTotals), backgroundColor: colors }] },
-          options: { responsive: true }
-        });
+      const ciGT = {};
+      filteredGdCashIn.forEach(t => { ciGT[t.game || "Unknown"] = (ciGT[t.game || "Unknown"] || 0) + t.points; });
+      const ctx1 = document.getElementById("gdCashInChart");
+      if (ctx1) {
+        gdCashInChart = new Chart(ctx1, { type: "doughnut", data: { labels: Object.keys(ciGT), datasets: [{ data: Object.values(ciGT), backgroundColor: COLORS }] }, options: { responsive: true } });
       }
 
       if (gdCashoutChart) gdCashoutChart.destroy();
-      const coGameTotals = {};
-      filteredGdCashout.forEach(t => { coGameTotals[t.game || "Unknown"] = (coGameTotals[t.game || "Unknown"] || 0) + getNetRedeem(t); });
-      const ctxCo = document.getElementById("gdCashoutChart");
-      if (ctxCo) {
-        gdCashoutChart = new Chart(ctxCo, {
-          type: "doughnut",
-          data: { labels: Object.keys(coGameTotals), datasets: [{ data: Object.values(coGameTotals), backgroundColor: colors }] },
-          options: { responsive: true }
-        });
+      const coGT = {};
+      filteredGdCashout.forEach(t => { coGT[t.game || "Unknown"] = (coGT[t.game || "Unknown"] || 0) + getNetRedeem(t); });
+      const ctx2 = document.getElementById("gdCashoutChart");
+      if (ctx2) {
+        gdCashoutChart = new Chart(ctx2, { type: "doughnut", data: { labels: Object.keys(coGT), datasets: [{ data: Object.values(coGT), backgroundColor: COLORS }] }, options: { responsive: true } });
       }
     }
 
@@ -726,30 +854,26 @@
     function updateHoldingForDate() {
       const date = document.getElementById("holdingDate").value;
       if (!date) return;
-
-      const dayCashIn = allTransactions.filter(t => t.date === date).reduce((s, r) => s + r.amount, 0);
-      const dayCashout = allCashoutTransactions.filter(t => getCashoutDate(t) === date).reduce((s, r) => s + r.amount, 0);
-      const net = dayCashIn - dayCashout;
-
-      document.getElementById("holdingDateTitle").textContent = `📅 ${date}`;
-      document.getElementById("holdingCashIn").textContent = "$" + dayCashIn.toFixed(2);
-      document.getElementById("holdingCashout").textContent = "$" + dayCashout.toFixed(2);
+      const dayCi = allTransactions.filter(t => t.date === date).reduce((s, r) => s + r.amount, 0);
+      const dayCo = allCashoutTransactions.filter(t => getCashoutDate(t) === date).reduce((s, r) => s + r.amount, 0);
+      const net = dayCi - dayCo;
+      document.getElementById("holdingDateTitle").textContent = "📅 " + date;
+      document.getElementById("holdingCashIn").textContent = "$" + dayCi.toFixed(2);
+      document.getElementById("holdingCashout").textContent = "$" + dayCo.toFixed(2);
       document.getElementById("holdingNet").textContent = "$" + net.toFixed(2);
       document.getElementById("holdingNet").className = "text-3xl font-bold " + (net >= 0 ? "" : "text-yellow-200");
       document.getElementById("holdingStatus").textContent = net >= 0 ? "✅ Profit" : "⚠️ Loss";
     }
 
     function updateDailyHolding() {
-      // Collect all unique dates
       const allDates = new Set();
-      allTransactions.forEach(t => allDates.add(t.date));
-      allCashoutTransactions.forEach(t => allDates.add(getCashoutDate(t)));
+      allTransactions.forEach(t => { if (t.date) allDates.add(t.date); });
+      allCashoutTransactions.forEach(t => { const d = getCashoutDate(t); if (d) allDates.add(d); });
 
-      const holdingData = Array.from(allDates).filter(d => d).sort().reverse().map(d => {
+      const holdingData = Array.from(allDates).sort().reverse().map(d => {
         const ci = allTransactions.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
         const co = allCashoutTransactions.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
-        const net = ci - co;
-        return { date: d, cashIn: ci, cashOut: co, net };
+        return { date: d, cashIn: ci, cashOut: co, net: ci - co };
       });
 
       document.getElementById("holdingTable").innerHTML = holdingData.map(h => `
@@ -762,30 +886,130 @@
         </tr>
       `).join("") || '<tr><td colspan="5" class="px-6 py-4 text-gray-400">No data</td></tr>';
 
-      // Holding Chart
+      // Chart
       if (holdingChart) holdingChart.destroy();
-      const sortedData = [...holdingData].reverse();
-      const ctxHolding = document.getElementById("holdingChart");
-      if (ctxHolding) {
-        holdingChart = new Chart(ctxHolding, {
+      const sorted = [...holdingData].reverse();
+      const ctx = document.getElementById("holdingChart");
+      if (ctx && sorted.length > 0) {
+        holdingChart = new Chart(ctx, {
           type: "bar",
           data: {
-            labels: sortedData.map(h => h.date),
+            labels: sorted.map(h => h.date),
             datasets: [
-              { label: "Cash-In", data: sortedData.map(h => h.cashIn), backgroundColor: "rgba(16,185,129,0.7)" },
-              { label: "Cashout", data: sortedData.map(h => h.cashOut), backgroundColor: "rgba(239,68,68,0.7)" },
-              { label: "Net Holding", data: sortedData.map(h => h.net), type: "line", borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.1)", fill: true, tension: 0.3 }
+              { label: "Cash-In", data: sorted.map(h => h.cashIn), backgroundColor: "rgba(16,185,129,0.7)" },
+              { label: "Cashout", data: sorted.map(h => h.cashOut), backgroundColor: "rgba(239,68,68,0.7)" },
+              { label: "Net", data: sorted.map(h => h.net), type: "line", borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.1)", fill: true, tension: 0.3 }
             ]
           },
-          options: { responsive: true, plugins: { legend: { display: true } } }
+          options: { responsive: true }
         });
       }
 
-      // Set today's date in the picker
       if (!document.getElementById("holdingDate").value) {
-        document.getElementById("holdingDate").value = new Date().toISOString().split("T")[0];
+        document.getElementById("holdingDate").value = getCSTDate();
         updateHoldingForDate();
       }
+    }
+
+    // ========== EXCEL EXPORTS ==========
+    function exportOverviewExcel() {
+      const wb = XLSX.utils.book_new();
+      // Cash-In sheet
+      const ciData = filteredOvCashIn.map(t => ({ Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, Points: t.points }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ciData), "Cash-In");
+      // Cashout sheet
+      const coData = filteredOvCashout.map(t => ({ Date: getCashoutDate(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(coData), "Cashout");
+      // Summary sheet
+      const ciTotal = filteredOvCashIn.reduce((s, r) => s + r.amount, 0);
+      const coTotal = filteredOvCashout.reduce((s, r) => s + r.amount, 0);
+      const summary = [
+        { Metric: "Total Cash-In", Value: ciTotal },
+        { Metric: "Total Points Used", Value: filteredOvCashIn.reduce((s, r) => s + r.points, 0) },
+        { Metric: "Total Cashout", Value: coTotal },
+        { Metric: "Total Points Redeemed", Value: filteredOvCashout.reduce((s, r) => s + getNetRedeem(r), 0) },
+        { Metric: "Net (Cash-In - Cashout)", Value: ciTotal - coTotal }
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Summary");
+      // Daily Holding sheet
+      const dates = new Set();
+      filteredOvCashIn.forEach(t => dates.add(t.date));
+      filteredOvCashout.forEach(t => { const d = getCashoutDate(t); if (d) dates.add(d); });
+      const holding = Array.from(dates).sort().reverse().map(d => {
+        const ci = filteredOvCashIn.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
+        const co = filteredOvCashout.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
+        return { Date: d, "Cash-In": ci, Cashout: co, "Net Holding": ci - co };
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(holding), "Daily Holding");
+      XLSX.writeFile(wb, "overview_report.xlsx");
+    }
+
+    function exportCashInExcel() {
+      const wb = XLSX.utils.book_new();
+      const data = filteredCashIn.map(t => ({ Date: t.date, Time: t.time, Day: t.day, Employee: t.employee, Group: t.group, Amount: t.amount, Game: t.game, Points: t.points }));
+      data.push({ Date: "", Time: "", Day: "", Employee: "", Group: "TOTAL:", Amount: filteredCashIn.reduce((s, r) => s + r.amount, 0), Game: "", Points: filteredCashIn.reduce((s, r) => s + r.points, 0) });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Cash-In Transactions");
+      XLSX.writeFile(wb, "cashin_report.xlsx");
+    }
+
+    function exportCashoutExcel() {
+      const wb = XLSX.utils.book_new();
+      const data = filteredCashout.map(t => ({ Date: getCashoutDate(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount, ID: t.id }));
+      data.push({ Date: "", Employee: "", Group: "", Game: "", Points: "", Playback: "", "Net Redeem": "", Tip: "TOTAL:", Cashout: filteredCashout.reduce((s, r) => s + r.amount, 0), ID: "" });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Cashout Transactions");
+      // Game summary
+      const gp = {};
+      filteredCashout.forEach(co => { const g = co.game || "Unknown"; gp[g] = (gp[g] || 0) + getNetRedeem(co); });
+      const gs = Object.entries(gp).map(([g, p]) => ({ Game: g, "Points Redeemed (Net)": p }));
+      gs.push({ Game: "TOTAL", "Points Redeemed (Net)": Object.values(gp).reduce((a, b) => a + b, 0) });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gs), "Points Redeemed by Game");
+      XLSX.writeFile(wb, "cashout_report.xlsx");
+    }
+
+    function exportGameDistExcel() {
+      const wb = XLSX.utils.book_new();
+      // Cash-In by game daily
+      const ciDaily = {};
+      filteredGdCashIn.forEach(t => {
+        if (!ciDaily[t.date]) ciDaily[t.date] = {};
+        ciDaily[t.date][t.game || "Unknown"] = (ciDaily[t.date][t.game || "Unknown"] || 0) + t.points;
+      });
+      const ciRows = Object.keys(ciDaily).sort().reverse().map(d => {
+        const row = { Date: d };
+        Object.entries(ciDaily[d]).forEach(([g, p]) => { row[g] = p; });
+        row["Total"] = Object.values(ciDaily[d]).reduce((a, b) => a + b, 0);
+        return row;
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ciRows), "Cash-In Daily by Game");
+      // Cashout by game daily
+      const coDaily = {};
+      filteredGdCashout.forEach(t => {
+        const d = getCashoutDate(t); if (!d) return;
+        if (!coDaily[d]) coDaily[d] = {};
+        coDaily[d][t.game || "Unknown"] = (coDaily[d][t.game || "Unknown"] || 0) + getNetRedeem(t);
+      });
+      const coRows = Object.keys(coDaily).sort().reverse().map(d => {
+        const row = { Date: d };
+        Object.entries(coDaily[d]).forEach(([g, p]) => { row[g] = p; });
+        row["Total"] = Object.values(coDaily[d]).reduce((a, b) => a + b, 0);
+        return row;
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(coRows), "Cashout Daily by Game");
+      XLSX.writeFile(wb, "game_distribution_report.xlsx");
+    }
+
+    function exportHoldingExcel() {
+      const wb = XLSX.utils.book_new();
+      const allDates = new Set();
+      allTransactions.forEach(t => { if (t.date) allDates.add(t.date); });
+      allCashoutTransactions.forEach(t => { const d = getCashoutDate(t); if (d) allDates.add(d); });
+      const rows = Array.from(allDates).sort().reverse().map(d => {
+        const ci = allTransactions.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
+        const co = allCashoutTransactions.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
+        return { Date: d, "Cash-In": ci, Cashout: co, "Net Holding": ci - co, Status: (ci - co) >= 0 ? "Profit" : "Loss" };
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Daily Holding");
+      XLSX.writeFile(wb, "daily_holding_report.xlsx");
     }
 
     // ========== INIT ==========
