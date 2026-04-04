@@ -59,7 +59,7 @@
         </div>
         <div class="bg-white rounded-3xl shadow overflow-hidden">
           <div class="px-8 py-5 border-b font-semibold">Recent Cashouts (Newest First)</div>
-          <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-8 py-4 text-left">Date</th><th class="px-8 py-4 text-left">Amount</th><th class="px-8 py-4 text-left">Game</th><th class="px-8 py-4 text-left">Points</th><th class="px-8 py-4 text-left">Playback ID</th><th class="px-8 py-4 text-left">Tip</th></tr></thead><tbody id="cashoutTransactionsTable"></tbody></table></div>
+          <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-8 py-4 text-left">Date</th><th class="px-8 py-4 text-left">Amount</th><th class="px-8 py-4 text-left">Game</th><th class="px-8 py-4 text-left">Points</th><th class="px-8 py-4 text-left">Playback Points</th><th class="px-8 py-4 text-left">Tip</th></tr></thead><tbody id="cashoutTransactionsTable"></tbody></table></div>
         </div>
       </div>
     </div>
@@ -102,7 +102,7 @@
       `).join("");
 
       document.getElementById("cashoutTransactionsTable").innerHTML = allCashoutTransactions.slice(0, 50).map(t => `
-        <tr class="border-t"><td class="px-8 py-4">${t.created_at.split("T")[0]}</td><td class="px-8 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td><td class="px-8 py-4">${t.game}</td><td class="px-8 py-4">${t.points}</td><td class="px-8 py-4">${t.playback_id}</td><td class="px-8 py-4">$${t.tip.toFixed(2)}</td></tr>
+        <tr class="border-t"><td class="px-8 py-4">${t.created_at.split("T")[0]}</td><td class="px-8 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td><td class="px-8 py-4">${t.game}</td><td class="px-8 py-4">${t.points}</td><td class="px-8 py-4">${t.playback_points}</td><td class="px-8 py-4">$${t.tip.toFixed(2)}</td></tr>
       `).join("");
       renderCharts();
     }
