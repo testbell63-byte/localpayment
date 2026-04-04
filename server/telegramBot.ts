@@ -139,6 +139,47 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const data = query.data!;
     const state = userState.get(chatId);
 
+    if (data.startsWith("cashout_approve_")) {
+      const cashoutId = data.replace("cashout_approve_", "");
+      const adminData = adminMessages.get(query.message?.message_id!);
+      const approverId = query.from?.id;
+      
+      if (approverId !== ADMIN_ID) {
+        console.warn(`[Security] Non-admin user (ID: ${approverId}) attempted to approve cashout ${cashoutId}`);
+        await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can approve cashouts!", show_alert: true });
+        return;
+      }
+      
+      if (adminData && adminData.cashoutId === cashoutId) {
+        const { state, chatId: originalChatId } = adminData;
+        const approverName = query.from?.first_name || query.from?.username || "Unknown";
+
+        console.log(`[Admin Approval] Cashout ${cashoutId} approved by ${approverName}`);
+        
+        saveCashoutRecord(state);
+
+        const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback: ${state.playback_id}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
+
+        await bot.editMessageText(approvedMsg, {
+          chat_id: originalChatId,
+          message_id: query.message?.message_id!
+        }).catch(() => {});
+
+        const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback: ${state.playback_id}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n👨‍⚖️ Approved By: ${approverName} (Admin)\n🆔 Cashout ID: ${cashoutId}\n📅 Created: ${state.createdAt}\n📅 Approved: ${getCST().isoTime}`;
+
+        try {
+          await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
+        } catch (err) {
+          console.error(`[Report] Failed to send to Report Group:`, err);
+        }
+
+        adminMessages.delete(query.message?.message_id!);
+      }
+
+      await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
+      return;
+    }
+
     if (!state) return;
 
     if (state.type === "income") {
@@ -449,49 +490,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      if (data.startsWith("cashout_approve_")) {
-        const cashoutId = data.replace("cashout_approve_", "");
-        const adminData = adminMessages.get(query.message?.message_id!);
-        const approverId = query.from?.id;
-        
-        if (approverId !== ADMIN_ID) {
-          console.warn(`[Security] Non-admin user (ID: ${approverId}) attempted to approve cashout ${cashoutId}`);
-          await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can approve cashouts!", show_alert: true });
-          return;
-        }
-        
-        if (adminData && adminData.cashoutId === cashoutId) {
-          const { state } = adminData;
-          const approverName = query.from?.first_name || query.from?.username || "Unknown";
-
-          console.log(`[Admin Approval] Cashout ${cashoutId} approved by ${approverName} (Admin ID: ${approverId})`);
-          
-          // SAVE THE RECORD ONLY AFTER APPROVAL
-          saveCashoutRecord(state);
-
-          const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
-
-          await bot.editMessageText(approvedMsg, {
-            chat_id: CASHOUT_GROUP_ID,
-            message_id: query.message?.message_id!
-          }).catch(() => {});
-
-          const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n👨‍⚖️ Approved By: ${approverName} (Admin)\n🆔 Cashout ID: ${cashoutId}\n📅 Created: ${state.createdAt}\n📅 Approved: ${getCST().isoTime}`;
-
-          try {
-            await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
-            console.log(`[Report] Cashout ${cashoutId} sent to Report Group`);
-          } catch (err) {
-            console.error(`[Report] Failed to send to Report Group:`, err);
-          }
-
-          adminMessages.delete(query.message?.message_id!);
-        }
-
-        await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
-        return;
-      }
-      
       if (data.startsWith("cashout_edit_")) {
         const field = data.replace("cashout_edit_", "");
         if (field === "game") {
@@ -560,10 +558,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
       await bot.answerCallbackQuery(query.id);
     }
-  }
-});
+  });
 
-bot.on("text", async (msg) => {
+  bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
     
@@ -650,11 +647,11 @@ bot.on("text", async (msg) => {
 function showCashoutReview(chatId: number, state: any, bot: TelegramBot) {
   const reviewText = `📊 CASHOUT SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎮 Game\t\t${state.game}
-🎯 Points Redeemed\t${state.points}
-🎫 Playback\t\t${state.playback_id}
-💵 Tip\t\t\t$${state.tip}
-💰 Final Cashout\t$${state.amount}
+🎮 Game: ${state.game}
+🎯 Points Redeemed: ${state.points}
+🎫 Playback: ${state.playback_id}
+💵 Tip: $${state.tip}
+💰 Final Cashout: $${state.amount}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👤 Employee: ${state.employeeName}
 🆔 Cashout ID: ${state.cashoutId}
