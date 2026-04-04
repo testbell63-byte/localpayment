@@ -560,9 +560,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
       await bot.answerCallbackQuery(query.id);
     }
-  });
+  }
+});
 
-  bot.on("text", async (msg) => {
+bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
     
