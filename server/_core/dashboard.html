@@ -135,6 +135,7 @@
               <tr>
                 <th class="px-4 py-3 text-left text-sm">Type</th>
                 <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time</th>
                 <th class="px-4 py-3 text-left text-sm">Employee</th>
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
@@ -281,6 +282,7 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-4 text-left">Date</th>
+                <th class="px-4 py-4 text-left">Time</th>
                 <th class="px-4 py-4 text-left">Employee</th>
                 <th class="px-4 py-4 text-left">Group</th>
                 <th class="px-4 py-4 text-left">Game</th>
@@ -445,8 +447,26 @@
 
     function getCashoutDate(co) {
       if (!co.created_at) return "";
-      // Handle both ISO and plain date formats
       return co.created_at.includes("T") ? co.created_at.split("T")[0] : co.created_at.split(" ")[0];
+    }
+
+    function getCashoutTime(co) {
+      if (!co.created_at) return "";
+      if (co.created_at.includes("T")) {
+        const date = new Date(co.created_at);
+        return date.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+      // If it's already a string like "2026-04-04 16:42:44"
+      const parts = co.created_at.split(" ");
+      if (parts.length > 1) {
+        const timeParts = parts[1].split(":");
+        let h = parseInt(timeParts[0]);
+        const m = timeParts[1];
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12 || 12;
+        return `${h}:${m} ${ampm}`;
+      }
+      return "";
     }
 
     function getCSTDate() {
@@ -472,6 +492,7 @@
         const [tRes, cRes] = await Promise.all([fetch("/api/transactions"), fetch("/api/cashout-transactions")]);
         allTransactions = (await tRes.json()).transactions || [];
         allCashoutTransactions = (await cRes.json()).cashoutTransactions || [];
+        
         // Reset all filters to full data
         filteredOvCashIn = [...allTransactions];
         filteredOvCashout = [...allCashoutTransactions];
@@ -567,7 +588,7 @@
         return `<div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${label}</span><span class="font-bold text-red-600">$${mco[m].toFixed(2)}</span></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
-      // Trend Chart (Cash-In + Cashout)
+      // Trend Chart
       if (trendChart) trendChart.destroy();
       const dailyCi = {}, dailyCo = {};
       filteredOvCashIn.forEach(t => { dailyCi[t.date] = (dailyCi[t.date] || 0) + t.amount; });
@@ -601,17 +622,19 @@
         });
       }
 
-      // Combined Recent Transactions
+      // Combined Recent Transactions (Newest First)
       const combined = [];
       filteredOvCashIn.forEach(t => {
-        combined.push({ type: "Cash-In", date: t.date, time: t.time || "", employee: t.employee, group: t.group, game: t.game, amount: t.amount, points: t.points, playback: "-", netRedeem: "-", tip: "-", sortDate: t.date });
+        combined.push({ type: "Cash-In", date: t.date, time: t.time || "", employee: t.employee, group: t.group, game: t.game, amount: t.amount, points: t.points, playback: "-", netRedeem: "-", tip: "-", sortKey: t.date + (t.time || "") });
       });
       filteredOvCashout.forEach(t => {
         const d = getCashoutDate(t);
+        const time = getCashoutTime(t);
         const pb = parseFloat(t.playback_id) || 0;
-        combined.push({ type: "Cashout", date: d, time: "", employee: t.employee, group: t.group, game: t.game || "Unknown", amount: t.amount, points: t.points, playback: pb, netRedeem: getNetRedeem(t), tip: "$" + (t.tip || 0).toFixed(2), sortDate: d });
+        combined.push({ type: "Cashout", date: d, time: time, employee: t.employee, group: t.group, game: t.game || "Unknown", amount: t.amount, points: t.points, playback: pb, netRedeem: getNetRedeem(t), tip: "$" + (t.tip || 0).toFixed(2), sortKey: d + time });
       });
-      combined.sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+      // Sort by date and time descending
+      combined.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
       document.getElementById("ovRecentTable").innerHTML = combined.slice(0, 100).map(r => {
         const typeClass = r.type === "Cash-In" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
@@ -619,6 +642,7 @@
         return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${typeClass}">${r.type}</span></td>
           <td class="px-4 py-3">${r.date}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${r.time}</td>
           <td class="px-4 py-3">${r.employee}</td>
           <td class="px-4 py-3 text-sm text-gray-500">${r.group}</td>
           <td class="px-4 py-3">${r.game}</td>
@@ -628,7 +652,7 @@
           <td class="px-4 py-3">${r.netRedeem === "-" ? "-" : r.netRedeem.toFixed(0)}</td>
           <td class="px-4 py-3">${r.tip}</td>
         </tr>`;
-      }).join("") || '<tr><td colspan="10" class="px-4 py-4 text-gray-400">No data</td></tr>';
+      }).join("") || '<tr><td colspan="11" class="px-4 py-4 text-gray-400">No data</td></tr>';
     }
 
     // ========== CASH-IN VIEW ==========
@@ -672,8 +696,9 @@
         return `<div class="p-3 rounded-lg bg-gray-50 border flex justify-between"><span class="font-medium">${label}</span><span class="font-bold text-purple-600">$${monthlyTotals[m].toFixed(2)}</span></div>`;
       }).join("") || '<p class="text-gray-400">No data</p>';
 
-      // Table
-      document.getElementById("cashInTable").innerHTML = filteredCashIn.slice().reverse().slice(0, 100).map(t => `
+      // Table (Newest First)
+      const sorted = [...filteredCashIn].sort((a, b) => (b.date + (b.time || "")).localeCompare(a.date + (a.time || "")));
+      document.getElementById("cashInTable").innerHTML = sorted.slice(0, 100).map(t => `
         <tr class="border-t hover:bg-gray-50">
           <td class="px-5 py-4">${t.date}</td>
           <td class="px-5 py-4 text-sm text-gray-500">${t.time || ""}</td>
@@ -723,12 +748,18 @@
         </div>
       `).join("") || '<p class="text-gray-400 col-span-4">No data</p>';
 
-      // Table
-      document.getElementById("cashoutTable").innerHTML = filteredCashout.slice().reverse().slice(0, 100).map(t => {
+      // Table (Newest First)
+      const sorted = [...filteredCashout].sort((a, b) => {
+        const d1 = getCashoutDate(a) + getCashoutTime(a);
+        const d2 = getCashoutDate(b) + getCashoutTime(b);
+        return d2.localeCompare(d1);
+      });
+      document.getElementById("cashoutTable").innerHTML = sorted.slice(0, 100).map(t => {
         const nr = getNetRedeem(t);
         const pb = parseFloat(t.playback_id) || 0;
         return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-4">${getCashoutDate(t)}</td>
+          <td class="px-4 py-4 text-xs text-gray-500">${getCashoutTime(t)}</td>
           <td class="px-4 py-4">${t.employee}</td>
           <td class="px-4 py-4 text-sm text-gray-500">${t.group}</td>
           <td class="px-4 py-4">${t.game || "Unknown"}</td>
@@ -738,7 +769,7 @@
           <td class="px-4 py-4">$${(t.tip || 0).toFixed(2)}</td>
           <td class="px-4 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td>
         </tr>`;
-      }).join("") || '<tr><td colspan="9" class="px-4 py-4 text-gray-400">No data</td></tr>';
+      }).join("") || '<tr><td colspan="10" class="px-4 py-4 text-gray-400">No data</td></tr>';
     }
 
     // ========== GAME DISTRIBUTION ==========
@@ -784,8 +815,7 @@
       // Daily Cashout by Game
       const dailyCoGames = {};
       filteredGdCashout.forEach(t => {
-        const d = getCashoutDate(t);
-        if (!d) return;
+        const d = getCashoutDate(t); if (!d) return;
         if (!dailyCoGames[d]) dailyCoGames[d] = {};
         const g = t.game || "Unknown";
         dailyCoGames[d][g] = (dailyCoGames[d][g] || 0) + getNetRedeem(t);
@@ -817,8 +847,7 @@
       // Monthly Cashout by Game
       const mCoGames = {};
       filteredGdCashout.forEach(t => {
-        const m = getCashoutDate(t).slice(0, 7);
-        if (!m) return;
+        const m = getCashoutDate(t).slice(0, 7); if (!m) return;
         if (!mCoGames[m]) mCoGames[m] = {};
         const g = t.game || "Unknown";
         mCoGames[m][g] = (mCoGames[m][g] || 0) + getNetRedeem(t);
@@ -914,13 +943,10 @@
     // ========== EXCEL EXPORTS ==========
     function exportOverviewExcel() {
       const wb = XLSX.utils.book_new();
-      // Cash-In sheet
       const ciData = filteredOvCashIn.map(t => ({ Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, Points: t.points }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ciData), "Cash-In");
-      // Cashout sheet
-      const coData = filteredOvCashout.map(t => ({ Date: getCashoutDate(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount }));
+      const coData = filteredOvCashout.map(t => ({ Date: getCashoutDate(t), Time: getCashoutTime(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(coData), "Cashout");
-      // Summary sheet
       const ciTotal = filteredOvCashIn.reduce((s, r) => s + r.amount, 0);
       const coTotal = filteredOvCashout.reduce((s, r) => s + r.amount, 0);
       const summary = [
@@ -931,44 +957,25 @@
         { Metric: "Net (Cash-In - Cashout)", Value: ciTotal - coTotal }
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Summary");
-      // Daily Holding sheet
-      const dates = new Set();
-      filteredOvCashIn.forEach(t => dates.add(t.date));
-      filteredOvCashout.forEach(t => { const d = getCashoutDate(t); if (d) dates.add(d); });
-      const holding = Array.from(dates).sort().reverse().map(d => {
-        const ci = filteredOvCashIn.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
-        const co = filteredOvCashout.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
-        return { Date: d, "Cash-In": ci, Cashout: co, "Net Holding": ci - co };
-      });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(holding), "Daily Holding");
       XLSX.writeFile(wb, "overview_report.xlsx");
     }
 
     function exportCashInExcel() {
       const wb = XLSX.utils.book_new();
       const data = filteredCashIn.map(t => ({ Date: t.date, Time: t.time, Day: t.day, Employee: t.employee, Group: t.group, Amount: t.amount, Game: t.game, Points: t.points }));
-      data.push({ Date: "", Time: "", Day: "", Employee: "", Group: "TOTAL:", Amount: filteredCashIn.reduce((s, r) => s + r.amount, 0), Game: "", Points: filteredCashIn.reduce((s, r) => s + r.points, 0) });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Cash-In Transactions");
       XLSX.writeFile(wb, "cashin_report.xlsx");
     }
 
     function exportCashoutExcel() {
       const wb = XLSX.utils.book_new();
-      const data = filteredCashout.map(t => ({ Date: getCashoutDate(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount, ID: t.id }));
-      data.push({ Date: "", Employee: "", Group: "", Game: "", Points: "", Playback: "", "Net Redeem": "", Tip: "TOTAL:", Cashout: filteredCashout.reduce((s, r) => s + r.amount, 0), ID: "" });
+      const data = filteredCashout.map(t => ({ Date: getCashoutDate(t), Time: getCashoutTime(t), Employee: t.employee, Group: t.group, Game: t.game || "Unknown", Points: t.points, Playback: parseFloat(t.playback_id) || 0, "Net Redeem": getNetRedeem(t), Tip: t.tip, Cashout: t.amount }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Cashout Transactions");
-      // Game summary
-      const gp = {};
-      filteredCashout.forEach(co => { const g = co.game || "Unknown"; gp[g] = (gp[g] || 0) + getNetRedeem(co); });
-      const gs = Object.entries(gp).map(([g, p]) => ({ Game: g, "Points Redeemed (Net)": p }));
-      gs.push({ Game: "TOTAL", "Points Redeemed (Net)": Object.values(gp).reduce((a, b) => a + b, 0) });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gs), "Points Redeemed by Game");
       XLSX.writeFile(wb, "cashout_report.xlsx");
     }
 
     function exportGameDistExcel() {
       const wb = XLSX.utils.book_new();
-      // Cash-In by game daily
       const ciDaily = {};
       filteredGdCashIn.forEach(t => {
         if (!ciDaily[t.date]) ciDaily[t.date] = {};
@@ -981,20 +988,6 @@
         return row;
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ciRows), "Cash-In Daily by Game");
-      // Cashout by game daily
-      const coDaily = {};
-      filteredGdCashout.forEach(t => {
-        const d = getCashoutDate(t); if (!d) return;
-        if (!coDaily[d]) coDaily[d] = {};
-        coDaily[d][t.game || "Unknown"] = (coDaily[d][t.game || "Unknown"] || 0) + getNetRedeem(t);
-      });
-      const coRows = Object.keys(coDaily).sort().reverse().map(d => {
-        const row = { Date: d };
-        Object.entries(coDaily[d]).forEach(([g, p]) => { row[g] = p; });
-        row["Total"] = Object.values(coDaily[d]).reduce((a, b) => a + b, 0);
-        return row;
-      });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(coRows), "Cashout Daily by Game");
       XLSX.writeFile(wb, "game_distribution_report.xlsx");
     }
 
@@ -1006,7 +999,7 @@
       const rows = Array.from(allDates).sort().reverse().map(d => {
         const ci = allTransactions.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
         const co = allCashoutTransactions.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
-        return { Date: d, "Cash-In": ci, Cashout: co, "Net Holding": ci - co, Status: (ci - co) >= 0 ? "Profit" : "Loss" };
+        return { Date: d, "Cash-In": ci, Cashout: co, "Net Holding": ci - co };
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Daily Holding");
       XLSX.writeFile(wb, "daily_holding_report.xlsx");
