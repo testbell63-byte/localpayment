@@ -111,6 +111,15 @@ app.get("/dashboard", (req, res) => {
   const monthlyPoints = monthlyRecords.reduce((sum, r) => sum + r.points, 0);
   const monthlyTransactions = monthlyRecords.length;
 
+  // Previous Month Summary
+  const prevMonthDate = new Date();
+  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+  const prevMonth = prevMonthDate.toISOString().slice(0, 7);
+  const prevMonthRecords = allRecords.filter(r => r.date.slice(0, 7) === prevMonth);
+  const prevMonthAmount = prevMonthRecords.reduce((sum, r) => sum + r.amount, 0);
+  const prevMonthPoints = prevMonthRecords.reduce((sum, r) => sum + r.points, 0);
+  const prevMonthTransactions = prevMonthRecords.length;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -191,7 +200,64 @@ app.get("/dashboard", (req, res) => {
           </div>
         </div>
 
-        <!-- Today Summary -->
+        <!-- Daily Points Breakdown by Platform -->
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-6">📍 Today's Points Breakdown by Platform</h3>
+          <div id="dailyPointsBreakdown" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="text-center text-gray-500">Loading...</div>
+          </div>
+        </div>
+
+        <!-- Current Month vs Previous Month Comparison -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Current Month -->
+          <div class="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-3xl shadow text-white">
+            <h3 class="text-lg font-semibold mb-4">📈 Current Month (${currentMonth})</h3>
+            <div class="space-y-4">
+              <div class="flex justify-between items-center">
+                <span class="text-purple-100">Total Amount</span>
+                <span class="text-2xl font-bold">$${monthlyAmount.toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-purple-100">Total Points</span>
+                <span class="text-2xl font-bold">${monthlyPoints}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-purple-100">Transactions</span>
+                <span class="text-2xl font-bold">${monthlyTransactions}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-purple-100">Avg per Transaction</span>
+                <span class="text-2xl font-bold">$${(monthlyTransactions ? (monthlyAmount / monthlyTransactions).toFixed(2) : '0.00')}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Previous Month -->
+          <div class="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-3xl shadow text-white">
+            <h3 class="text-lg font-semibold mb-4">📉 Previous Month (${prevMonth})</h3>
+            <div class="space-y-4">
+              <div class="flex justify-between items-center">
+                <span class="text-orange-100">Total Amount</span>
+                <span class="text-2xl font-bold">$${prevMonthAmount.toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-orange-100">Total Points</span>
+                <span class="text-2xl font-bold">${prevMonthPoints}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-orange-100">Transactions</span>
+                <span class="text-2xl font-bold">${prevMonthTransactions}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-orange-100">Avg per Transaction</span>
+                <span class="text-2xl font-bold">$${(prevMonthTransactions ? (prevMonthAmount / prevMonthTransactions).toFixed(2) : '0.00')}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Today Details -->
         <div class="bg-white p-8 rounded-3xl shadow">
           <h2 class="text-2xl font-semibold mb-6">📈 Today Details (${today})</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -274,6 +340,7 @@ app.get("/dashboard", (req, res) => {
         allTransactions = data.transactions || [];
         applyFilters();
         renderCharts();
+        renderDailyPointsBreakdown();
       } catch (e) {
         console.error("Failed to load transactions", e);
       }
@@ -298,6 +365,50 @@ app.get("/dashboard", (req, res) => {
 
       renderTable();
       renderCharts();
+      renderDailyPointsBreakdown();
+    }
+
+    // Render daily points breakdown by platform
+    function renderDailyPointsBreakdown() {
+      const today = new Date().toISOString().split("T")[0];
+      const todayRecords = allTransactions.filter(r => r.date === today);
+
+      // Group by platform
+      const platformBreakdown = {};
+      todayRecords.forEach(t => {
+        if (!platformBreakdown[t.game]) {
+          platformBreakdown[t.game] = { points: 0, amount: 0, count: 0 };
+        }
+        platformBreakdown[t.game].points += t.points;
+        platformBreakdown[t.game].amount += t.amount;
+        platformBreakdown[t.game].count++;
+      });
+
+      const container = document.getElementById('dailyPointsBreakdown');
+      
+      if (Object.keys(platformBreakdown).length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center text-gray-500">No transactions today</div>';
+        return;
+      }
+
+      const colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-purple-100 text-purple-800', 
+                      'bg-pink-100 text-pink-800', 'bg-yellow-100 text-yellow-800', 'bg-red-100 text-red-800',
+                      'bg-indigo-100 text-indigo-800', 'bg-cyan-100 text-cyan-800'];
+
+      let colorIndex = 0;
+      container.innerHTML = Object.keys(platformBreakdown).map(platform => {
+        const data = platformBreakdown[platform];
+        const colorClass = colors[colorIndex % colors.length];
+        colorIndex++;
+        return \`
+          <div class="p-4 rounded-2xl \${colorClass} border-2 border-current">
+            <p class="font-semibold text-lg">\${platform}</p>
+            <p class="text-sm opacity-80">Points: <span class="font-bold">\${data.points}</span></p>
+            <p class="text-sm opacity-80">Amount: <span class="font-bold">$\${data.amount.toFixed(2)}</span></p>
+            <p class="text-sm opacity-80">Transactions: <span class="font-bold">\${data.count}</span></p>
+          </div>
+        \`;
+      }).join('');
     }
 
     // Render transactions table
@@ -416,6 +527,7 @@ app.get("/dashboard", (req, res) => {
         if (newTransactions.length > allTransactions.length) {
           allTransactions = newTransactions;
           applyFilters();
+          renderDailyPointsBreakdown();
         }
       } catch (e) {
         console.error("Failed to check for updates", e);
