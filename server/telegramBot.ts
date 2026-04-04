@@ -426,24 +426,24 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       if (data === "cashout_confirm") {
         state.step = "cashout_pending_admin";
         state.updatedAt = getCST().isoTime;
-        await bot.sendMessage(chatId, `✅ **Cashout Submitted!**\n\nYour cashout request has been submitted for admin approval.`);
         
-        const adminMsg = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n⏳ Waiting for admin approval...`;
+        const adminMsg = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback: ${state.playback_id}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n⏳ Waiting for admin approval...`;
 
-        console.log(`[Admin Notification] Sending approval request to Cashout Group: ${CASHOUT_GROUP_ID}`);
-        bot.sendMessage(CASHOUT_GROUP_ID, adminMsg, {
+        console.log(`[Admin Notification] Sending approval request to chat: ${chatId}`);
+        bot.sendMessage(chatId, adminMsg, {
           reply_markup: {
             inline_keyboard: [
               [{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }]
             ]
           }
         }).then((msg) => {
-          console.log(`[Admin Notification] Successfully sent to Cashout Group. Message ID: ${msg.message_id}`);
-          adminMessages.set(msg.message_id, { cashoutId: state.cashoutId, state });
+          console.log(`[Admin Notification] Successfully sent. Message ID: ${msg.message_id}`);
+          adminMessages.set(msg.message_id, { cashoutId: state.cashoutId, state, chatId });
         }).catch((err) => {
-          console.error(`[Admin Notification] Failed to send to Cashout Group:`, err);
+          console.error(`[Admin Notification] Failed to send:`, err);
         });
 
+        await bot.sendMessage(chatId, `✅ **Cashout Submitted!**\n\nYour cashout request has been submitted for admin approval.`);
         userState.delete(chatId);
         await bot.answerCallbackQuery(query.id);
         return;
