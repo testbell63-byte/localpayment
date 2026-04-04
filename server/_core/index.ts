@@ -16,7 +16,7 @@ if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n");
 }
 if (!fs.existsSync(CASHOUT_RECORDS_FILE)) {
-  fs.writeFileSync(CASHOUT_RECORDS_FILE, "id,created_at,updated_at,group,employee,amount,game,points,playback_points,tip\n");
+  fs.writeFileSync(CASHOUT_RECORDS_FILE, "id,created_at,updated_at,group,employee,amount,game,points,playback_id,tip\n");
 }
 
 app.use(express.json());
@@ -55,7 +55,7 @@ function getCashoutRecords() {
         amount: parseFloat(parts[5]) || 0,
         game: (parts[6] || "").replace(/"/g, ""),
         points: parseFloat(parts[7]) || 0,
-        playback_points: (parts[8] || "").replace(/"/g, ""),
+        playback_id: (parts[8] || "").replace(/"/g, ""),
         tip: parseFloat(parts[9]) || 0
       };
     });
