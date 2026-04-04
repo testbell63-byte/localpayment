@@ -69,12 +69,33 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // ================== INCOME FLOW (Photo Handler) ==================
+  // ================== MERGED PHOTO HANDLER ==================
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const groupName = msg.chat.title || "Unknown Group";
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
+    const state = userState.get(chatId);
 
+    // 1. Check if we are in the middle of a Cashout flow waiting for a picture
+    if (state && state.type === "cashout" && state.step === "waiting_picture") {
+      state.mediaCaption = msg.caption || "Payment method screenshot";
+      state.step = "cashout_amount";
+      state.amountInput = "";
+      await bot.sendMessage(chatId, `📸 Picture received!\n\nStep 1: Enter Cashout Amount:`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
+            [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
+            [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
+            [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
+            [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
+          ]
+        }
+      });
+      return;
+    }
+
+    // 2. Otherwise, treat as a new Income flow (Screenshot)
     userState.set(chatId, {
       type: "income",
       step: "amount",
@@ -490,29 +511,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       state.step = "cashout_points";
       state.amountInput = "";
       await bot.sendMessage(chatId, `✅ Game: ${msg.text}\n\nStep 3: Enter Points Redeemed:`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
-            [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
-            [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
-            [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
-            [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
-          ]
-        }
-      });
-    }
-  });
-
-  // ================== PHOTO HANDLER (Cashout) ==================
-  bot.on("photo", async (msg) => {
-    const chatId = msg.chat.id;
-    const state = userState.get(chatId);
-
-    if (state && state.type === "cashout" && state.step === "waiting_picture") {
-      state.mediaCaption = msg.caption || "Payment method screenshot";
-      state.step = "cashout_amount";
-      state.amountInput = "";
-      await bot.sendMessage(chatId, `📸 Picture received!\n\nStep 1: Enter Cashout Amount:`, {
         reply_markup: {
           inline_keyboard: [
             [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
