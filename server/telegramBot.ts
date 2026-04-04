@@ -36,7 +36,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   console.log("[Bot] Starting with Income & Cashout flows");
 
   const userState = new Map();
-  // Store admin messages globally within the init function scope
   const adminMessages = new Map();
 
   const numberKeyboard = {
@@ -71,7 +70,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   };
 
-  // ================== MERGED PHOTO HANDLER ==================
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
     const groupName = msg.chat.title || "Unknown Group";
@@ -101,7 +99,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     await bot.sendMessage(chatId, `📸 Screenshot received from ${employeeName} (${groupName})\n\nEnter the deposited amount:`, numberKeyboard);
   });
 
-  // ================== CASHOUT FLOW (Command Handler) ==================
   bot.onText(/\/(cashout|co)/, async (msg) => {
     const chatId = msg.chat.id;
     const groupName = msg.chat.title || "Unknown Group";
@@ -137,7 +134,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     });
   });
 
-  // ================== CALLBACK QUERY HANDLER ==================
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
@@ -145,7 +141,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     if (!state) return;
 
-    // ================== INCOME FLOW CALLBACKS ==================
     if (state.type === "income") {
       if (data.startsWith("num_")) {
         const action = data.replace("num_", "");
@@ -276,7 +271,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // ================== CASHOUT FLOW CALLBACKS ==================
     if (state.type === "cashout") {
       if (data === "cashout_picture") {
         state.step = "waiting_picture";
@@ -432,26 +426,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       if (data === "cashout_confirm") {
         state.step = "cashout_pending_admin";
         state.updatedAt = getCST().isoTime;
-        saveCashoutRecord(state);
         await bot.sendMessage(chatId, `✅ **Cashout Submitted!**\n\nYour cashout request has been submitted for admin approval.`);
         
-        // Use the locally scoped function that captures adminMessages
-        const adminMsg = `🚨 **NEW CASHOUT REQUEST** [Admin](tg://user?id=${ADMIN_ID})
-
-🎮 Game: ${state.game}
-🎯 Points: ${state.points}
-🎫 Playback Value: ${state.playback_id}
-💵 Tip: $${state.tip}
-💰 Amount: $${state.amount}
-
-Employee: ${state.employeeName}
-Group: ${state.groupName}
-Cashout ID: ${state.cashoutId}
-
-**Reply "done" to this message to approve and send to Report Group**`;
+        const adminMsg = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n⏳ Waiting for admin approval...`;
 
         console.log(`[Admin Notification] Sending approval request to Cashout Group: ${CASHOUT_GROUP_ID}`);
-        bot.sendMessage(CASHOUT_GROUP_ID, adminMsg, { parse_mode: "Markdown" }).then((msg) => {
+        bot.sendMessage(CASHOUT_GROUP_ID, adminMsg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }]
+            ]
+          }
+        }).then((msg) => {
           console.log(`[Admin Notification] Successfully sent to Cashout Group. Message ID: ${msg.message_id}`);
           adminMessages.set(msg.message_id, { cashoutId: state.cashoutId, state });
         }).catch((err) => {
@@ -461,6 +447,52 @@ Cashout ID: ${state.cashoutId}
         userState.delete(chatId);
         await bot.answerCallbackQuery(query.id);
         return;
+      }
+
+      if (data.startsWith("cashout_approve_")) {
+        const cashoutId = data.replace("cashout_approve_", "");
+        const adminData = adminMessages.get(query.message?.message_id!);
+        const approverId = query.from?.id;
+        
+        if (approverId !== ADMIN_ID) {
+          console.warn(`[Security] Non-admin user (ID: ${approverId}) attempted to approve cashout ${cashoutId}`);
+          await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can approve cashouts!", show_alert: true });
+          return;
+        }
+        
+        if (adminData && adminData.cashoutId === cashoutId) {
+          const { state } = adminData;
+          const approverName = query.from?.first_name || query.from?.username || "Unknown";
+
+          console.log(`[Admin Approval] Cashout ${cashoutId} approved by ${approverName} (Admin ID: ${approverId})`);
+          
+          // SAVE THE RECORD ONLY AFTER APPROVAL
+          saveCashoutRecord(state);
+
+          const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
+
+          await bot.editMessageText(approvedMsg, {
+            chat_id: CASHOUT_GROUP_ID,
+            message_id: query.message?.message_id!
+          }).catch(() => {});
+
+          const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game\t\t${state.game}\n🎯 Points Redeemed\t${state.points}\n🎫 Playback\t\t${state.playback_id}\n💵 Tip\t\t\t$${state.tip}\n💰 Final Cashout\t$${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n👨‍⚖️ Approved By: ${approverName} (Admin)\n🆔 Cashout ID: ${cashoutId}\n📅 Created: ${state.createdAt}\n📅 Approved: ${getCST().isoTime}`;
+
+          try {
+            await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
+            console.log(`[Report] Cashout ${cashoutId} sent to Report Group`);
+          } catch (err) {
+            console.error(`[Report] Failed to send to Report Group:`, err);
+          }
+
+          adminMessages.delete(query.message?.message_id!);
+        }
+
+        await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
+        return;
+        }
+        
+        await bot.answerCallbackQuery(query.id, { text: "❌ Cashout not found!", show_alert: true });
       }
 
       if (data.startsWith("cashout_edit_")) {
@@ -533,7 +565,6 @@ Cashout ID: ${state.cashoutId}
     }
   });
 
-  // ================== TEXT HANDLER ==================
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
@@ -567,37 +598,6 @@ Cashout ID: ${state.cashoutId}
             ]
           }
         });
-      }
-    }
-
-    // ================== ADMIN REPLY HANDLER (for "done" approval) ==================
-    // Check for replies in the Cashout Group
-    if (msg.chat.id === CASHOUT_GROUP_ID && msg.reply_to_message && msg.text) {
-      const replyText = msg.text.toLowerCase().trim();
-      if (replyText === "done") {
-        const adminData = adminMessages.get(msg.reply_to_message.message_id);
-        if (adminData) {
-          const { cashoutId, state } = adminData;
-          const approverName = msg.from?.first_name || msg.from?.username || "Unknown";
-
-          console.log(`[Admin Approval] Cashout ${cashoutId} approved by ${approverName}`);
-
-          // Send confirmation to Cashout Group
-          await bot.sendMessage(CASHOUT_GROUP_ID, `✅ **APPROVED** by ${approverName}\n\nCashout ID: ${cashoutId}\nSending to Report Group...`);
-
-          // Send the final report to Report Group
-          const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n💰 Amount: $${state.amount}\n🎮 Game: ${state.game}\n🎯 Points: ${state.points}\n🎫 Playback Value: ${state.playback_id}\n💵 Tip: $${state.tip}\n\nEmployee: ${state.employeeName}\nApproved By: ${approverName}\nCashout ID: ${cashoutId}\n📅 Created: ${state.createdAt}\n📅 Approved: ${getCST().isoTime}`;
-
-          try {
-            await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
-            console.log(`[Report] Cashout ${cashoutId} sent to Report Group`);
-          } catch (err) {
-            console.error(`[Report] Failed to send to Report Group:`, err);
-          }
-
-          // Clean up the tracking data
-          adminMessages.delete(msg.reply_to_message.message_id);
-        }
       }
     }
   });
@@ -638,22 +638,6 @@ Cashout ID: ${state.cashoutId}
 
   bot.onText(/\/start|\/help/, async (msg) => {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to a screenshot with `/delete` to remove it.\n\nUse `/cashout` or `/co` to start a cashout request.");
-  });
-
-  // ================== DELETED MESSAGE HANDLER (for cancellation) ==================
-  bot.on("edited_message", async (msg) => {
-    // If a message is edited to be empty, treat it as deleted
-    if (msg.chat.id !== CASHOUT_GROUP_ID) return;
-    if (!msg.text && !msg.caption) {
-      const adminData = adminMessages.get(msg.message_id);
-      if (adminData) {
-        console.log(`[Cancellation] Cashout ${adminData.cashoutId} cancelled - message was deleted`);
-        await bot.sendMessage(CASHOUT_GROUP_ID, `❌ **CASHOUT CANCELLED** - Approval message was deleted.\n\nCashout ID: ${adminData.cashoutId}`);
-        // Remove from cashout records if it was already saved
-        removeCashoutRecord(adminData.cashoutId);
-        adminMessages.delete(msg.message_id);
-      }
-    }
   });
 
   const webhookPath = `/bot${token}`;
