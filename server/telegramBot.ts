@@ -76,7 +76,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
     const state = userState.get(chatId);
 
-    // 1. Check if we are in the middle of a Cashout flow waiting for a picture
     if (state && state.type === "cashout" && state.step === "waiting_picture") {
       state.mediaCaption = msg.caption || "Payment method screenshot";
       state.step = "cashout_amount";
@@ -95,7 +94,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // 2. Otherwise, treat as a new Income flow (Screenshot)
     userState.set(chatId, {
       type: "income",
       step: "amount",
@@ -130,7 +128,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       amount: 0,
       game: "",
       points: 0,
-      playback_id: "",
+      playback_id: "0",
       tip: 0,
       mediaType: null,
       mediaCaption: "",
@@ -312,12 +310,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           if (!state.amountInput.includes(".")) state.amountInput += ".";
         } else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
-          if (isNaN(value) || value <= 0) {
-            await bot.sendMessage(chatId, "❌ Please enter a valid amount.");
+          if (isNaN(value)) {
+            await bot.sendMessage(chatId, "❌ Please enter a valid number.");
             await bot.answerCallbackQuery(query.id);
             return;
           }
+
           if (state.step === "cashout_amount") {
+            if (value <= 0) {
+              await bot.sendMessage(chatId, "❌ Amount must be greater than 0.");
+              await bot.answerCallbackQuery(query.id);
+              return;
+            }
             state.amount = value;
             state.step = "cashout_game";
             state.amountInput = "";
@@ -325,9 +329,35 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           } else if (state.step === "cashout_points") {
             state.points = value;
             state.step = "cashout_playback";
-            await bot.sendMessage(chatId, `✅ Points: ${value}\n\nStep 4: Enter Playback/Reference ID (or type "skip"):`);
+            state.amountInput = "";
+            await bot.sendMessage(chatId, `✅ Points: ${value}\n\nStep 4: Enter Playback Value (Optional, can be 0):`, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
+                  [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
+                  [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
+                  [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
+                  [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
+                ]
+              }
+            });
+          } else if (state.step === "cashout_playback") {
+            state.playback_id = state.amountInput || "0";
+            state.step = "cashout_tip";
+            state.amountInput = "";
+            await bot.sendMessage(chatId, `✅ Playback Value: ${state.playback_id}\n\nStep 5: Enter Tip (Optional, can be 0):`, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
+                  [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
+                  [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
+                  [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
+                  [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
+                ]
+              }
+            });
           } else if (state.step === "cashout_tip") {
-            state.tip = value;
+            state.tip = parseFloat(state.amountInput || "0");
             state.step = "cashout_review";
             await showCashoutReview(chatId, state, bot);
           }
@@ -336,7 +366,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         } else {
           state.amountInput = (state.amountInput || "") + action;
         }
-        const displayText = `💰 Enter Cashout Amount:\n\n👉 ${state.amountInput || "0"}`;
+
+        let displayText = "";
+        if (state.step === "cashout_amount") {
+          displayText = `💰 Enter Cashout Amount:\n\n👉 ${state.amountInput || "0"}`;
+        } else if (state.step === "cashout_points") {
+          displayText = `🎮 Enter Points:\n\n👉 ${state.amountInput || "0"}`;
+        } else if (state.step === "cashout_playback") {
+          displayText = `🎫 Enter Playback Value:\n\n👉 ${state.amountInput || "0"}`;
+        } else if (state.step === "cashout_tip") {
+          displayText = `💵 Enter Tip:\n\n👉 ${state.amountInput || "0"}`;
+        }
+
         await bot.editMessageText(displayText, {
           chat_id: chatId,
           message_id: query.message!.message_id,
@@ -432,7 +473,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           });
         } else if (field === "playback") {
           state.step = "cashout_playback";
-          await bot.sendMessage(chatId, `Current Playback ID: ${state.playback_id || "None"}\n\nEdit Playback ID (or type "skip"):`);
+          state.amountInput = state.playback_id;
+          await bot.sendMessage(chatId, `🎫 Current Playback Value: ${state.playback_id}\n\nEdit Playback Value:`, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
+                [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
+                [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
+                [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
+                [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
+              ]
+            }
+          });
         } else if (field === "tip") {
           state.step = "cashout_tip";
           state.amountInput = state.tip.toString();
@@ -473,27 +525,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       state.step = "cashout_amount";
       state.amountInput = "";
       await bot.sendMessage(chatId, `✅ Details received: "${msg.text}"\n\nStep 1: Enter Cashout Amount:`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
-            [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
-            [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
-            [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
-            [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
-          ]
-        }
-      });
-    }
-
-    if (state.type === "cashout" && state.step === "cashout_playback") {
-      if (msg.text.toLowerCase() === "skip") {
-        state.playback_id = "";
-      } else {
-        state.playback_id = msg.text;
-      }
-      state.step = "cashout_tip";
-      state.amountInput = "0";
-      await bot.sendMessage(chatId, `✅ Playback ID: ${state.playback_id || "None"}\n\nStep 5: Enter Tip (Optional):`, {
         reply_markup: {
           inline_keyboard: [
             [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
@@ -577,7 +608,7 @@ function showCashoutReview(chatId: number, state: any, bot: TelegramBot) {
 💰 Amount: $${state.amount}
 🎮 Game: ${state.game}
 🎯 Points Redeemed: ${state.points}
-🎫 Playback ID: ${state.playback_id || "None"}
+🎫 Playback Value: ${state.playback_id}
 💵 Tip: $${state.tip}
 
 Employee: ${state.employeeName}
@@ -610,7 +641,7 @@ function sendAdminConfirmation(chatId: number, state: any, bot: TelegramBot) {
 💰 Amount: $${state.amount}
 🎮 Game: ${state.game}
 🎯 Points: ${state.points}
-🎫 Playback ID: ${state.playback_id || "None"}
+🎫 Playback Value: ${state.playback_id}
 💵 Tip: $${state.tip}
 
 Employee: ${state.employeeName}
