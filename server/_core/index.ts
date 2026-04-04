@@ -56,7 +56,7 @@ app.get("/dashboard", (req, res) => {
     return b.time.localeCompare(a.time);
   });
 
-  // Today Summary
+  // Today Summary (Server-side for initial load)
   const today = new Date().toISOString().split("T")[0];
   const todayRecords = allRecords.filter(r => r.date === today);
   const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
@@ -123,7 +123,7 @@ app.get("/dashboard", (req, res) => {
 
         <!-- Today Summary Card -->
         <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white">
-          <h2 class="text-2xl font-semibold mb-6">📈 Today's Summary (${today})</h2>
+          <h2 class="text-2xl font-semibold mb-6">📈 Today's Summary (<span id="todayDisplay">${today}</span>)</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
               <p class="text-blue-100 text-sm">Total Deposit</p>
@@ -196,12 +196,24 @@ app.get("/dashboard", (req, res) => {
     let filteredTransactions = [];
     let trendChart, platformChart;
 
+    // Helper: Get today's date in YYYY-MM-DD
+    function getTodayISO() {
+      return new Date().toISOString().split("T")[0];
+    }
+
+    // Helper: Get current month in YYYY-MM
+    function getCurrentMonthISO() {
+      return new Date().toISOString().slice(0, 7);
+    }
+
     // Fetch transactions
     async function loadTransactions() {
       try {
         const res = await fetch('/api/transactions');
         const data = await res.json();
         allTransactions = data.transactions || [];
+        
+        updateTodaySummary();
         applyFilters();
         renderCharts();
         renderHistoryExplorer();
@@ -210,9 +222,24 @@ app.get("/dashboard", (req, res) => {
       }
     }
 
+    // Update Today Summary Card dynamically
+    function updateTodaySummary() {
+      const today = getTodayISO();
+      const todayRecords = allTransactions.filter(r => r.date === today);
+      const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
+      const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
+      const todayTransactions = todayRecords.length;
+
+      document.getElementById('todayDisplay').textContent = today;
+      document.getElementById('todayAmount').textContent = '$' + todayAmount.toFixed(2);
+      document.getElementById('todayPoints').textContent = todayPoints;
+      document.getElementById('todayTransactions').textContent = todayTransactions;
+      document.getElementById('todayAvg').textContent = '$' + (todayTransactions ? (todayAmount / todayTransactions).toFixed(2) : '0.00');
+    }
+
     // Render Daily and Monthly History Explorer
     function renderHistoryExplorer() {
-      // Get all unique dates and group by total deposit
+      // Group Daily Totals
       const dailyTotals = {};
       allTransactions.forEach(t => {
         if (!dailyTotals[t.date]) {
@@ -223,17 +250,15 @@ app.get("/dashboard", (req, res) => {
         dailyTotals[t.date].count++;
       });
 
-      // Sort dates descending (newest first)
       const sortedDates = Object.keys(dailyTotals).sort().reverse();
-
-      // Render Daily History
       const dailyContainer = document.getElementById('dailyHistory');
+      
       if (sortedDates.length === 0) {
         dailyContainer.innerHTML = '<div class="text-center text-gray-500">No data available</div>';
       } else {
         dailyContainer.innerHTML = sortedDates.map(date => {
           const data = dailyTotals[date];
-          const isToday = date === new Date().toISOString().split("T")[0];
+          const isToday = date === getTodayISO();
           const bgColor = isToday ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-gray-50';
           return \`
             <div class="p-4 rounded-lg \${bgColor} border">
@@ -252,7 +277,7 @@ app.get("/dashboard", (req, res) => {
         }).join('');
       }
 
-      // Get all unique months and group by total deposit
+      // Group Monthly Totals
       const monthlyTotals = {};
       allTransactions.forEach(t => {
         const month = t.date.slice(0, 7); // YYYY-MM
@@ -264,20 +289,21 @@ app.get("/dashboard", (req, res) => {
         monthlyTotals[month].count++;
       });
 
-      // Sort months descending (newest first)
       const sortedMonths = Object.keys(monthlyTotals).sort().reverse();
-
-      // Render Monthly History
       const monthlyContainer = document.getElementById('monthlyHistory');
+      
       if (sortedMonths.length === 0) {
         monthlyContainer.innerHTML = '<div class="text-center text-gray-500">No data available</div>';
       } else {
         monthlyContainer.innerHTML = sortedMonths.map(month => {
           const data = monthlyTotals[month];
-          const currentMonth = new Date().toISOString().slice(0, 7);
-          const isCurrentMonth = month === currentMonth;
+          const isCurrentMonth = month === getCurrentMonthISO();
           const bgColor = isCurrentMonth ? 'bg-purple-50 border-l-4 border-purple-500' : 'bg-gray-50';
-          const monthName = new Date(month + '-01').toLocaleString('default', { month: 'long', year: 'numeric' });
+          
+          // Fix: Ensure correct month parsing by adding day -01 and using UTC to avoid timezone shifts
+          const dateObj = new Date(month + '-01T00:00:00Z');
+          const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+          
           return \`
             <div class="p-4 rounded-lg \${bgColor} border">
               <div class="flex justify-between items-center">
@@ -348,7 +374,6 @@ app.get("/dashboard", (req, res) => {
     function renderTrendChart() {
       if (trendChart) trendChart.destroy();
 
-      // Group by date and sum amounts
       const dailyData = {};
       filteredTransactions.forEach(t => {
         if (!dailyData[t.date]) dailyData[t.date] = 0;
@@ -386,7 +411,6 @@ app.get("/dashboard", (req, res) => {
     function renderPlatformChart() {
       if (platformChart) platformChart.destroy();
 
-      // Group by platform and sum amounts
       const platformData = {};
       filteredTransactions.forEach(t => {
         if (!platformData[t.game]) platformData[t.game] = 0;
@@ -432,6 +456,7 @@ app.get("/dashboard", (req, res) => {
         
         if (newTransactions.length > allTransactions.length) {
           allTransactions = newTransactions;
+          updateTodaySummary(); // Fix: Update summary card in real-time
           applyFilters();
           renderHistoryExplorer();
         }
