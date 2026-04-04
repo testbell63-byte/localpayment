@@ -144,6 +144,43 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const data = query.data!;
     const state = userState.get(chatId);
 
+    if (data.startsWith("cashout_deny_")) {
+      const cashoutId = data.replace("cashout_deny_", "");
+      const adminData = adminMessages.get(query.message?.message_id!);
+      const denierId = query.from?.id;
+      
+      if (denierId !== ADMIN_ID) {
+        console.warn(`[Security] Non-admin user (ID: ${denierId}) attempted to deny cashout ${cashoutId}`);
+        await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can deny cashouts!", show_alert: true });
+        return;
+      }
+      
+      if (adminData && adminData.cashoutId === cashoutId) {
+        const { state: cashoutState, chatId: originalChatId } = adminData;
+        const denierName = query.from?.first_name || query.from?.username || "Unknown";
+
+        console.log(`[Admin Denial] Cashout ${cashoutId} denied by ${denierName}`);
+
+        const deniedMsg = `❌ **DENIED** by ${denierName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${cashoutState.game}\n🎯 Points Redeemed: ${cashoutState.points}\n🎫 Playback Points: ${cashoutState.playback_points}\n💵 Tip: $${cashoutState.tip}\n💰 Final Cashout: $${cashoutState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${cashoutState.employeeName}\n🆔 Cashout ID: ${cashoutId}\n\nThis cashout has been denied. The employee can start a new cashout with /co`;
+
+        await bot.editMessageText(deniedMsg, {
+          chat_id: originalChatId,
+          message_id: query.message?.message_id!
+        }).catch(() => {});
+
+        try {
+          await bot.sendMessage(REPORT_GROUP_ID, `❌ **CASHOUT DENIED**\n\n👤 Employee: ${cashoutState.employeeName}\n🎮 Game: ${cashoutState.game}\n💰 Amount: $${cashoutState.amount}\n👨‍⚖️ Denied By: ${denierName} (Admin)\n🆔 Cashout ID: ${cashoutId}`);
+        } catch (err) {
+          console.error(`[Report] Failed to send denial to Report Group:`, err);
+        }
+
+        adminMessages.delete(query.message?.message_id!);
+      }
+
+      await bot.answerCallbackQuery(query.id, { text: "❌ Cashout Denied!", show_alert: true });
+      return;
+    }
+
     if (data.startsWith("cashout_approve_")) {
       const cashoutId = data.replace("cashout_approve_", "");
       const adminData = adminMessages.get(query.message?.message_id!);
@@ -482,7 +519,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         bot.sendMessage(chatId, adminMsg, {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }]
+              [{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }, { text: "❌ DENY", callback_data: `cashout_deny_${state.cashoutId}` }]
             ]
           }
         }).then((msg) => {
