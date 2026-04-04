@@ -76,4 +76,10 @@ const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILW
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
+// CRITICAL: Handle the Telegram Webhook updates
+app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
 server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
