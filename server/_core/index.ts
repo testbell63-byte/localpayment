@@ -1,71 +1,3 @@
-
-
-Collaborate
-
-Share
-I want to have somethings in the dashboard
-
-👉 Add at least 2 charts:
-
-📈 Daily trend (money over time)
-📊 Platform distribution (pie chart)
-
-Transactions table (with filters)
-
-⚙️ Side / Filters
-Date range
-Platform
-
-3. Real-time updates
-New entry → dashboard updates instantly
-Lite
-I'll update the dashboard to include the requested charts, a filtered transactions table, and real-time updates. I'll start by modifying the server and client-side code to support these features.
-Analyzing `index.ts`, I see the server currently serves the dashboard at `/dashboard`. Next, I'll add an API endpoint to serve transaction data for charts and filtering, supporting real-time updates.
-
-Adding API endpoints for transaction data and real-time updates to support charts and filtering, aligning with current backend enhancement phase. Next, will implement data handling logic.
-
-Lite
-I have updated the dashboard with all the requested features. Here's a summary of the enhancements:
-📈 New Visualizations
-Daily Trend Chart: A line chart showing the total money deposited over time, helping you track growth trends.
-Platform Distribution: A doughnut chart visualizing the distribution of deposits across different game platforms.
-🔍 Advanced Filtering
-Sidebar Controls: Added a dedicated sidebar for filtering the transactions table and charts.
-Date Range Filter: Filter data by specific start and end dates.
-Platform Filter: A dynamic dropdown that lets you view data for specific game platforms.
-⚡ Real-Time Updates
-Instant Sync: The dashboard now polls the backend every 5 seconds. If a new entry is recorded via the Telegram bot, the charts and table will automatically update without needing a manual refresh.
-🛠 Technical Implementation
-Unified Dashboard: I integrated the frontend logic directly into the main server file for simplicity and reliability, ensuring it uses the latest records.csv data.
-Chart.js Integration: Leveraged Chart.js for responsive and interactive data visualizations.
-API Endpoints: Added /api/transactions and /api/summary to serve data efficiently to the frontend.
-You can now view these changes by running the server and visiting the /dashboard URL. Let me know if you need any further adjustments!
-index.ts
-Code · 15.77 KB
-View all files in this task
-How was this result?
-so do i just replace the index.ts?
-Lite
-Yes, you can simply replace the content of your server/_core/index.ts with the code I provided. I've designed it to be a drop-in replacement that includes the new API endpoints, the enhanced dashboard UI, and the real-time update logic.
-📋 How to apply the changes:
-Open your server/_core/index.ts file.
-Delete all existing code in that file.
-Paste the entire block of code from my previous message.
-Restart your server (e.g., run npm start or let Railway redeploy).
-💡 Why this works:
-Backward Compatibility: It still uses your existing records.csv file, so you won't lose any data.
-Self-Contained: I bundled the HTML, CSS (Tailwind), and JavaScript (Chart.js + logic) directly into the server response to ensure it works immediately without needing to configure extra static file paths or view engines.
-Integrated Bot: It maintains the same Telegram Bot initialization logic, so your bot will continue to function as before.
-Once you've replaced the code and restarted, just refresh your browser at the /dashboard URL to see the new charts and filters!
-Task completed
-How was this result?
-Suggested follow-ups
-
-
-GitHub
-
-
-index.ts
 import express from "express";
 import { createServer } from "http";
 import { initTelegramBot } from "../telegramBot.js";
@@ -171,15 +103,6 @@ app.get("/dashboard", (req, res) => {
   const todayAmount = todayRecords.reduce((sum, r) => sum + r.amount, 0);
   const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
   const todayTransactions = todayRecords.length;
-
-  // Group Breakdown
-  const groupBreakdown: any = {};
-  allRecords.forEach(r => {
-    if (!groupBreakdown[r.group]) groupBreakdown[r.group] = { amount: 0, points: 0, count: 0 };
-    groupBreakdown[r.group].amount += r.amount;
-    groupBreakdown[r.group].points += r.points;
-    groupBreakdown[r.group].count++;
-  });
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -321,6 +244,10 @@ app.get("/dashboard", (req, res) => {
     function populatePlatformFilter() {
       const platforms = [...new Set(allTransactions.map(t => t.game))].sort();
       const select = document.getElementById('filterPlatform');
+      // Clear existing options except the first one
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
       platforms.forEach(platform => {
         const option = document.createElement('option');
         option.value = platform;
@@ -353,6 +280,12 @@ app.get("/dashboard", (req, res) => {
         tbody.innerHTML = '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No transactions found</td></tr>';
         return;
       }
+
+      // Sort filtered transactions by date and time descending
+      filteredTransactions.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return b.time.localeCompare(a.time);
+      });
 
       tbody.innerHTML = filteredTransactions.slice(0, 100).map(t => \`
         <tr class="border-t hover:bg-gray-50">
@@ -462,6 +395,7 @@ app.get("/dashboard", (req, res) => {
         
         if (newTransactions.length > allTransactions.length) {
           allTransactions = newTransactions;
+          populatePlatformFilter();
           applyFilters();
         }
       } catch (e) {
