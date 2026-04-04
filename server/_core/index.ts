@@ -16,7 +16,7 @@ app.use(express.json());
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// Minimal Stable Dashboard
+// Ultra-Stable Dashboard
 app.get("/dashboard", (req, res) => {
   let allRecords: any[] = [];
 
@@ -106,33 +106,9 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
 
-    <!-- Date Range Filter -->
-    <div class="bg-white p-6 rounded-3xl shadow mb-10">
-      <h3 class="font-semibold mb-4">Filter by Date Range</h3>
-      <div class="flex gap-4 items-end flex-wrap">
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">From Date</label>
-          <input type="date" id="fromDate" class="border border-gray-300 rounded-lg px-4 py-2">
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">To Date</label>
-          <input type="date" id="toDate" class="border border-gray-300 rounded-lg px-4 py-2">
-        </div>
-        <button onclick="applyFilter()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Apply Filter</button>
-        <button onclick="resetFilter()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Reset</button>
-      </div>
-    </div>
-
-    <!-- Recent Transactions (Newest First) -->
+    <!-- Recent Transactions -->
     <div class="bg-white rounded-3xl shadow overflow-hidden">
-      <div class="px-8 py-5 border-b font-semibold flex justify-between">
-        <span>Recent Transactions (Newest First)</span>
-        <div class="flex gap-4 text-sm">
-          <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
-          <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
-          <a href="/monthly.csv" class="text-blue-600 hover:underline">This Month CSV</a>
-        </div>
-      </div>
+      <div class="px-8 py-5 border-b font-semibold">Recent Transactions (Newest First)</div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50">
@@ -164,36 +140,6 @@ app.get("/dashboard", (req, res) => {
       </div>
     </div>
   </div>
-
-  <script>
-    function applyFilter() {
-      const from = document.getElementById('fromDate').value;
-      const to = document.getElementById('toDate').value;
-      let filtered = allRecords;
-      if (from) filtered = filtered.filter(r => r.date >= from);
-      if (to) filtered = filtered.filter(r => r.date <= to);
-
-      let html = '';
-      filtered.forEach(r => {
-        html += `<tr class="border-t hover:bg-gray-50">
-          <td class="px-8 py-4">${r.date}</td>
-          <td class="px-8 py-4">${r.time}</td>
-          <td class="px-8 py-4 font-medium">${r.group}</td>
-          <td class="px-8 py-4">${r.employee}</td>
-          <td class="px-8 py-4 font-medium">$${r.amount}</td>
-          <td class="px-8 py-4">${r.game}</td>
-          <td class="px-8 py-4">${r.points}</td>
-        </tr>`;
-      });
-      document.querySelector('tbody').innerHTML = html || '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No records in selected range</td></tr>';
-    }
-
-    function resetFilter() {
-      document.getElementById('fromDate').value = '';
-      document.getElementById('toDate').value = '';
-      location.reload();
-    }
-  </script>
 </body>
 </html>`;
 
