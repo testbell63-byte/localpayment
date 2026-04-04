@@ -10,11 +10,17 @@ const server = createServer(app);
 const PORT = process.env.PORT || 8080;
 const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
+const CASHOUT_RECORDS_FILE = path.join(process.cwd(), "cashout_records.csv");
+
+// Ensure cashout_records.csv exists with headers
+if (!fs.existsSync(CASHOUT_RECORDS_FILE)) {
+  fs.writeFileSync(CASHOUT_RECORDS_FILE, "id,created_at,updated_at,group,employee,amount,game,points,playback_id,tip\n");
+}
 
 app.use(express.json());
 app.use(express.static(path.join(process.cwd(), "server/public")));
 
-// Helper: Parse CSV records
+// Helper: Parse CSV records (Income)
 function getRecords() {
   let allRecords: any[] = [];
   if (fs.existsSync(RECORDS_FILE)) {
@@ -37,18 +43,65 @@ function getRecords() {
   return allRecords;
 }
 
+// Helper: Parse CSV cashout records
+function getCashoutRecords() {
+  let allCashoutRecords: any[] = [];
+  if (fs.existsSync(CASHOUT_RECORDS_FILE)) {
+    const content = fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8");
+    const lines = content.trim().split("\n").slice(1);
+    allCashoutRecords = lines.map((line) => {
+      const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      return {
+        id: parts[0] || "",
+        created_at: parts[1] || "",
+        updated_at: parts[2] || "",
+        group: (parts[3] || "").replace(/"/g, ""),
+        employee: (parts[4] || "").replace(/"/g, ""),
+        amount: parseFloat(parts[5]) || 0,
+        game: (parts[6] || "").replace(/"/g, ""),
+        points: parseFloat(parts[7]) || 0,
+        playback_id: (parts[8] || "").replace(/"/g, ""),
+        tip: parseFloat(parts[9]) || 0,
+      };
+    });
+  }
+  return allCashoutRecords;
+}
+
+// Helper: Append a new cashout record
+function appendCashoutRecord(record: any) {
+  const row = `"${record.id}","${record.created_at}","${record.updated_at}","${record.group}","${record.employee}",${record.amount},"${record.game}",${record.points},"${record.playback_id}",${record.tip}\n`;
+  fs.appendFileSync(CASHOUT_RECORDS_FILE, row);
+}
+
+// Helper: Update an existing cashout record
+function updateCashoutRecord(updatedRecord: any) {
+  const records = getCashoutRecords();
+  const updatedRecords = records.map(r => r.id === updatedRecord.id ? { ...r, ...updatedRecord } : r);
+  const header = "id,created_at,updated_at,group,employee,amount,game,points,playback_id,tip\n";
+  const newContent = header + updatedRecords.map(r => `"${r.id}","${r.created_at}","${r.updated_at}","${r.group}","${r.employee}",${r.amount},"${r.game}",${r.points},"${r.playback_id}",${r.tip}`).join("\n") + "\n";
+  fs.writeFileSync(CASHOUT_RECORDS_FILE, newContent);
+}
+
 // Root → Dashboard
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-// API: Get all transactions
+// API: Get all income transactions
 app.get("/api/transactions", (req, res) => {
   const allRecords = getRecords();
   res.json({ transactions: allRecords });
 });
 
+// API: Get all cashout transactions
+app.get("/api/cashout-transactions", (req, res) => {
+  const allCashoutRecords = getCashoutRecords();
+  res.json({ cashoutTransactions: allCashoutRecords });
+});
+
 // Dashboard
 app.get("/dashboard", (req, res) => {
   const allRecords = getRecords();
+  const allCashoutRecords = getCashoutRecords();
 
   // Sort by newest first (date + time)
   allRecords.sort((a, b) => {
@@ -187,6 +240,37 @@ app.get("/dashboard", (req, res) => {
             </table>
           </div>
         </div>
+
+        <!-- CASHOUT SECTION -->
+        <div class="bg-white rounded-3xl shadow overflow-hidden">
+          <div class="px-8 py-5 border-b font-semibold flex justify-between items-center">
+            <span>Recent Cashouts (Newest First)</span>
+            <div class="flex gap-4 text-sm">
+              <a href="/cashout_records.csv" class="text-blue-600 hover:underline">All Cashout CSV</a>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-8 py-4 text-left">Created At</th>
+                  <th class="px-8 py-4 text-left">Updated At</th>
+                  <th class="px-8 py-4 text-left">Group</th>
+                  <th class="px-8 py-4 text-left">Employee</th>
+                  <th class="px-8 py-4 text-left">Amount</th>
+                  <th class="px-8 py-4 text-left">Game</th>
+                  <th class="px-8 py-4 text-left">Points</th>
+                  <th class="px-8 py-4 text-left">Playback ID</th>
+                  <th class="px-8 py-4 text-left">Tip</th>
+                </tr>
+              </thead>
+              <tbody id="cashoutTransactionsTable">
+                <tr><td colspan="10" class="px-8 py-16 text-center text-gray-500">Loading Cashouts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -194,6 +278,7 @@ app.get("/dashboard", (req, res) => {
   <script>
     let allTransactions = [];
     let filteredTransactions = [];
+    let allCashoutTransactions = [];
     let trendChart, platformChart;
 
     // Helper: Get today's date in YYYY-MM-DD
@@ -206,19 +291,27 @@ app.get("/dashboard", (req, res) => {
       return new Date().toISOString().slice(0, 7);
     }
 
-    // Fetch transactions
-    async function loadTransactions() {
+    // Fetch all data
+    async function loadAllData() {
       try {
-        const res = await fetch('/api/transactions');
-        const data = await res.json();
-        allTransactions = data.transactions || [];
+        const [transactionsRes, cashoutRes] = await Promise.all([
+          fetch("/api/transactions"),
+          fetch("/api/cashout-transactions")
+        ]);
+
+        const transactionsData = await transactionsRes.json();
+        const cashoutData = await cashoutRes.json();
+
+        allTransactions = transactionsData.transactions || [];
+        allCashoutTransactions = cashoutData.cashoutTransactions || [];
         
         updateTodaySummary();
         applyFilters();
         renderCharts();
         renderHistoryExplorer();
+        renderCashoutTable();
       } catch (e) {
-        console.error("Failed to load transactions", e);
+        console.error("Failed to load all data", e);
       }
     }
 
@@ -230,11 +323,11 @@ app.get("/dashboard", (req, res) => {
       const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
       const todayTransactions = todayRecords.length;
 
-      document.getElementById('todayDisplay').textContent = today;
-      document.getElementById('todayAmount').textContent = '$' + todayAmount.toFixed(2);
-      document.getElementById('todayPoints').textContent = todayPoints;
-      document.getElementById('todayTransactions').textContent = todayTransactions;
-      document.getElementById('todayAvg').textContent = '$' + (todayTransactions ? (todayAmount / todayTransactions).toFixed(2) : '0.00');
+      document.getElementById("todayDisplay").textContent = today;
+      document.getElementById("todayAmount").textContent = "$" + todayAmount.toFixed(2);
+      document.getElementById("todayPoints").textContent = todayPoints;
+      document.getElementById("todayTransactions").textContent = todayTransactions;
+      document.getElementById("todayAvg").textContent = "$" + (todayTransactions ? (todayAmount / todayTransactions).toFixed(2) : "0.00");
     }
 
     // Render Daily and Monthly History Explorer
@@ -251,30 +344,31 @@ app.get("/dashboard", (req, res) => {
       });
 
       const sortedDates = Object.keys(dailyTotals).sort().reverse();
-      const dailyContainer = document.getElementById('dailyHistory');
+      const dailyContainer = document.getElementById("dailyHistory");
       
       if (sortedDates.length === 0) {
-        dailyContainer.innerHTML = '<div class="text-center text-gray-500">No data available</div>';
+        dailyContainer.innerHTML = 
+          `<div class="text-center text-gray-500">No income data available</div>`;
       } else {
         dailyContainer.innerHTML = sortedDates.map(date => {
           const data = dailyTotals[date];
           const isToday = date === getTodayISO();
-          const bgColor = isToday ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-gray-50';
-          return \`
-            <div class="p-4 rounded-lg \${bgColor} border">
+          const bgColor = isToday ? "bg-blue-50 border-l-4 border-blue-500" : "bg-gray-50";
+          return `
+            <div class="p-4 rounded-lg ${bgColor} border">
               <div class="flex justify-between items-center">
                 <div>
-                  <p class="font-semibold text-lg">\${date}</p>
-                  <p class="text-sm text-gray-600">\${data.count} transactions</p>
+                  <p class="font-semibold text-lg">${date}</p>
+                  <p class="text-sm text-gray-600">${data.count} transactions</p>
                 </div>
                 <div class="text-right">
-                  <p class="text-2xl font-bold text-green-600">$\${data.amount.toFixed(2)}</p>
-                  <p class="text-sm text-gray-600">\${data.points} pts</p>
+                  <p class="text-2xl font-bold text-green-600">$${data.amount.toFixed(2)}</p>
+                  <p class="text-sm text-gray-600">${data.points} pts</p>
                 </div>
               </div>
             </div>
-          \`;
-        }).join('');
+          `;
+        }).join("");
       }
 
       // Group Monthly Totals
@@ -290,42 +384,42 @@ app.get("/dashboard", (req, res) => {
       });
 
       const sortedMonths = Object.keys(monthlyTotals).sort().reverse();
-      const monthlyContainer = document.getElementById('monthlyHistory');
+      const monthlyContainer = document.getElementById("monthlyHistory");
       
       if (sortedMonths.length === 0) {
-        monthlyContainer.innerHTML = '<div class="text-center text-gray-500">No data available</div>';
+        monthlyContainer.innerHTML = 
+          `<div class="text-center text-gray-500">No income data available</div>`;
       } else {
         monthlyContainer.innerHTML = sortedMonths.map(month => {
           const data = monthlyTotals[month];
           const isCurrentMonth = month === getCurrentMonthISO();
-          const bgColor = isCurrentMonth ? 'bg-purple-50 border-l-4 border-purple-500' : 'bg-gray-50';
+          const bgColor = isCurrentMonth ? "bg-purple-50 border-l-4 border-purple-500" : "bg-gray-50";
           
-          // Fix: Ensure correct month parsing by adding day -01 and using UTC to avoid timezone shifts
-          const dateObj = new Date(month + '-01T00:00:00Z');
-          const monthName = dateObj.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+          const dateObj = new Date(month + "-01T00:00:00Z");
+          const monthName = dateObj.toLocaleString("default", { month: "long", year: "numeric", timeZone: "UTC" });
           
-          return \`
-            <div class="p-4 rounded-lg \${bgColor} border">
+          return `
+            <div class="p-4 rounded-lg ${bgColor} border">
               <div class="flex justify-between items-center">
                 <div>
-                  <p class="font-semibold text-lg">\${monthName}</p>
-                  <p class="text-sm text-gray-600">\${data.count} transactions</p>
+                  <p class="font-semibold text-lg">${monthName}</p>
+                  <p class="text-sm text-gray-600">${data.count} transactions</p>
                 </div>
                 <div class="text-right">
-                  <p class="text-2xl font-bold text-purple-600">$\${data.amount.toFixed(2)}</p>
-                  <p class="text-sm text-gray-600">\${data.points} pts</p>
+                  <p class="text-2xl font-bold text-purple-600">$${data.amount.toFixed(2)}</p>
+                  <p class="text-sm text-gray-600">${data.points} pts</p>
                 </div>
               </div>
             </div>
-          \`;
-        }).join('');
+          `;
+        }).join("");
       }
     }
 
     // Apply filters
     function applyFilters() {
-      const startDate = document.getElementById('filterStartDate').value;
-      const endDate = document.getElementById('filterEndDate').value;
+      const startDate = document.getElementById("filterStartDate").value;
+      const endDate = document.getElementById("filterEndDate").value;
 
       filteredTransactions = allTransactions.filter(t => {
         if (startDate && t.date < startDate) return false;
@@ -343,25 +437,51 @@ app.get("/dashboard", (req, res) => {
       renderCharts();
     }
 
-    // Render transactions table
+    // Render income transactions table
     function renderTable() {
-      const tbody = document.getElementById('transactionsTable');
+      const tbody = document.getElementById("transactionsTable");
       if (filteredTransactions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No transactions found</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No income transactions found</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = filteredTransactions.slice(0, 100).map(t => \`
+      tbody.innerHTML = filteredTransactions.slice(0, 100).map(t => `
         <tr class="border-t hover:bg-gray-50">
-          <td class="px-8 py-4">\${t.date}</td>
-          <td class="px-8 py-4">\${t.time}</td>
-          <td class="px-8 py-4 font-medium">\${t.group}</td>
-          <td class="px-8 py-4">\${t.employee}</td>
-          <td class="px-8 py-4 font-medium">$\${t.amount.toFixed(2)}</td>
-          <td class="px-8 py-4">\${t.game}</td>
-          <td class="px-8 py-4">\${t.points}</td>
+          <td class="px-8 py-4">${t.date}</td>
+          <td class="px-8 py-4">${t.time}</td>
+          <td class="px-8 py-4 font-medium">${t.group}</td>
+          <td class="px-8 py-4">${t.employee}</td>
+          <td class="px-8 py-4 font-medium">$${t.amount.toFixed(2)}</td>
+          <td class="px-8 py-4">${t.game}</td>
+          <td class="px-8 py-4">${t.points}</td>
         </tr>
-      \`).join('');
+      `).join("");
+    }
+
+    // Render cashout transactions table
+    function renderCashoutTable() {
+      const tbody = document.getElementById("cashoutTransactionsTable");
+      if (allCashoutTransactions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="px-8 py-16 text-center text-gray-500">No cashout transactions found</td></tr>`;
+        return;
+      }
+
+      // Sort cashout transactions by created_at descending
+      allCashoutTransactions.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+      tbody.innerHTML = allCashoutTransactions.map(t => `
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-8 py-4">${t.created_at.split("T")[0]} ${t.created_at.split("T")[1].slice(0, 5)}</td>
+          <td class="px-8 py-4">${t.updated_at.split("T")[0]} ${t.updated_at.split("T")[1].slice(0, 5)}</td>
+          <td class="px-8 py-4 font-medium">${t.group}</td>
+          <td class="px-8 py-4">${t.employee}</td>
+          <td class="px-8 py-4 font-medium">$${t.amount.toFixed(2)}</td>
+          <td class="px-8 py-4">${t.game}</td>
+          <td class="px-8 py-4">${t.points}</td>
+          <td class="px-8 py-4">${t.playback_id}</td>
+          <td class="px-8 py-4">$${t.tip.toFixed(2)}</td>
+        </tr>
+      `).join("");
     }
 
     // Render charts
@@ -383,19 +503,19 @@ app.get("/dashboard", (req, res) => {
       const dates = Object.keys(dailyData).sort();
       const amounts = dates.map(d => dailyData[d]);
 
-      trendChart = new Chart(document.getElementById('trendChart'), {
-        type: 'line',
+      trendChart = new Chart(document.getElementById("trendChart"), {
+        type: "line",
         data: {
           labels: dates,
           datasets: [{
-            label: 'Daily Amount ($)',
+            label: "Daily Amount ($")",
             data: amounts,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderColor: "#10b981",
+            backgroundColor: "rgba(16, 185, 129, 0.1)",
             tension: 0.4,
             fill: true,
             pointRadius: 5,
-            pointBackgroundColor: '#10b981'
+            pointBackgroundColor: "#10b981"
           }]
         },
         options: {
@@ -420,10 +540,10 @@ app.get("/dashboard", (req, res) => {
       const platforms = Object.keys(platformData);
       const amounts = platforms.map(p => platformData[p]);
 
-      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+      const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 
-      platformChart = new Chart(document.getElementById('platformChart'), {
-        type: 'doughnut',
+      platformChart = new Chart(document.getElementById("platformChart"), {
+        type: "doughnut",
         data: {
           labels: platforms,
           datasets: [{
@@ -434,31 +554,41 @@ app.get("/dashboard", (req, res) => {
         options: {
           responsive: true,
           maintainAspectRatio: true,
-          plugins: { legend: { position: 'bottom' } }
+          plugins: { legend: { position: "bottom" } }
         }
       });
     }
 
     // Event listeners
-    document.getElementById('applyFilters').addEventListener('click', applyFilters);
-    document.getElementById('resetFilters').addEventListener('click', () => {
-      document.getElementById('filterStartDate').value = '';
-      document.getElementById('filterEndDate').value = '';
+    document.getElementById("applyFilters").addEventListener("click", applyFilters);
+    document.getElementById("resetFilters").addEventListener("click", () => {
+      document.getElementById("filterStartDate").value = "";
+      document.getElementById("filterEndDate").value = "";
       applyFilters();
     });
 
     // Real-time updates: Check for new data every 5 seconds
     setInterval(async () => {
       try {
-        const res = await fetch('/api/transactions');
-        const data = await res.json();
-        const newTransactions = data.transactions || [];
+        const [transactionsRes, cashoutRes] = await Promise.all([
+          fetch("/api/transactions"),
+          fetch("/api/cashout-transactions")
+        ]);
+
+        const transactionsData = await transactionsRes.json();
+        const cashoutData = await cashoutRes.json();
+
+        const newTransactions = transactionsData.transactions || [];
+        const newCashoutTransactions = cashoutData.cashoutTransactions || [];
         
-        if (newTransactions.length > allTransactions.length) {
+        if (newTransactions.length > allTransactions.length || newCashoutTransactions.length > allCashoutTransactions.length) {
           allTransactions = newTransactions;
-          updateTodaySummary(); // Fix: Update summary card in real-time
+          allCashoutTransactions = newCashoutTransactions;
+          updateTodaySummary();
           applyFilters();
+          renderCharts();
           renderHistoryExplorer();
+          renderCashoutTable();
         }
       } catch (e) {
         console.error("Failed to check for updates", e);
@@ -466,7 +596,7 @@ app.get("/dashboard", (req, res) => {
     }, 5000);
 
     // Load on page load
-    loadTransactions();
+    loadAllData();
   </script>
 </body>
 </html>`;
@@ -478,6 +608,11 @@ app.get("/dashboard", (req, res) => {
 app.get("/records.csv", (req, res) => {
   if (fs.existsSync(RECORDS_FILE)) res.download(RECORDS_FILE, "payment_records.csv");
   else res.send("No records yet.");
+});
+
+app.get("/cashout_records.csv", (req, res) => {
+  if (fs.existsSync(CASHOUT_RECORDS_FILE)) res.download(CASHOUT_RECORDS_FILE, "cashout_records.csv");
+  else res.send("No cashout records yet.");
 });
 
 app.get("/daily.csv", (req, res) => {
