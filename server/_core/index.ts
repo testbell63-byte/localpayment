@@ -104,6 +104,13 @@ app.get("/dashboard", (req, res) => {
   const todayPoints = todayRecords.reduce((sum, r) => sum + r.points, 0);
   const todayTransactions = todayRecords.length;
 
+  // Monthly Summary
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthlyRecords = allRecords.filter(r => r.date.slice(0, 7) === currentMonth);
+  const monthlyAmount = monthlyRecords.reduce((sum, r) => sum + r.amount, 0);
+  const monthlyPoints = monthlyRecords.reduce((sum, r) => sum + r.points, 0);
+  const monthlyTransactions = monthlyRecords.length;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,14 +138,6 @@ app.get("/dashboard", (req, res) => {
             <input type="date" id="filterEndDate" class="w-full px-3 py-2 border rounded-lg">
           </div>
 
-          <!-- Platform Filter -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Platform</label>
-            <select id="filterPlatform" class="w-full px-3 py-2 border rounded-lg">
-              <option value="">All Platforms</option>
-            </select>
-          </div>
-
           <!-- Apply Filters Button -->
           <button id="applyFilters" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium mb-3">
             Apply Filters
@@ -151,9 +150,50 @@ app.get("/dashboard", (req, res) => {
 
       <!-- Main Content -->
       <div class="lg:col-span-3 space-y-6">
+        <!-- Quick Summary: Daily & Monthly -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Daily Summary Card -->
+          <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-3xl shadow text-white">
+            <h3 class="text-lg font-semibold mb-4">📅 Daily Summary</h3>
+            <div class="space-y-3">
+              <div>
+                <p class="text-blue-100 text-sm">Total Amount</p>
+                <p class="text-3xl font-bold">$${todayAmount.toFixed(2)}</p>
+              </div>
+              <div>
+                <p class="text-blue-100 text-sm">Total Points</p>
+                <p class="text-2xl font-bold">${todayPoints}</p>
+              </div>
+              <div>
+                <p class="text-blue-100 text-sm">Transactions</p>
+                <p class="text-2xl font-bold">${todayTransactions}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Summary Card -->
+          <div class="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-3xl shadow text-white">
+            <h3 class="text-lg font-semibold mb-4">📊 Monthly Summary</h3>
+            <div class="space-y-3">
+              <div>
+                <p class="text-green-100 text-sm">Total Amount</p>
+                <p class="text-3xl font-bold">$${monthlyAmount.toFixed(2)}</p>
+              </div>
+              <div>
+                <p class="text-green-100 text-sm">Total Points</p>
+                <p class="text-2xl font-bold">${monthlyPoints}</p>
+              </div>
+              <div>
+                <p class="text-green-100 text-sm">Transactions</p>
+                <p class="text-2xl font-bold">${monthlyTransactions}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Today Summary -->
         <div class="bg-white p-8 rounded-3xl shadow">
-          <h2 class="text-2xl font-semibold mb-6">📅 Today (${today})</h2>
+          <h2 class="text-2xl font-semibold mb-6">📈 Today Details (${today})</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
               <p class="text-gray-500">Total Amount</p>
@@ -192,7 +232,7 @@ app.get("/dashboard", (req, res) => {
         <!-- Transactions Table -->
         <div class="bg-white rounded-3xl shadow overflow-hidden">
           <div class="px-8 py-5 border-b font-semibold flex justify-between items-center">
-            <span>Recent Transactions</span>
+            <span>Recent Transactions (Newest First)</span>
             <div class="flex gap-4 text-sm">
               <a href="/records.csv" class="text-blue-600 hover:underline">All CSV</a>
               <a href="/daily.csv" class="text-blue-600 hover:underline">Today CSV</a>
@@ -232,7 +272,6 @@ app.get("/dashboard", (req, res) => {
         const res = await fetch('/api/transactions');
         const data = await res.json();
         allTransactions = data.transactions || [];
-        populatePlatformFilter();
         applyFilters();
         renderCharts();
       } catch (e) {
@@ -240,33 +279,21 @@ app.get("/dashboard", (req, res) => {
       }
     }
 
-    // Populate platform filter dropdown
-    function populatePlatformFilter() {
-      const platforms = [...new Set(allTransactions.map(t => t.game))].sort();
-      const select = document.getElementById('filterPlatform');
-      // Clear existing options except the first one
-      while (select.options.length > 1) {
-        select.remove(1);
-      }
-      platforms.forEach(platform => {
-        const option = document.createElement('option');
-        option.value = platform;
-        option.textContent = platform;
-        select.appendChild(option);
-      });
-    }
-
     // Apply filters
     function applyFilters() {
       const startDate = document.getElementById('filterStartDate').value;
       const endDate = document.getElementById('filterEndDate').value;
-      const platform = document.getElementById('filterPlatform').value;
 
       filteredTransactions = allTransactions.filter(t => {
         if (startDate && t.date < startDate) return false;
         if (endDate && t.date > endDate) return false;
-        if (platform && t.game !== platform) return false;
         return true;
+      });
+
+      // Sort by newest first
+      filteredTransactions.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return b.time.localeCompare(a.time);
       });
 
       renderTable();
@@ -280,12 +307,6 @@ app.get("/dashboard", (req, res) => {
         tbody.innerHTML = '<tr><td colspan="7" class="px-8 py-16 text-center text-gray-500">No transactions found</td></tr>';
         return;
       }
-
-      // Sort filtered transactions by date and time descending
-      filteredTransactions.sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return b.time.localeCompare(a.time);
-      });
 
       tbody.innerHTML = filteredTransactions.slice(0, 100).map(t => \`
         <tr class="border-t hover:bg-gray-50">
@@ -382,7 +403,6 @@ app.get("/dashboard", (req, res) => {
     document.getElementById('resetFilters').addEventListener('click', () => {
       document.getElementById('filterStartDate').value = '';
       document.getElementById('filterEndDate').value = '';
-      document.getElementById('filterPlatform').value = '';
       applyFilters();
     });
 
@@ -395,7 +415,6 @@ app.get("/dashboard", (req, res) => {
         
         if (newTransactions.length > allTransactions.length) {
           allTransactions = newTransactions;
-          populatePlatformFilter();
           applyFilters();
         }
       } catch (e) {
