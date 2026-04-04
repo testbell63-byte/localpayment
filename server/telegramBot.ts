@@ -402,11 +402,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               }
             });
           } else if (state.step === "cashout_amount") {
-            if (value <= 0) {
-              await bot.sendMessage(chatId, "❌ Amount must be greater than 0.");
-              await bot.answerCallbackQuery(query.id);
-              return;
-            }
             state.amount = value;
             state.step = "cashout_review";
             await showCashoutReview(chatId, state, bot);
