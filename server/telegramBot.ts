@@ -37,6 +37,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
   const userState = new Map();
   const adminMessages = new Map();
+  const cashoutMessages = new Map();
 
   const numberKeyboard = {
     reply_markup: {
@@ -78,8 +79,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     if (state && state.type === "cashout" && state.step === "waiting_picture") {
       state.mediaCaption = msg.caption || "Payment method screenshot";
+      state.mediaType = "photo";
+      state.photoFileId = msg.photo?.[msg.photo.length - 1]?.file_id;
+      state.photoMessageId = msg.message_id;
       state.step = "cashout_game";
       state.amountInput = "";
+      cashoutMessages.set(`${chatId}_photo_${msg.message_id}`, state.cashoutId);
       await bot.sendMessage(chatId, `📸 Picture received!\n\nStep 1: Select Game:`, gameKeyboard);
       return;
     }
@@ -169,6 +174,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
         try {
           await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
+          
+          if (state.mediaType === "photo" && state.photoFileId) {
+            await bot.sendPhoto(REPORT_GROUP_ID, state.photoFileId, {
+              caption: `📸 Payment Method Screenshot\n${state.mediaCaption}`
+            });
+          } else if (state.mediaType === "text" && state.mediaCaption) {
+            await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment Details:\n${state.mediaCaption}`);
+          }
         } catch (err) {
           console.error(`[Report] Failed to send to Report Group:`, err);
         }
@@ -480,6 +493,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         }).then((msg) => {
           console.log(`[Admin Notification] Successfully sent. Message ID: ${msg.message_id}`);
           adminMessages.set(msg.message_id, { cashoutId: state.cashoutId, state, chatId });
+          cashoutMessages.set(`${chatId}_summary_${msg.message_id}`, state.cashoutId);
         }).catch((err) => {
           console.error(`[Admin Notification] Failed to send:`, err);
         });
@@ -573,8 +587,11 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
       if (state.type === "cashout" && state.step === "waiting_text") {
         state.mediaCaption = msg.text;
+        state.mediaType = "text";
+        state.textMessageId = msg.message_id;
         state.step = "cashout_game";
         state.amountInput = "";
+        cashoutMessages.set(`${chatId}_text_${msg.message_id}`, state.cashoutId);
         await bot.sendMessage(chatId, `✅ Details received: "${msg.text}"\n\nStep 1: Select Game:`, gameKeyboard);
       }
 
@@ -630,8 +647,38 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       await bot.sendMessage(REPORT_GROUP_ID, `🗑️ Deletion recorded for group: ${parts[3] || 'Unknown'}`);
     } catch (e) {}
   });
+  bot.on("deleted_message", async (msg) => {
+    const chatId = msg.chat.id;
+    const messageId = msg.message_id;
+    const state = userState.get(chatId);
 
-  bot.onText(/\/start|\/help/, async (msg) => {
+    if (!state || state.type !== "cashout") return;
+
+    const photoKey = `${chatId}_photo_${messageId}`;
+    const textKey = `${chatId}_text_${messageId}`;
+    const summaryKey = `${chatId}_summary_${messageId}`;
+
+    const cashoutId = cashoutMessages.get(photoKey) || cashoutMessages.get(textKey) || adminMessages.get(messageId)?.cashoutId;
+
+    if (cashoutId) {
+      console.log(`[Deletion] Cashout ${cashoutId} cancelled due to message deletion`);
+      
+      removeCashoutRecord(cashoutId);
+      
+      cashoutMessages.delete(photoKey);
+      cashoutMessages.delete(textKey);
+      cashoutMessages.delete(summaryKey);
+      adminMessages.delete(messageId);
+      
+      userState.delete(chatId);
+      
+      try {
+        await bot.sendMessage(chatId, `❌ **CASHOUT CANCELLED**\n\nCashout ID: ${cashoutId}\nReason: Supporting document was deleted.\n\nPlease start over with /co if needed.`);
+      } catch (e) {}
+    }
+  });
+
+  bot.onText(/\/start|\/ help/, async (msg) => {
     await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to a screenshot with `/delete` to remove it.\n\nUse `/cashout` or `/co` to start a cashout request.");
   });
 
