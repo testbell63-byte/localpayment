@@ -6,107 +6,398 @@
   <title>Payment Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     .custom-scroll::-webkit-scrollbar { width: 6px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
     .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+    .tab-btn { cursor: pointer; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.2s; }
+    .tab-btn.active { background: #3b82f6; color: white; }
+    .tab-btn:not(.active) { background: #e5e7eb; color: #374151; }
+    .tab-btn:not(.active):hover { background: #d1d5db; }
+    .view-section { display: none; }
+    .view-section.active { display: block; }
   </style>
 </head>
 <body class="bg-gray-50 p-6">
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-4xl font-bold text-gray-800 mb-8">💰 Payment Tracker</h1>
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <div class="lg:col-span-1">
-        <div class="bg-white p-6 rounded-3xl shadow sticky top-6">
-          <h2 class="text-xl font-semibold mb-6">⚙️ Filters</h2>
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-            <input type="date" id="filterStartDate" class="w-full px-3 py-2 border rounded-lg mb-2">
-            <input type="date" id="filterEndDate" class="w-full px-3 py-2 border rounded-lg">
+    <h1 class="text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
+
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap gap-3 mb-8">
+      <button class="tab-btn active" onclick="switchView('overview')">📊 Overview</button>
+      <button class="tab-btn" onclick="switchView('cashin')">💵 Cash-In</button>
+      <button class="tab-btn" onclick="switchView('cashout')">💸 Cashout</button>
+      <button class="tab-btn" onclick="switchView('gameDistribution')">🎮 Game Distribution</button>
+      <button class="tab-btn" onclick="switchView('dailyHolding')">📅 Daily Holding</button>
+    </div>
+
+    <!-- ==================== OVERVIEW ==================== -->
+    <div id="view-overview" class="view-section active">
+      <!-- Summary Cards -->
+      <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">📈 Today's Summary ({{TODAY}})</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p class="text-blue-100 text-sm">Total Cash-In</p>
+            <p class="text-3xl font-bold" id="todayCashIn">$0.00</p>
           </div>
-          <button id="applyFilters" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium mb-3">Apply Filters</button>
-          <button id="resetFilters" class="w-full bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          <div>
+            <p class="text-blue-100 text-sm">Points Used (Cash-In)</p>
+            <p class="text-3xl font-bold" id="todayPointsUsed">0</p>
+          </div>
+          <div>
+            <p class="text-blue-100 text-sm">Total Cashout</p>
+            <p class="text-3xl font-bold" id="todayCashout">$0.00</p>
+          </div>
+          <div>
+            <p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p>
+            <p class="text-3xl font-bold" id="todayPointsRedeemed">0</p>
+          </div>
         </div>
       </div>
-      <div class="lg:col-span-3 space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-white p-6 rounded-3xl shadow">
-            <h3 class="text-2xl font-semibold mb-4">📅 Daily Deposits</h3>
-            <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyHistory">Loading...</div>
+
+      <!-- Today's Net -->
+      <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-3xl shadow text-white mb-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-emerald-100 text-sm">Today's Net (Cash-In - Cashout)</p>
+            <p class="text-4xl font-bold" id="todayNet">$0.00</p>
           </div>
-          <div class="bg-white p-6 rounded-3xl shadow">
-            <h3 class="text-2xl font-semibold mb-4">📊 Monthly Deposits</h3>
-            <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyHistory">Loading...</div>
-          </div>
-        </div>
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white">
-          <h2 class="text-2xl font-semibold mb-6">📈 Today's Summary ({{TODAY}})</h2>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div><p class="text-blue-100 text-sm">Total Deposit</p><p class="text-4xl font-bold" id="todayAmount">$0.00</p></div>
-            <div><p class="text-blue-100 text-sm">Total Points</p><p class="text-4xl font-bold" id="todayPoints">0</p></div>
-            <div><p class="text-blue-100 text-sm">Transactions</p><p class="text-4xl font-bold" id="todayTransactions">0</p></div>
-            <div><p class="text-blue-100 text-sm">Avg per Txn</p><p class="text-4xl font-bold" id="todayAvg">$0.00</p></div>
+          <div>
+            <p class="text-emerald-100 text-sm">Transactions</p>
+            <p class="text-4xl font-bold" id="todayTransactions">0</p>
           </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📈 Daily Trend</h3><canvas id="trendChart" height="150"></canvas></div>
-          <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📊 Platform Distribution</h3><canvas id="platformChart" height="150"></canvas></div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📈 Daily Cash-In Trend</h3>
+          <canvas id="trendChart" height="150"></canvas>
         </div>
-        <div class="bg-white rounded-3xl shadow overflow-hidden">
-          <div class="px-8 py-5 border-b font-semibold">Recent Transactions (Newest First)</div>
-          <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-8 py-4 text-left">Date</th><th class="px-8 py-4 text-left">Amount</th><th class="px-8 py-4 text-left">Platform</th><th class="px-8 py-4 text-left">Points</th></tr></thead><tbody id="transactionsTable"></tbody></table></div>
-        </div>
-        <div class="bg-white rounded-3xl shadow overflow-hidden">
-          <div class="px-8 py-5 border-b font-semibold">Recent Cashouts (Newest First)</div>
-          <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-8 py-4 text-left">Date</th><th class="px-8 py-4 text-left">Amount</th><th class="px-8 py-4 text-left">Game</th><th class="px-8 py-4 text-left">Points</th><th class="px-8 py-4 text-left">Playback Points</th><th class="px-8 py-4 text-left">Tip</th></tr></thead><tbody id="cashoutTransactionsTable"></tbody></table></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📊 Cash-In Platform Distribution</h3>
+          <canvas id="platformChart" height="150"></canvas>
         </div>
       </div>
     </div>
+
+    <!-- ==================== CASH-IN VIEW ==================== -->
+    <div id="view-cashin" class="view-section">
+      <!-- Filters -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <h2 class="text-xl font-semibold mb-4">⚙️ Cash-In Filters</h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+          </div>
+          <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+          <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+        </div>
+      </div>
+
+      <!-- Daily & Monthly Cash-In -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyCashIn">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Cash-In Transactions Table -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Recent Cash-In Transactions (Newest First)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-4 text-left">Date</th>
+                <th class="px-6 py-4 text-left">Employee</th>
+                <th class="px-6 py-4 text-left">Amount</th>
+                <th class="px-6 py-4 text-left">Game</th>
+                <th class="px-6 py-4 text-left">Points</th>
+              </tr>
+            </thead>
+            <tbody id="cashInTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CASHOUT VIEW ==================== -->
+    <div id="view-cashout" class="view-section">
+      <!-- Filters -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+          </div>
+          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium mt-4 lg:mt-0">📥 Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Cashout Summary -->
+      <div class="bg-gradient-to-r from-red-500 to-rose-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">💸 Cashout Summary</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-red-100 text-sm">Total Cashout</p>
+            <p class="text-3xl font-bold" id="coTotalCashout">$0.00</p>
+          </div>
+          <div>
+            <p class="text-red-100 text-sm">Total Points Redeemed</p>
+            <p class="text-3xl font-bold" id="coTotalRedeemed">0</p>
+          </div>
+          <div>
+            <p class="text-red-100 text-sm">Cashout Count</p>
+            <p class="text-3xl font-bold" id="coCount">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Points Redeemed by Game -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <h3 class="text-2xl font-semibold mb-4">🎮 Points Redeemed by Game (Net Redeem = Points - Playback)</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="coGameBreakdown">Loading...</div>
+      </div>
+
+      <!-- Cashout Transactions Table -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Recent Cashout Transactions (Newest First)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-5 py-4 text-left">Date</th>
+                <th class="px-5 py-4 text-left">Employee</th>
+                <th class="px-5 py-4 text-left">Game</th>
+                <th class="px-5 py-4 text-left">Points</th>
+                <th class="px-5 py-4 text-left">Playback</th>
+                <th class="px-5 py-4 text-left">Net Redeem</th>
+                <th class="px-5 py-4 text-left">Tip</th>
+                <th class="px-5 py-4 text-left">Cashout</th>
+              </tr>
+            </thead>
+            <tbody id="cashoutTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== GAME DISTRIBUTION VIEW ==================== -->
+    <div id="view-gameDistribution" class="view-section">
+      <!-- Filters -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap gap-4 items-end">
+          <h2 class="text-xl font-semibold">⚙️ Game Distribution Filters</h2>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
+          </div>
+          <button onclick="applyGameDistFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+          <button onclick="resetGameDistFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
+        </div>
+      </div>
+
+      <!-- Daily Game Distribution -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Daily Cash-In Points by Game</h3>
+          <div class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdDailyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Daily Cashout Points Redeemed by Game</h3>
+          <div class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdDailyCashout">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Monthly Game Distribution -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📊 Monthly Cash-In Points by Game</h3>
+          <div class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdMonthlyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📊 Monthly Cashout Points Redeemed by Game</h3>
+          <div class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdMonthlyCashout">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">🎯 Cash-In Points by Game</h3>
+          <canvas id="gdCashInChart" height="200"></canvas>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">🎯 Cashout Points Redeemed by Game</h3>
+          <canvas id="gdCashoutChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== DAILY HOLDING VIEW ==================== -->
+    <div id="view-dailyHolding" class="view-section">
+      <!-- Date Picker -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap gap-4 items-end">
+          <h2 class="text-xl font-semibold">📅 Daily Holding (Cash-In - Cashout)</h2>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+            <input type="date" id="holdingDate" class="px-3 py-2 border rounded-lg" onchange="updateHoldingForDate()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Date Detail -->
+      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6" id="holdingDetail">
+        <h2 class="text-2xl font-semibold mb-6" id="holdingDateTitle">Select a date above</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p class="text-indigo-100 text-sm">Cash-In</p>
+            <p class="text-3xl font-bold" id="holdingCashIn">$0.00</p>
+          </div>
+          <div>
+            <p class="text-indigo-100 text-sm">Cashout</p>
+            <p class="text-3xl font-bold" id="holdingCashout">$0.00</p>
+          </div>
+          <div>
+            <p class="text-indigo-100 text-sm">Net Holding</p>
+            <p class="text-3xl font-bold" id="holdingNet">$0.00</p>
+          </div>
+          <div>
+            <p class="text-indigo-100 text-sm">Status</p>
+            <p class="text-3xl font-bold" id="holdingStatus">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Holding History Table -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-4 text-left">Date</th>
+                <th class="px-6 py-4 text-left">Cash-In</th>
+                <th class="px-6 py-4 text-left">Cashout</th>
+                <th class="px-6 py-4 text-left">Net Holding</th>
+                <th class="px-6 py-4 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody id="holdingTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Holding Chart -->
+      <div class="bg-white p-6 rounded-3xl shadow mt-6">
+        <h3 class="text-xl font-semibold mb-4">📈 Daily Holding Trend</h3>
+        <canvas id="holdingChart" height="150"></canvas>
+      </div>
+    </div>
+
   </div>
+
   <script>
     let allTransactions = [];
     let allCashoutTransactions = [];
-    let trendChart, platformChart;
+    let trendChart, platformChart, gdCashInChart, gdCashoutChart, holdingChart;
+
+    // Filtered data
+    let filteredCashIn = [];
+    let filteredCashout = [];
+    let filteredGdCashIn = [];
+    let filteredGdCashout = [];
+
+    // ========== VIEW SWITCHING ==========
+    function switchView(view) {
+      document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('view-' + view).classList.add('active');
+      event.target.classList.add('active');
+      updateAllViews();
+    }
+
+    // ========== DATA LOADING ==========
     async function loadAllData() {
       try {
         const [tRes, cRes] = await Promise.all([fetch("/api/transactions"), fetch("/api/cashout-transactions")]);
         allTransactions = (await tRes.json()).transactions || [];
         allCashoutTransactions = (await cRes.json()).cashoutTransactions || [];
-        updateUI();
+        filteredCashIn = [...allTransactions];
+        filteredCashout = [...allCashoutTransactions];
+        filteredGdCashIn = [...allTransactions];
+        filteredGdCashout = [...allCashoutTransactions];
+        updateAllViews();
       } catch (e) { console.error(e); }
     }
-    function updateUI() {
-      const today = new Date().toISOString().split("T")[0];
-      const todayRecords = allTransactions.filter(r => r.date === today);
-      const tAmount = todayRecords.reduce((s, r) => s + r.amount, 0);
-      document.getElementById("todayAmount").textContent = "$" + tAmount.toFixed(2);
-      document.getElementById("todayPoints").textContent = todayRecords.reduce((s, r) => s + r.points, 0);
-      document.getElementById("todayTransactions").textContent = todayRecords.length;
-      document.getElementById("todayAvg").textContent = "$" + (todayRecords.length ? (tAmount / todayRecords.length).toFixed(2) : "0.00");
 
-      const dailyTotals = {};
-      allTransactions.forEach(t => { dailyTotals[t.date] = (dailyTotals[t.date] || 0) + t.amount; });
-      document.getElementById("dailyHistory").innerHTML = Object.keys(dailyTotals).sort().reverse().map(d => `
-        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between"><span>${d}</span><span class="font-bold text-green-600">$${dailyTotals[d].toFixed(2)}</span></div>
-      `).join("");
-
-      const monthlyTotals = {};
-      allTransactions.forEach(t => { const m = t.date.slice(0, 7); monthlyTotals[m] = (monthlyTotals[m] || 0) + t.amount; });
-      document.getElementById("monthlyHistory").innerHTML = Object.keys(monthlyTotals).sort().reverse().map(m => `
-        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between"><span>${m}</span><span class="font-bold text-purple-600">$${monthlyTotals[m].toFixed(2)}</span></div>
-      `).join("");
-
-      document.getElementById("transactionsTable").innerHTML = allTransactions.slice(0, 50).map(t => `
-        <tr class="border-t"><td class="px-8 py-4">${t.date}</td><td class="px-8 py-4 font-medium">$${t.amount.toFixed(2)}</td><td class="px-8 py-4">${t.game}</td><td class="px-8 py-4">${t.points}</td></tr>
-      `).join("");
-
-      document.getElementById("cashoutTransactionsTable").innerHTML = allCashoutTransactions.slice(0, 50).map(t => `
-        <tr class="border-t"><td class="px-8 py-4">${t.created_at.split("T")[0]}</td><td class="px-8 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td><td class="px-8 py-4">${t.game}</td><td class="px-8 py-4">${t.points}</td><td class="px-8 py-4">${t.playback_points}</td><td class="px-8 py-4">$${t.tip.toFixed(2)}</td></tr>
-      `).join("");
-      renderCharts();
+    function updateAllViews() {
+      updateOverview();
+      updateCashInView();
+      updateCashoutView();
+      updateGameDistribution();
+      updateDailyHolding();
     }
-    function renderCharts() {
+
+    // ========== HELPER: Net Redeem for cashout ==========
+    function getNetRedeem(co) {
+      const points = co.points || 0;
+      const playback = parseFloat(co.playback_id) || 0;
+      return points - playback;
+    }
+
+    function getCashoutDate(co) {
+      return (co.created_at || "").split("T")[0];
+    }
+
+    // ========== OVERVIEW ==========
+    function updateOverview() {
+      const today = new Date().toISOString().split("T")[0];
+      const todayCashInRecords = allTransactions.filter(r => r.date === today);
+      const todayCashoutRecords = allCashoutTransactions.filter(r => getCashoutDate(r) === today);
+
+      const ciAmount = todayCashInRecords.reduce((s, r) => s + r.amount, 0);
+      const ciPoints = todayCashInRecords.reduce((s, r) => s + r.points, 0);
+      const coAmount = todayCashoutRecords.reduce((s, r) => s + r.amount, 0);
+      const coRedeemed = todayCashoutRecords.reduce((s, r) => s + getNetRedeem(r), 0);
+
+      document.getElementById("todayCashIn").textContent = "$" + ciAmount.toFixed(2);
+      document.getElementById("todayPointsUsed").textContent = ciPoints.toFixed(0);
+      document.getElementById("todayCashout").textContent = "$" + coAmount.toFixed(2);
+      document.getElementById("todayPointsRedeemed").textContent = coRedeemed.toFixed(0);
+      document.getElementById("todayNet").textContent = "$" + (ciAmount - coAmount).toFixed(2);
+      document.getElementById("todayTransactions").textContent = todayCashInRecords.length + todayCashoutRecords.length;
+
+      // Trend Chart
       if (trendChart) trendChart.destroy();
       const dailyData = {};
       allTransactions.forEach(t => { dailyData[t.date] = (dailyData[t.date] || 0) + t.amount; });
@@ -115,20 +406,389 @@
       if (ctxTrend) {
         trendChart = new Chart(ctxTrend, {
           type: "line",
-          data: { labels: dates, datasets: [{ label: "Amount ($)", data: dates.map(d => dailyData[d]), borderColor: "#10b981", fill: true }] }
+          data: { labels: dates, datasets: [{ label: "Cash-In ($)", data: dates.map(d => dailyData[d]), borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3 }] },
+          options: { responsive: true, plugins: { legend: { display: true } } }
         });
       }
+
+      // Platform Chart
       if (platformChart) platformChart.destroy();
       const pData = {};
-      allTransactions.forEach(t => { pData[t.game] = (pData[t.game] || 0) + t.amount; });
+      allTransactions.forEach(t => { pData[t.game || "Unknown"] = (pData[t.game || "Unknown"] || 0) + t.amount; });
       const ctxPlatform = document.getElementById("platformChart");
       if (ctxPlatform) {
+        const colors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#06b6d4","#e11d48"];
         platformChart = new Chart(ctxPlatform, {
           type: "doughnut",
-          data: { labels: Object.keys(pData), datasets: [{ data: Object.values(pData), backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"] }] }
+          data: { labels: Object.keys(pData), datasets: [{ data: Object.values(pData), backgroundColor: colors }] },
+          options: { responsive: true }
         });
       }
     }
+
+    // ========== CASH-IN VIEW ==========
+    function applyCashInFilter() {
+      const start = document.getElementById("ciFilterStart").value;
+      const end = document.getElementById("ciFilterEnd").value;
+      filteredCashIn = allTransactions.filter(t => {
+        if (start && t.date < start) return false;
+        if (end && t.date > end) return false;
+        return true;
+      });
+      updateCashInView();
+    }
+    function resetCashInFilter() {
+      document.getElementById("ciFilterStart").value = "";
+      document.getElementById("ciFilterEnd").value = "";
+      filteredCashIn = [...allTransactions];
+      updateCashInView();
+    }
+
+    function updateCashInView() {
+      // Daily Cash-In
+      const dailyTotals = {};
+      filteredCashIn.forEach(t => { dailyTotals[t.date] = (dailyTotals[t.date] || 0) + t.amount; });
+      document.getElementById("dailyCashIn").innerHTML = Object.keys(dailyTotals).sort().reverse().map(d => `
+        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between">
+          <span class="font-medium">${d}</span>
+          <span class="font-bold text-green-600">$${dailyTotals[d].toFixed(2)}</span>
+        </div>
+      `).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Monthly Cash-In
+      const monthlyTotals = {};
+      filteredCashIn.forEach(t => { const m = t.date.slice(0, 7); monthlyTotals[m] = (monthlyTotals[m] || 0) + t.amount; });
+      document.getElementById("monthlyCashIn").innerHTML = Object.keys(monthlyTotals).sort().reverse().map(m => `
+        <div class="p-4 rounded-lg bg-gray-50 border flex justify-between">
+          <span class="font-medium">${m}</span>
+          <span class="font-bold text-purple-600">$${monthlyTotals[m].toFixed(2)}</span>
+        </div>
+      `).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Table
+      document.getElementById("cashInTable").innerHTML = filteredCashIn.slice().reverse().slice(0, 100).map(t => `
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-6 py-4">${t.date}</td>
+          <td class="px-6 py-4">${t.employee}</td>
+          <td class="px-6 py-4 font-medium text-green-600">$${t.amount.toFixed(2)}</td>
+          <td class="px-6 py-4">${t.game}</td>
+          <td class="px-6 py-4">${t.points}</td>
+        </tr>
+      `).join("") || '<tr><td colspan="5" class="px-6 py-4 text-gray-400">No data</td></tr>';
+    }
+
+    // ========== CASHOUT VIEW ==========
+    function applyCashoutFilter() {
+      const start = document.getElementById("coFilterStart").value;
+      const end = document.getElementById("coFilterEnd").value;
+      filteredCashout = allCashoutTransactions.filter(t => {
+        const d = getCashoutDate(t);
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+      updateCashoutView();
+    }
+    function resetCashoutFilter() {
+      document.getElementById("coFilterStart").value = "";
+      document.getElementById("coFilterEnd").value = "";
+      filteredCashout = [...allCashoutTransactions];
+      updateCashoutView();
+    }
+
+    function updateCashoutView() {
+      const totalCashout = filteredCashout.reduce((s, r) => s + r.amount, 0);
+      const totalRedeemed = filteredCashout.reduce((s, r) => s + getNetRedeem(r), 0);
+
+      document.getElementById("coTotalCashout").textContent = "$" + totalCashout.toFixed(2);
+      document.getElementById("coTotalRedeemed").textContent = totalRedeemed.toFixed(0);
+      document.getElementById("coCount").textContent = filteredCashout.length;
+
+      // Game breakdown
+      const gamePoints = {};
+      filteredCashout.forEach(co => {
+        const game = co.game || "Unknown";
+        gamePoints[game] = (gamePoints[game] || 0) + getNetRedeem(co);
+      });
+      document.getElementById("coGameBreakdown").innerHTML = Object.entries(gamePoints).map(([game, pts]) => `
+        <div class="p-4 rounded-xl bg-gray-50 border text-center">
+          <p class="text-sm text-gray-500">${game}</p>
+          <p class="text-2xl font-bold text-red-600">${pts.toFixed(0)}</p>
+          <p class="text-xs text-gray-400">Net Redeemed</p>
+        </div>
+      `).join("") || '<p class="text-gray-400 col-span-4">No data</p>';
+
+      // Table
+      document.getElementById("cashoutTable").innerHTML = filteredCashout.slice().reverse().slice(0, 100).map(t => {
+        const nr = getNetRedeem(t);
+        const playback = parseFloat(t.playback_id) || 0;
+        return `
+          <tr class="border-t hover:bg-gray-50">
+            <td class="px-5 py-4">${getCashoutDate(t)}</td>
+            <td class="px-5 py-4">${t.employee}</td>
+            <td class="px-5 py-4">${t.game || "Unknown"}</td>
+            <td class="px-5 py-4">${t.points}</td>
+            <td class="px-5 py-4">${playback}</td>
+            <td class="px-5 py-4 font-medium text-orange-600">${nr.toFixed(0)}</td>
+            <td class="px-5 py-4">$${t.tip.toFixed(2)}</td>
+            <td class="px-5 py-4 font-medium text-red-600">$${t.amount.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join("") || '<tr><td colspan="8" class="px-5 py-4 text-gray-400">No data</td></tr>';
+    }
+
+    // ========== EXCEL EXPORT ==========
+    function exportCashoutExcel() {
+      const data = filteredCashout.map(t => ({
+        Date: getCashoutDate(t),
+        Employee: t.employee,
+        Group: t.group,
+        Game: t.game || "Unknown",
+        Points: t.points,
+        Playback: parseFloat(t.playback_id) || 0,
+        "Net Redeem": getNetRedeem(t),
+        Tip: t.tip,
+        Cashout: t.amount,
+        "Cashout ID": t.id
+      }));
+
+      // Add game summary sheet
+      const gamePoints = {};
+      filteredCashout.forEach(co => {
+        const game = co.game || "Unknown";
+        gamePoints[game] = (gamePoints[game] || 0) + getNetRedeem(co);
+      });
+      const gameSummary = Object.entries(gamePoints).map(([game, pts]) => ({
+        Game: game,
+        "Points Redeemed (Net)": pts
+      }));
+      gameSummary.push({ Game: "TOTAL", "Points Redeemed (Net)": Object.values(gamePoints).reduce((a, b) => a + b, 0) });
+
+      // Total cashout row
+      data.push({
+        Date: "", Employee: "", Group: "", Game: "", Points: "", Playback: "",
+        "Net Redeem": "", Tip: "TOTAL CASHOUT:",
+        Cashout: filteredCashout.reduce((s, r) => s + r.amount, 0),
+        "Cashout ID": ""
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws1, "Cashout Transactions");
+      const ws2 = XLSX.utils.json_to_sheet(gameSummary);
+      XLSX.utils.book_append_sheet(wb, ws2, "Points Redeemed by Game");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+        filteredCashout.reduce((acc, co) => {
+          const d = getCashoutDate(co);
+          if (!acc.find(x => x.Date === d)) {
+            const dayRecords = filteredCashout.filter(c => getCashoutDate(c) === d);
+            const dayCashout = dayRecords.reduce((s, r) => s + r.amount, 0);
+            const dayRedeemed = dayRecords.reduce((s, r) => s + getNetRedeem(r), 0);
+            const dayGames = {};
+            dayRecords.forEach(r => { dayGames[r.game || "Unknown"] = (dayGames[r.game || "Unknown"] || 0) + getNetRedeem(r); });
+            const row = { Date: d, "Total Cashout": dayCashout, "Total Points Redeemed": dayRedeemed };
+            Object.entries(dayGames).forEach(([g, p]) => { row[g + " (Redeemed)"] = p; });
+            acc.push(row);
+          }
+          return acc;
+        }, []).sort((a, b) => b.Date.localeCompare(a.Date))
+      ), "Daily Summary");
+
+      XLSX.writeFile(wb, "cashout_report.xlsx");
+    }
+
+    // ========== GAME DISTRIBUTION ==========
+    function applyGameDistFilter() {
+      const start = document.getElementById("gdFilterStart").value;
+      const end = document.getElementById("gdFilterEnd").value;
+      filteredGdCashIn = allTransactions.filter(t => {
+        if (start && t.date < start) return false;
+        if (end && t.date > end) return false;
+        return true;
+      });
+      filteredGdCashout = allCashoutTransactions.filter(t => {
+        const d = getCashoutDate(t);
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+      updateGameDistribution();
+    }
+    function resetGameDistFilter() {
+      document.getElementById("gdFilterStart").value = "";
+      document.getElementById("gdFilterEnd").value = "";
+      filteredGdCashIn = [...allTransactions];
+      filteredGdCashout = [...allCashoutTransactions];
+      updateGameDistribution();
+    }
+
+    function updateGameDistribution() {
+      const colors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16","#06b6d4","#e11d48"];
+
+      // Daily Cash-In by Game
+      const dailyCiGames = {};
+      filteredGdCashIn.forEach(t => {
+        if (!dailyCiGames[t.date]) dailyCiGames[t.date] = {};
+        const game = t.game || "Unknown";
+        dailyCiGames[t.date][game] = (dailyCiGames[t.date][game] || 0) + t.points;
+      });
+      document.getElementById("gdDailyCashIn").innerHTML = Object.keys(dailyCiGames).sort().reverse().map(d => {
+        const games = dailyCiGames[d];
+        const total = Object.values(games).reduce((a, b) => a + b, 0);
+        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
+        return `<div class="p-4 rounded-lg bg-gray-50 border">
+          <div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-blue-600">Total: ${total}</span></div>
+          <div class="text-gray-600">${gameList}</div>
+        </div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Daily Cashout by Game
+      const dailyCoGames = {};
+      filteredGdCashout.forEach(t => {
+        const d = getCashoutDate(t);
+        if (!dailyCoGames[d]) dailyCoGames[d] = {};
+        const game = t.game || "Unknown";
+        dailyCoGames[d][game] = (dailyCoGames[d][game] || 0) + getNetRedeem(t);
+      });
+      document.getElementById("gdDailyCashout").innerHTML = Object.keys(dailyCoGames).sort().reverse().map(d => {
+        const games = dailyCoGames[d];
+        const total = Object.values(games).reduce((a, b) => a + b, 0);
+        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
+        return `<div class="p-4 rounded-lg bg-gray-50 border">
+          <div class="flex justify-between mb-1"><span class="font-medium">${d}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div>
+          <div class="text-gray-600">${gameList}</div>
+        </div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Monthly Cash-In by Game
+      const monthlyCiGames = {};
+      filteredGdCashIn.forEach(t => {
+        const m = t.date.slice(0, 7);
+        if (!monthlyCiGames[m]) monthlyCiGames[m] = {};
+        const game = t.game || "Unknown";
+        monthlyCiGames[m][game] = (monthlyCiGames[m][game] || 0) + t.points;
+      });
+      document.getElementById("gdMonthlyCashIn").innerHTML = Object.keys(monthlyCiGames).sort().reverse().map(m => {
+        const games = monthlyCiGames[m];
+        const total = Object.values(games).reduce((a, b) => a + b, 0);
+        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p}</strong></span>`).join(" | ");
+        return `<div class="p-4 rounded-lg bg-gray-50 border">
+          <div class="flex justify-between mb-1"><span class="font-medium">${m}</span><span class="font-bold text-blue-600">Total: ${total}</span></div>
+          <div class="text-gray-600">${gameList}</div>
+        </div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Monthly Cashout by Game
+      const monthlyCoGames = {};
+      filteredGdCashout.forEach(t => {
+        const m = getCashoutDate(t).slice(0, 7);
+        if (!monthlyCoGames[m]) monthlyCoGames[m] = {};
+        const game = t.game || "Unknown";
+        monthlyCoGames[m][game] = (monthlyCoGames[m][game] || 0) + getNetRedeem(t);
+      });
+      document.getElementById("gdMonthlyCashout").innerHTML = Object.keys(monthlyCoGames).sort().reverse().map(m => {
+        const games = monthlyCoGames[m];
+        const total = Object.values(games).reduce((a, b) => a + b, 0);
+        const gameList = Object.entries(games).map(([g, p]) => `<span class="text-sm">${g}: <strong>${p.toFixed(0)}</strong></span>`).join(" | ");
+        return `<div class="p-4 rounded-lg bg-gray-50 border">
+          <div class="flex justify-between mb-1"><span class="font-medium">${m}</span><span class="font-bold text-red-600">Total: ${total.toFixed(0)}</span></div>
+          <div class="text-gray-600">${gameList}</div>
+        </div>`;
+      }).join("") || '<p class="text-gray-400">No data</p>';
+
+      // Charts
+      if (gdCashInChart) gdCashInChart.destroy();
+      const ciGameTotals = {};
+      filteredGdCashIn.forEach(t => { ciGameTotals[t.game || "Unknown"] = (ciGameTotals[t.game || "Unknown"] || 0) + t.points; });
+      const ctxCi = document.getElementById("gdCashInChart");
+      if (ctxCi) {
+        gdCashInChart = new Chart(ctxCi, {
+          type: "doughnut",
+          data: { labels: Object.keys(ciGameTotals), datasets: [{ data: Object.values(ciGameTotals), backgroundColor: colors }] },
+          options: { responsive: true }
+        });
+      }
+
+      if (gdCashoutChart) gdCashoutChart.destroy();
+      const coGameTotals = {};
+      filteredGdCashout.forEach(t => { coGameTotals[t.game || "Unknown"] = (coGameTotals[t.game || "Unknown"] || 0) + getNetRedeem(t); });
+      const ctxCo = document.getElementById("gdCashoutChart");
+      if (ctxCo) {
+        gdCashoutChart = new Chart(ctxCo, {
+          type: "doughnut",
+          data: { labels: Object.keys(coGameTotals), datasets: [{ data: Object.values(coGameTotals), backgroundColor: colors }] },
+          options: { responsive: true }
+        });
+      }
+    }
+
+    // ========== DAILY HOLDING ==========
+    function updateHoldingForDate() {
+      const date = document.getElementById("holdingDate").value;
+      if (!date) return;
+
+      const dayCashIn = allTransactions.filter(t => t.date === date).reduce((s, r) => s + r.amount, 0);
+      const dayCashout = allCashoutTransactions.filter(t => getCashoutDate(t) === date).reduce((s, r) => s + r.amount, 0);
+      const net = dayCashIn - dayCashout;
+
+      document.getElementById("holdingDateTitle").textContent = `📅 ${date}`;
+      document.getElementById("holdingCashIn").textContent = "$" + dayCashIn.toFixed(2);
+      document.getElementById("holdingCashout").textContent = "$" + dayCashout.toFixed(2);
+      document.getElementById("holdingNet").textContent = "$" + net.toFixed(2);
+      document.getElementById("holdingNet").className = "text-3xl font-bold " + (net >= 0 ? "" : "text-yellow-200");
+      document.getElementById("holdingStatus").textContent = net >= 0 ? "✅ Profit" : "⚠️ Loss";
+    }
+
+    function updateDailyHolding() {
+      // Collect all unique dates
+      const allDates = new Set();
+      allTransactions.forEach(t => allDates.add(t.date));
+      allCashoutTransactions.forEach(t => allDates.add(getCashoutDate(t)));
+
+      const holdingData = Array.from(allDates).filter(d => d).sort().reverse().map(d => {
+        const ci = allTransactions.filter(t => t.date === d).reduce((s, r) => s + r.amount, 0);
+        const co = allCashoutTransactions.filter(t => getCashoutDate(t) === d).reduce((s, r) => s + r.amount, 0);
+        const net = ci - co;
+        return { date: d, cashIn: ci, cashOut: co, net };
+      });
+
+      document.getElementById("holdingTable").innerHTML = holdingData.map(h => `
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-6 py-4 font-medium">${h.date}</td>
+          <td class="px-6 py-4 text-green-600 font-medium">$${h.cashIn.toFixed(2)}</td>
+          <td class="px-6 py-4 text-red-600 font-medium">$${h.cashOut.toFixed(2)}</td>
+          <td class="px-6 py-4 font-bold ${h.net >= 0 ? 'text-blue-600' : 'text-orange-600'}">$${h.net.toFixed(2)}</td>
+          <td class="px-6 py-4">${h.net >= 0 ? '✅ Profit' : '⚠️ Loss'}</td>
+        </tr>
+      `).join("") || '<tr><td colspan="5" class="px-6 py-4 text-gray-400">No data</td></tr>';
+
+      // Holding Chart
+      if (holdingChart) holdingChart.destroy();
+      const sortedData = [...holdingData].reverse();
+      const ctxHolding = document.getElementById("holdingChart");
+      if (ctxHolding) {
+        holdingChart = new Chart(ctxHolding, {
+          type: "bar",
+          data: {
+            labels: sortedData.map(h => h.date),
+            datasets: [
+              { label: "Cash-In", data: sortedData.map(h => h.cashIn), backgroundColor: "rgba(16,185,129,0.7)" },
+              { label: "Cashout", data: sortedData.map(h => h.cashOut), backgroundColor: "rgba(239,68,68,0.7)" },
+              { label: "Net Holding", data: sortedData.map(h => h.net), type: "line", borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.1)", fill: true, tension: 0.3 }
+            ]
+          },
+          options: { responsive: true, plugins: { legend: { display: true } } }
+        });
+      }
+
+      // Set today's date in the picker
+      if (!document.getElementById("holdingDate").value) {
+        document.getElementById("holdingDate").value = new Date().toISOString().split("T")[0];
+        updateHoldingForDate();
+      }
+    }
+
+    // ========== INIT ==========
     setInterval(loadAllData, 5000);
     loadAllData();
   </script>
