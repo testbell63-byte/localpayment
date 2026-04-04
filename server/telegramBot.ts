@@ -110,7 +110,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   });
 
   // ================== CASHOUT FLOW (Command Handler) ==================
-  bot.onText(/\/cashout/, async (msg) => {
+  bot.onText(/\/(cashout|co)/, async (msg) => {
     const chatId = msg.chat.id;
     const groupName = msg.chat.title || "Unknown Group";
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
@@ -438,6 +438,25 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
+      // Admin approval handlers
+      if (data === "admin_approve") {
+        await bot.editMessageText(`✅ **APPROVED**\n\nCashout has been approved and recorded.`, {
+          chat_id: chatId,
+          message_id: query.message!.message_id
+        }).catch(() => {});
+        await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
+        return;
+      }
+
+      if (data === "admin_reject") {
+        await bot.editMessageText(`❌ **REJECTED**\n\nCashout has been rejected.`, {
+          chat_id: chatId,
+          message_id: query.message!.message_id
+        }).catch(() => {});
+        await bot.answerCallbackQuery(query.id, { text: "❌ Cashout Rejected!", show_alert: true });
+        return;
+      }
+
       if (data.startsWith("cashout_edit_")) {
         const field = data.replace("cashout_edit_", "");
         if (field === "amount") {
@@ -650,6 +669,7 @@ Cashout ID: ${state.cashoutId}
 
 **Is this cashout complete?**`;
 
+  console.log(`[Admin Notification] Sending to ADMIN_ID: ${ADMIN_ID}`);
   bot.sendMessage(ADMIN_ID, adminMsg, {
     reply_markup: {
       inline_keyboard: [
@@ -657,5 +677,9 @@ Cashout ID: ${state.cashoutId}
         [{ text: "❌ Reject", callback_data: "admin_reject" }]
       ]
     }
-  }).catch(() => {});
+  }).then(() => {
+    console.log(`[Admin Notification] Successfully sent to ${ADMIN_ID}`);
+  }).catch((err) => {
+    console.error(`[Admin Notification] Failed to send to ${ADMIN_ID}:`, err);
+  });
 }
