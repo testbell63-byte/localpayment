@@ -490,11 +490,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
         await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
         return;
-        }
-        
-        await bot.answerCallbackQuery(query.id, { text: "❌ Cashout not found!", show_alert: true });
       }
-
+      
       if (data.startsWith("cashout_edit_")) {
         const field = data.replace("cashout_edit_", "");
         if (field === "game") {
