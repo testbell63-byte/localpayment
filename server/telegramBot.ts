@@ -332,6 +332,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       } else await bot.sendMessage(chatId, "❌ Could not identify cashout ID.");
       return;
     }
+    if (!fs.existsSync(RECORDS_FILE)) return;
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
     if (lines.length <= 1) return;
     const lastLine = lines[lines.length - 1];
