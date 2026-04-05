@@ -36,8 +36,16 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   console.log("[Bot] Starting with Income & Cashout flows");
 
   const userState = new Map();
+  // adminMessages: messageId -> { cashoutId, state, chatId }
   const adminMessages = new Map();
+  // cashoutMessages: key -> cashoutId (for deletion tracking)
   const cashoutMessages = new Map();
+  // pendingCashouts: cashoutId -> { state, adminMsgId, adminChatId, userEditMsgId, userChatId }
+  // Tracks cashouts that are pending admin approval so user can still edit/cancel
+  const pendingCashouts = new Map();
+  // cashoutGroupMsgToCashoutId: messageId in cashout group -> cashoutId
+  // Used for /delete in cashout group
+  const cashoutGroupMsgToCashoutId = new Map();
 
   const numberKeyboard = {
     reply_markup: {
@@ -70,6 +78,37 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       ]
     }
   };
+
+  // ─── Helper: build the user edit/cancel keyboard ───────────────────────────
+  function buildUserControlKeyboard(cashoutId: string) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✏️ Edit Cashout", callback_data: `pending_edit_${cashoutId}` },
+            { text: "🗑️ Cancel Cashout", callback_data: `pending_cancel_${cashoutId}` }
+          ]
+        ]
+      }
+    };
+  }
+
+  // ─── Helper: disable the user control message after admin acts ─────────────
+  async function disableUserControlMsg(cashoutId: string) {
+    const pending = pendingCashouts.get(cashoutId);
+    if (!pending) return;
+    try {
+      await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+        chat_id: pending.userChatId,
+        message_id: pending.userEditMsgId
+      });
+      await bot.editMessageText(
+        `⏹️ This cashout has been resolved by admin. No further edits are possible.\n🆔 Cashout ID: ${cashoutId}`,
+        { chat_id: pending.userChatId, message_id: pending.userEditMsgId }
+      );
+    } catch (_) {}
+    pendingCashouts.delete(cashoutId);
+  }
 
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
@@ -144,22 +183,20 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const data = query.data!;
     const state = userState.get(chatId);
 
+    // ─── DENY (admin only) ────────────────────────────────────────────────────
     if (data.startsWith("cashout_deny_")) {
       const cashoutId = data.replace("cashout_deny_", "");
       const adminData = adminMessages.get(query.message?.message_id!);
       const denierId = query.from?.id;
-      
+
       if (denierId !== ADMIN_ID) {
-        console.warn(`[Security] Non-admin user (ID: ${denierId}) attempted to deny cashout ${cashoutId}`);
         await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can deny cashouts!", show_alert: true });
         return;
       }
-      
+
       if (adminData && adminData.cashoutId === cashoutId) {
         const { state: cashoutState, chatId: originalChatId } = adminData;
         const denierName = query.from?.first_name || query.from?.username || "Unknown";
-
-        console.log(`[Admin Denial] Cashout ${cashoutId} denied by ${denierName}`);
 
         const deniedMsg = `❌ **DENIED** by ${denierName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${cashoutState.game}\n🎯 Points Redeemed: ${cashoutState.points}\n🎫 Playback Points: ${cashoutState.playback_points}\n💵 Tip: $${cashoutState.tip}\n💰 Final Cashout: $${cashoutState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${cashoutState.employeeName}\n🆔 Cashout ID: ${cashoutId}\n\nThis cashout has been denied. The employee can start a new cashout with /co`;
 
@@ -175,58 +212,124 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         }
 
         adminMessages.delete(query.message?.message_id!);
+        await disableUserControlMsg(cashoutId);
       }
 
       await bot.answerCallbackQuery(query.id, { text: "❌ Cashout Denied!", show_alert: true });
       return;
     }
 
+    // ─── APPROVE (admin only) ─────────────────────────────────────────────────
     if (data.startsWith("cashout_approve_")) {
       const cashoutId = data.replace("cashout_approve_", "");
       const adminData = adminMessages.get(query.message?.message_id!);
       const approverId = query.from?.id;
-      
+
       if (approverId !== ADMIN_ID) {
-        console.warn(`[Security] Non-admin user (ID: ${approverId}) attempted to approve cashout ${cashoutId}`);
         await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can approve cashouts!", show_alert: true });
         return;
       }
-      
+
       if (adminData && adminData.cashoutId === cashoutId) {
-        const { state, chatId: originalChatId } = adminData;
+        const { state: coState, chatId: originalChatId } = adminData;
         const approverName = query.from?.first_name || query.from?.username || "Unknown";
 
-        console.log(`[Admin Approval] Cashout ${cashoutId} approved by ${approverName}`);
-        
-        saveCashoutRecord(state);
+        saveCashoutRecord(coState);
 
-        const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback Points: ${state.playback_points}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
+        const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${coState.game}\n🎯 Points Redeemed: ${coState.points}\n🎫 Playback Points: ${coState.playback_points}\n💵 Tip: $${coState.tip}\n💰 Final Cashout: $${coState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${coState.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
 
         await bot.editMessageText(approvedMsg, {
           chat_id: originalChatId,
           message_id: query.message?.message_id!
         }).catch(() => {});
 
-        const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback Points: ${state.playback_points}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n👨‍⚖️ Approved By: ${approverName} (Admin)\n🆔 Cashout ID: ${cashoutId}\n📅 Created: ${state.createdAt}\n📅 Approved: ${getCST().isoTime}`;
+        const reportMsg = `✅ **CASHOUT APPROVED & RECORDED**\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${coState.game}\n🎯 Points Redeemed: ${coState.points}\n🎫 Playback Points: ${coState.playback_points}\n💵 Tip: $${coState.tip}\n💰 Final Cashout: $${coState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${coState.employeeName}\n👨‍⚖️ Approved By: ${approverName} (Admin)\n🆔 Cashout ID: ${cashoutId}\n📅 Created: ${coState.createdAt}\n📅 Approved: ${getCST().isoTime}`;
 
         try {
           await bot.sendMessage(REPORT_GROUP_ID, reportMsg);
-          
-          if (state.mediaType === "photo" && state.photoFileId) {
-            await bot.sendPhoto(REPORT_GROUP_ID, state.photoFileId, {
-              caption: `📸 Payment Method Screenshot\n${state.mediaCaption}`
+
+          if (coState.mediaType === "photo" && coState.photoFileId) {
+            await bot.sendPhoto(REPORT_GROUP_ID, coState.photoFileId, {
+              caption: `📸 Payment Method Screenshot\n${coState.mediaCaption}`
             });
-          } else if (state.mediaType === "text" && state.mediaCaption) {
-            await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment Details:\n${state.mediaCaption}`);
+          } else if (coState.mediaType === "text" && coState.mediaCaption) {
+            await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment Details:\n${coState.mediaCaption}`);
           }
         } catch (err) {
           console.error(`[Report] Failed to send to Report Group:`, err);
         }
 
         adminMessages.delete(query.message?.message_id!);
+        await disableUserControlMsg(cashoutId);
       }
 
       await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
+      return;
+    }
+
+    // ─── PENDING EDIT (user edits after submission) ───────────────────────────
+    if (data.startsWith("pending_edit_")) {
+      const cashoutId = data.replace("pending_edit_", "");
+      const pending = pendingCashouts.get(cashoutId);
+
+      if (!pending) {
+        await bot.answerCallbackQuery(query.id, { text: "❌ This cashout is no longer editable.", show_alert: true });
+        return;
+      }
+
+      // Restore state so user can go through review screen again
+      userState.set(chatId, { ...pending.state, step: "cashout_review" });
+      await bot.answerCallbackQuery(query.id, { text: "Opening edit screen..." });
+      showCashoutReview(chatId, pending.state, bot);
+      return;
+    }
+
+    // ─── PENDING CANCEL (user cancels after submission) ───────────────────────
+    if (data.startsWith("pending_cancel_")) {
+      const cashoutId = data.replace("pending_cancel_", "");
+      const pending = pendingCashouts.get(cashoutId);
+
+      if (!pending) {
+        await bot.answerCallbackQuery(query.id, { text: "❌ This cashout is no longer active.", show_alert: true });
+        return;
+      }
+
+      const cancelerName = query.from?.first_name || query.from?.username || "Unknown";
+
+      // Remove from CSV (in case it was saved early — it's not, but just in case)
+      removeCashoutRecord(cashoutId);
+
+      // Disable admin approval message
+      try {
+        await bot.editMessageText(
+          `🚫 **CASHOUT CANCELLED** by ${cancelerName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${pending.state.game}\n🎯 Points Redeemed: ${pending.state.points}\n🎫 Playback Points: ${pending.state.playback_points}\n💵 Tip: $${pending.state.tip}\n💰 Final Cashout: $${pending.state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${pending.state.employeeName}\n🆔 Cashout ID: ${cashoutId}\n\nThis cashout was cancelled before admin review.`,
+          { chat_id: pending.adminChatId, message_id: pending.adminMsgId }
+        );
+      } catch (_) {}
+
+      // Notify report group
+      try {
+        await bot.sendMessage(REPORT_GROUP_ID, `🚫 **CASHOUT CANCELLED**\n\n👤 Employee: ${pending.state.employeeName}\n🎮 Game: ${pending.state.game}\n💰 Amount: $${pending.state.amount}\n🙋 Cancelled By: ${cancelerName}\n🆔 Cashout ID: ${cashoutId}`);
+      } catch (_) {}
+
+      // Clean up
+      adminMessages.delete(pending.adminMsgId);
+      pendingCashouts.delete(cashoutId);
+      userState.delete(chatId);
+
+      // Update the user control message
+      try {
+        await bot.editMessageText(
+          `🚫 **Cashout Cancelled**\n\nYour cashout (ID: ${cashoutId}) has been cancelled successfully.`,
+          { chat_id: chatId, message_id: query.message?.message_id! }
+        );
+        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+          chat_id: chatId,
+          message_id: query.message?.message_id!
+        });
+      } catch (_) {}
+
+      await bot.answerCallbackQuery(query.id, { text: "🚫 Cashout cancelled!", show_alert: true });
       return;
     }
 
@@ -242,139 +345,102 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         } else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
           if (isNaN(value) || value <= 0) {
-            await bot.sendMessage(chatId, "❌ Please enter a valid number.");
-            await bot.answerCallbackQuery(query.id);
+            await bot.answerCallbackQuery(query.id, { text: "Please enter a valid amount", show_alert: true });
             return;
           }
-          if (state.step === "amount") {
-            state.amount = value;
-            state.step = "game";
-            await bot.sendMessage(chatId, `✅ Amount saved: $${value}\n\nStep 2: Select games:`, gameKeyboard);
-          } else if (state.step === "per_game_points") {
-            const currentGame = state.selectedGames[state.currentGameIndex];
-            const cst = getCST();
-            state.records.push({
-              date: cst.date,
-              time: cst.time,
-              day: cst.day,
-              employee: state.employeeName,
-              amount: state.amount,
-              game: currentGame,
-              points: value
-            });
-            state.currentGameIndex++;
-            if (state.currentGameIndex < state.selectedGames.length) {
-              state.amountInput = "";
-              await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, numberKeyboard);
-            } else {
-              state.step = "final_confirm";
-              let summaryText = `📋 **SUMMARY**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
-              state.records.forEach((r: any, i: number) => {
-                summaryText += `${i+1}. ${r.game}: ${r.points} points\n`;
-              });
-              summaryText += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-              await bot.sendMessage(chatId, summaryText, {
-                reply_markup: {
-                  inline_keyboard: [[
-                    { text: "✅ Yes - Save", callback_data: "confirm_yes" },
-                    { text: "❌ No", callback_data: "confirm_no" }
-                  ]]
-                }
-              });
-            }
-            await bot.answerCallbackQuery(query.id);
-            return;
-          }
+          state.amount = value;
+          state.step = "game";
+          await bot.sendMessage(chatId, `💰 Amount: $${value}\n\nSelect Game(s):`, gameKeyboard);
         } else {
           state.amountInput = (state.amountInput || "") + action;
         }
-        const displayText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
-        await bot.editMessageText(displayText, {
-          chat_id: chatId,
-          message_id: query.message!.message_id,
-          reply_markup: numberKeyboard.reply_markup
-        }).catch(() => {});
         await bot.answerCallbackQuery(query.id);
         return;
       }
 
-      if (state.step === "game") {
+      if (data.startsWith("game_")) {
         if (data === "game_done") {
           if (state.selectedGames.length === 0) {
-            await bot.sendMessage(chatId, "Please select at least one game.");
-            await bot.answerCallbackQuery(query.id);
+            await bot.answerCallbackQuery(query.id, { text: "Please select at least one game", show_alert: true });
             return;
           }
-          state.step = "per_game_points";
-          state.currentGameIndex = 0;
+          state.step = "points";
           state.amountInput = "";
-          await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[0]}:`, numberKeyboard);
+          await bot.sendMessage(chatId, `🎮 Games: ${state.selectedGames.join(", ")}\n\nEnter Points:`, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "1", callback_data: "num_1" }, { text: "2", callback_data: "num_2" }, { text: "3", callback_data: "num_3" }],
+                [{ text: "4", callback_data: "num_4" }, { text: "5", callback_data: "num_5" }, { text: "6", callback_data: "num_6" }],
+                [{ text: "7", callback_data: "num_7" }, { text: "8", callback_data: "num_8" }, { text: "9", callback_data: "num_9" }],
+                [{ text: "0", callback_data: "num_0" }, { text: ".", callback_data: "num_dot" }],
+                [{ text: "⬅️ Back", callback_data: "num_back" }, { text: "✅ Done", callback_data: "num_done" }]
+              ]
+            }
+          });
         } else if (data === "game_Other") {
           state.step = "custom_game";
           await bot.sendMessage(chatId, "Type the custom game name:");
         } else {
           const game = data.replace("game_", "");
-          if (!state.selectedGames.includes(game)) state.selectedGames.push(game);
-          await bot.sendMessage(chatId, `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`, gameKeyboard);
+          if (!state.selectedGames.includes(game)) {
+            state.selectedGames.push(game);
+          }
+          await bot.sendMessage(chatId, `✅ Selected: ${state.selectedGames.join(", ")}`, gameKeyboard);
         }
         await bot.answerCallbackQuery(query.id);
         return;
       }
 
-      if (state.step === "final_confirm" && data === "confirm_yes") {
-        for (const r of state.records) {
-          const row = `${r.date},${r.time},${r.day},"${state.groupName}","${r.employee}",${r.amount},"${r.game}",${r.points},\n`;
+      if (state.step === "points" && data.startsWith("num_")) {
+        const action = data.replace("num_", "");
+        if (action === "back") {
+          state.amountInput = (state.amountInput || "").slice(0, -1);
+        } else if (action === "dot") {
+          if (!state.amountInput.includes(".")) state.amountInput += ".";
+        } else if (action === "done") {
+          const pts = parseFloat(state.amountInput || "0");
+          if (isNaN(pts) || pts < 0) {
+            await bot.answerCallbackQuery(query.id, { text: "Please enter valid points", show_alert: true });
+            return;
+          }
+          state.points = pts;
+
+          const cst = getCST();
+          const gameStr = state.selectedGames.join(", ");
+          const row = `${cst.date},${cst.time},${cst.day},"${state.groupName}","${state.employeeName}",${state.amount},"${gameStr}",${pts},\n`;
           fs.appendFileSync(RECORDS_FILE, row);
+
+          const confirmMsg = `✅ **RECORDED**\n\n📊 TRANSACTION SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📅 Date: ${cst.date} ${cst.time}\n👤 Employee: ${state.employeeName}\n🏢 Group: ${state.groupName}\n💰 Amount: $${state.amount}\n🎮 Games: ${gameStr}\n🎯 Points: ${pts}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+          await bot.sendMessage(chatId, confirmMsg);
+
+          try {
+            await bot.sendMessage(REPORT_GROUP_ID, confirmMsg);
+            if (state.originalChatId === chatId && state.originalMessageId) {
+              await bot.forwardMessage(REPORT_GROUP_ID, chatId, state.originalMessageId);
+            }
+          } catch (e) {}
+
+          userState.delete(chatId);
+        } else {
+          state.amountInput = (state.amountInput || "") + action;
         }
-
-        let successMsg = `✅ **Payment Record**\n\n`;
-        successMsg += `**Group:** ${state.groupName}\n`;
-        successMsg += `**Amount Received:** $${state.amount}\n\n`;
-        successMsg += `**Games & Points:**\n`;
-        state.records.forEach((r: any, i: number) => {
-          successMsg += `${i+1}. ${r.game}: ${r.points} points\n`;
-        });
-        successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-
-        try {
-          await bot.sendMessage(REPORT_GROUP_ID, successMsg);
-          await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-        } catch (e) {}
-
-        const blueSummary = `✅ **Transaction Confirmed!**\n\n` +
-          `**Group:** ${state.groupName}\n` +
-          `**Amount:** $${state.amount}\n\n` +
-          `**Games & Points:**\n` +
-          state.records.map((r: any, i: number) => `${i+1}. ${r.game}: ${r.points} points`).join("\n") +
-          `\n\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-
-        await bot.sendMessage(chatId, blueSummary, { parse_mode: "Markdown" });
-        await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
-        userState.delete(chatId);
+        await bot.answerCallbackQuery(query.id);
+        return;
       }
-
-      if (state.step === "final_confirm" && data === "confirm_no") {
-        await bot.sendMessage(chatId, "❌ **Cancelled.** Please post the picture again.");
-        userState.delete(chatId);
-      }
-
-      await bot.answerCallbackQuery(query.id);
-      return;
     }
 
     if (state.type === "cashout") {
       if (data === "cashout_picture") {
         state.step = "waiting_picture";
-        state.mediaType = "picture";
-        await bot.sendMessage(chatId, "📸 Please send a picture of your payment method:");
+        await bot.sendMessage(chatId, "📸 Please send the payment method screenshot:");
         await bot.answerCallbackQuery(query.id);
         return;
       }
 
       if (data === "cashout_text") {
         state.step = "waiting_text";
-        state.mediaType = "text";
-        await bot.sendMessage(chatId, "📝 Please write the details of your cashout:");
+        await bot.sendMessage(chatId, "📝 Please type the payment details:");
         await bot.answerCallbackQuery(query.id);
         return;
       }
@@ -384,20 +450,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         if (action === "back") {
           state.amountInput = (state.amountInput || "").slice(0, -1);
         } else if (action === "dot") {
-          if (!state.amountInput.includes(".")) state.amountInput += ".";
+          if (!(state.amountInput || "").includes(".")) state.amountInput = (state.amountInput || "") + ".";
         } else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
-          if (isNaN(value)) {
-            await bot.sendMessage(chatId, "❌ Please enter a valid number.");
-            await bot.answerCallbackQuery(query.id);
-            return;
-          }
-
           if (state.step === "cashout_points") {
             state.points = value;
             state.step = "cashout_playback";
-            state.amountInput = "";
-            await bot.sendMessage(chatId, `✅ Points: ${value}\n\nStep 3: Enter Playback Value (Optional, can be 0):`, {
+            state.amountInput = "0";
+            await bot.sendMessage(chatId, `✅ Points: ${value}\n\nStep 3: Enter Playback Points (0 if none):`, {
               reply_markup: {
                 inline_keyboard: [
                   [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
@@ -409,10 +469,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               }
             });
           } else if (state.step === "cashout_playback") {
-            state.playback_points = state.amountInput || "0";
+            state.playback_points = value.toString();
             state.step = "cashout_tip";
-            state.amountInput = "";
-            await bot.sendMessage(chatId, `✅ Playback Points: ${state.playback_points}\n\nStep 4: Enter Tip (Optional, can be 0):`, {
+            state.amountInput = "0";
+            await bot.sendMessage(chatId, `✅ Playback: ${value}\n\nStep 4: Enter Tip Amount (0 if none):`, {
               reply_markup: {
                 inline_keyboard: [
                   [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
@@ -424,10 +484,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               }
             });
           } else if (state.step === "cashout_tip") {
-            state.tip = parseFloat(state.amountInput || "0");
+            state.tip = value;
             state.step = "cashout_amount";
             state.amountInput = "";
-            await bot.sendMessage(chatId, `✅ Tip: $${state.tip}\n\nStep 5: Enter Cashout Amount:`, {
+            await bot.sendMessage(chatId, `✅ Tip: $${value}\n\nStep 5: Enter Final Cashout Amount:`, {
               reply_markup: {
                 inline_keyboard: [
                   [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
@@ -439,49 +499,25 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               }
             });
           } else if (state.step === "cashout_amount") {
+            if (isNaN(value) || value <= 0) {
+              await bot.answerCallbackQuery(query.id, { text: "Please enter a valid amount", show_alert: true });
+              return;
+            }
             state.amount = value;
             state.step = "cashout_review";
-            await showCashoutReview(chatId, state, bot);
+            showCashoutReview(chatId, state, bot);
           }
-          await bot.answerCallbackQuery(query.id);
-          return;
         } else {
           state.amountInput = (state.amountInput || "") + action;
         }
-
-        let displayText = "";
-        if (state.step === "cashout_points") {
-          displayText = `🎮 Enter Points:\n\n👉 ${state.amountInput || "0"}`;
-        } else if (state.step === "cashout_playback") {
-          displayText = `🎫 Enter Playback Points:\n\n👉 ${state.amountInput || "0"}`;
-        } else if (state.step === "cashout_tip") {
-          displayText = `💵 Enter Tip:\n\n👉 ${state.amountInput || "0"}`;
-        } else if (state.step === "cashout_amount") {
-          displayText = `💰 Enter Cashout Amount:\n\n👉 ${state.amountInput || "0"}`;
-        }
-
-        await bot.editMessageText(displayText, {
-          chat_id: chatId,
-          message_id: query.message!.message_id,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
-              [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
-              [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
-              [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
-              [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
-            ]
-          }
-        }).catch(() => {});
         await bot.answerCallbackQuery(query.id);
         return;
       }
 
-      if (state.step === "cashout_game") {
+      if (data.startsWith("game_") && state.step === "cashout_game") {
         if (data === "game_done") {
           if (!state.game) {
-            await bot.sendMessage(chatId, "❌ Please select a game.");
-            await bot.answerCallbackQuery(query.id);
+            await bot.answerCallbackQuery(query.id, { text: "Please select a game first", show_alert: true });
             return;
           }
           state.step = "cashout_points";
@@ -509,33 +545,51 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
+      // ─── CONFIRM & SUBMIT ──────────────────────────────────────────────────
       if (data === "cashout_confirm") {
         state.step = "cashout_pending_admin";
         state.updatedAt = getCST().isoTime;
-        
+
         const adminMsg = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback Points: ${state.playback_points}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n⏳ Waiting for admin approval...`;
 
-        console.log(`[Admin Notification] Sending approval request to chat: ${chatId}`);
-        bot.sendMessage(chatId, adminMsg, {
+        // Send admin approval message
+        const adminMsgObj = await bot.sendMessage(chatId, adminMsg, {
           reply_markup: {
             inline_keyboard: [
               [{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }, { text: "❌ DENY", callback_data: `cashout_deny_${state.cashoutId}` }]
             ]
           }
-        }).then((msg) => {
-          console.log(`[Admin Notification] Successfully sent. Message ID: ${msg.message_id}`);
-          adminMessages.set(msg.message_id, { cashoutId: state.cashoutId, state, chatId });
-          cashoutMessages.set(`${chatId}_summary_${msg.message_id}`, state.cashoutId);
         }).catch((err) => {
           console.error(`[Admin Notification] Failed to send:`, err);
+          return null;
         });
 
-        await bot.sendMessage(chatId, `✅ **Cashout Submitted!**\n\nYour cashout request has been submitted for admin approval.`);
+        if (adminMsgObj) {
+          adminMessages.set(adminMsgObj.message_id, { cashoutId: state.cashoutId, state: { ...state }, chatId });
+          cashoutMessages.set(`${chatId}_summary_${adminMsgObj.message_id}`, state.cashoutId);
+
+          // Send user a control message with Edit and Cancel buttons
+          const userControlMsg = await bot.sendMessage(chatId,
+            `✅ **Cashout Submitted!**\n\nYour cashout is pending admin approval.\n\n🆔 Cashout ID: ${state.cashoutId}\n💰 Amount: $${state.amount}\n🎮 Game: ${state.game}\n\nYou can still edit or cancel until admin acts:`,
+            buildUserControlKeyboard(state.cashoutId)
+          ).catch(() => null);
+
+          // Store in pendingCashouts for edit/cancel
+          pendingCashouts.set(state.cashoutId, {
+            state: { ...state },
+            adminMsgId: adminMsgObj.message_id,
+            adminChatId: chatId,
+            userEditMsgId: userControlMsg?.message_id,
+            userChatId: chatId
+          });
+        }
+
         userState.delete(chatId);
         await bot.answerCallbackQuery(query.id);
         return;
       }
 
+      // ─── EDIT FIELDS (from review screen) ─────────────────────────────────
       if (data.startsWith("cashout_edit_")) {
         const field = data.replace("cashout_edit_", "");
         if (field === "game") {
@@ -609,7 +663,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   bot.on("text", async (msg) => {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
-    
+
     if (state) {
       if (state.type === "income" && state.step === "custom_game") {
         state.selectedGames.push(msg.text!.trim());
@@ -646,14 +700,53 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
   });
 
+  // ─── /delete HANDLER ────────────────────────────────────────────────────────
   bot.onText(/\/delete/, async (msg) => {
     if (!msg.reply_to_message) {
-      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the screenshot you want to delete with /delete");
+      await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the message you want to delete with /delete");
       return;
     }
 
     const chatId = msg.chat.id;
+    const repliedToMsgId = msg.reply_to_message.message_id;
 
+    // ── CASHOUT GROUP: delete a cashout record ──────────────────────────────
+    if (chatId === CASHOUT_GROUP_ID) {
+      // Check if the replied-to message is a tracked cashout group confirmation
+      const cashoutId = cashoutGroupMsgToCashoutId.get(repliedToMsgId);
+
+      if (cashoutId) {
+        removeCashoutRecord(cashoutId);
+        cashoutGroupMsgToCashoutId.delete(repliedToMsgId);
+
+        const deleterName = msg.from?.first_name || msg.from?.username || "Unknown";
+        await bot.sendMessage(chatId, `🗑️ Cashout **${cashoutId}** has been deleted and removed from records.\nDeleted by: ${deleterName}`);
+
+        try {
+          await bot.sendMessage(REPORT_GROUP_ID, `🗑️ **CASHOUT DELETED**\n\nCashout ID: ${cashoutId}\nDeleted by: ${deleterName}`);
+        } catch (e) {}
+        return;
+      }
+
+      // If not tracked by cashoutGroupMsgToCashoutId, try to find by text content of the replied message
+      const repliedText = msg.reply_to_message.text || msg.reply_to_message.caption || "";
+      const idMatch = repliedText.match(/CO_\d+_[a-z0-9]+/);
+      if (idMatch) {
+        const cashoutId = idMatch[0];
+        removeCashoutRecord(cashoutId);
+        const deleterName = msg.from?.first_name || msg.from?.username || "Unknown";
+        await bot.sendMessage(chatId, `🗑️ Cashout **${cashoutId}** has been deleted and removed from records.\nDeleted by: ${deleterName}`);
+        try {
+          await bot.sendMessage(REPORT_GROUP_ID, `🗑️ **CASHOUT DELETED**\n\nCashout ID: ${cashoutId}\nDeleted by: ${deleterName}`);
+        } catch (e) {}
+        return;
+      }
+
+      await bot.sendMessage(chatId, "❌ Could not identify the cashout from the replied message. Make sure you reply to a cashout confirmation message.");
+      return;
+    }
+
+    // ── CASH-IN GROUP: delete a cash-in record (original behaviour) ─────────
     if (!fs.existsSync(RECORDS_FILE)) {
       await bot.sendMessage(chatId, "No records found.");
       return;
@@ -679,6 +772,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       await bot.sendMessage(REPORT_GROUP_ID, `🗑️ Deletion recorded for group: ${parts[3] || 'Unknown'}`);
     } catch (e) {}
   });
+
   bot.on("deleted_message", async (msg) => {
     const chatId = msg.chat.id;
     const messageId = msg.message_id;
@@ -688,22 +782,20 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
     const photoKey = `${chatId}_photo_${messageId}`;
     const textKey = `${chatId}_text_${messageId}`;
-    const summaryKey = `${chatId}_summary_${messageId}`;
 
     const cashoutId = cashoutMessages.get(photoKey) || cashoutMessages.get(textKey) || adminMessages.get(messageId)?.cashoutId;
 
     if (cashoutId) {
       console.log(`[Deletion] Cashout ${cashoutId} cancelled due to message deletion`);
-      
+
       removeCashoutRecord(cashoutId);
-      
+
       cashoutMessages.delete(photoKey);
       cashoutMessages.delete(textKey);
-      cashoutMessages.delete(summaryKey);
       adminMessages.delete(messageId);
-      
+
       userState.delete(chatId);
-      
+
       try {
         await bot.sendMessage(chatId, `❌ **CASHOUT CANCELLED**\n\nCashout ID: ${cashoutId}\nReason: Supporting document was deleted.\n\nPlease start over with /co if needed.`);
       } catch (e) {}
@@ -711,7 +803,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   });
 
   bot.onText(/\/start|\/ help/, async (msg) => {
-    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to a screenshot with `/delete` to remove it.\n\nUse `/cashout` or `/co` to start a cashout request.");
+    await bot.sendMessage(msg.chat.id, "👋 Send a screenshot to start.\n\nReply to a screenshot with `/delete` to remove it.\n\nUse `/cashout` or `/co` to start a cashout request.\n\nIn the cashout group, reply to a cashout confirmation with `/delete` to remove that cashout.");
   });
 
   const webhookPath = `/bot${token}`;
