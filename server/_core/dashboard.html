@@ -482,7 +482,7 @@
     function renderRecentTransactions(ci, co) {
       const combined = [
         ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points })),
-        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: c.created_at.substring(11, 16), pointSpent: null }))
+        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), pointSpent: null }))
       ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
 
       const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
@@ -589,7 +589,7 @@
 
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
-        const time = c.created_at.substring(11, 16);
+        const time = new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         return `
           <tr class="border-b hover:bg-gray-50">
             <td class="px-4 py-3 text-sm">${c.created_at.substring(0, 10)}</td>
@@ -705,7 +705,7 @@
       const co = filterData(allCashouts, start, end, group, month, 'created_at');
       const combined = [
         ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, 'Net Point Spent': t.points, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
-        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: c.created_at.substring(11, 16), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
+        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
       ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
       exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
     }
