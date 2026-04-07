@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Tracker</title>
+  <title>Payment Tracker - 24h Time Format</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -22,7 +22,7 @@
 </head>
 <body class="bg-gray-50 p-4 md:p-6">
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
+    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker · 24h Time Format</h1>
 
     <!-- Navigation Tabs -->
     <div class="flex flex-wrap gap-2 md:gap-3 mb-8">
@@ -101,7 +101,7 @@
       <!-- Recent Transactions (Combined) -->
       <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
         <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
-          <span>Recent Transactions (Newest First)</span>
+          <span>Recent Transactions (Newest First · 24h Time)</span>
           <button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium text-sm">📥 Export Recent</button>
         </div>
         <div class="overflow-x-auto">
@@ -110,7 +110,7 @@
               <tr>
                 <th class="px-4 py-3 text-left text-sm">Type</th>
                 <th class="px-4 py-3 text-left text-sm">Date</th>
-                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
                 <th class="px-4 py-3 text-left text-sm">Employee</th>
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
@@ -182,13 +182,13 @@
 
       <!-- Cash-In Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First)</div>
+        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First · 24h Time)</div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-sm">Date</th>
-                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
                 <th class="px-4 py-3 text-left text-sm">Employee</th>
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
@@ -246,13 +246,13 @@
 
       <!-- Cashout Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First)</div>
+        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First · 24h Time)</div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-sm">Date</th>
-                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
                 <th class="px-4 py-3 text-left text-sm">Employee</th>
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
@@ -368,6 +368,42 @@
     let recentTransactionPage = 0;
     const TRANSACTIONS_PER_PAGE = 25;
 
+    // Helper: Convert 12-hour time format (e.g., "1:26 am", "02:15 PM") to 24-hour format "01:26", "14:15"
+    function convertTo24Hour(timeStr) {
+      if (!timeStr) return '--:--';
+      // If already looks like HH:MM (24h with leading zero) and no AM/PM, return as is
+      if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+      // Match patterns like "1:26 am", "12:05 PM", "2:30pm"
+      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?$/i);
+      if (match) {
+        let hour = parseInt(match[1], 10);
+        const minute = match[2];
+        let modifier = (match[3] || '').toLowerCase();
+        if (modifier.includes('pm') && hour !== 12) hour += 12;
+        if (modifier.includes('am') && hour === 12) hour = 0;
+        const hour24 = hour.toString().padStart(2, '0');
+        return `${hour24}:${minute}`;
+      }
+      // Fallback: try to extract HH:MM from any string
+      const fallback = timeStr.match(/(\d{1,2}):(\d{2})/);
+      if (fallback) {
+        let hour = parseInt(fallback[1], 10);
+        const minute = fallback[2];
+        // If hour > 12 but no AM/PM, assume already 24h? but just pad
+        if (hour < 24) return `${hour.toString().padStart(2, '0')}:${minute}`;
+      }
+      return timeStr; // return original as last resort
+    }
+
+    // Extract time from Cashout ISO string (already 24h format with leading zero)
+    function getCashoutTime24(isoString) {
+      if (!isoString) return '--:--';
+      // ISO format: "2026-04-07T01:26:00Z" or "2026-04-07T13:26:00"
+      const timePart = isoString.substring(11, 16);
+      if (/^\d{2}:\d{2}$/.test(timePart)) return timePart;
+      return convertTo24Hour(timePart);
+    }
+
     async function fetchData() {
       try {
         const [res1, res2] = await Promise.all([fetch('/api/transactions'), fetch('/api/cashout-transactions')]);
@@ -475,36 +511,43 @@
       renderM(mCi, 'ovMonthlyCashIn');
       renderM(mCo, 'ovMonthlyCashout');
 
-      // Render paginated recent transactions
       renderRecentTransactions(ci, co);
     }
 
     function renderRecentTransactions(ci, co) {
       const combined = [
-        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points })),
-        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: c.created_at.substring(11, 16), pointSpent: null }))
+        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points, rawTime: t.time })),
+        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), rawTime: c.created_at, pointSpent: null }))
       ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
 
       const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
       const end = start + TRANSACTIONS_PER_PAGE;
       const pageTransactions = combined.slice(start, end);
 
-      document.getElementById('ovRecentTable').innerHTML = pageTransactions.map(r => `
-        <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
-          <td class="px-4 py-3 text-sm">${r.date}</td>
-          <td class="px-4 py-3 text-sm">${r.time}</td>
-          <td class="px-4 py-3 text-sm">${r.employee}</td>
-          <td class="px-4 py-3 text-sm">${r.group}</td>
-          <td class="px-4 py-3 text-sm">${r.game}</td>
-          <td class="px-4 py-3 text-sm font-bold">$${r.amount.toLocaleString()}</td>
-          <td class="px-4 py-3 text-sm">${r.pointSpent !== null ? r.pointSpent : '-'}</td>
-          <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? r.points : '-'}</td>
-          <td class="px-4 py-3 text-sm">${r.playback_id || '-'}</td>
-          <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
-          <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
-        </tr>
-      `).join('');
+      document.getElementById('ovRecentTable').innerHTML = pageTransactions.map(r => {
+        let displayTime = '';
+        if (r.type === 'Cash-In') {
+          displayTime = convertTo24Hour(r.rawTime);
+        } else {
+          displayTime = getCashoutTime24(r.rawTime);
+        }
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+            <td class="px-4 py-3 text-sm">${r.date}</td>
+            <td class="px-4 py-3 text-sm font-mono">${displayTime}</td>
+            <td class="px-4 py-3 text-sm">${r.employee}</td>
+            <td class="px-4 py-3 text-sm">${r.group}</td>
+            <td class="px-4 py-3 text-sm">${r.game}</td>
+            <td class="px-4 py-3 text-sm font-bold">$${r.amount.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${r.pointSpent !== null ? r.pointSpent : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? r.points : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.playback_id || '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
+          </tr>
+        `;
+      }).join('');
 
       const totalTransactions = combined.length;
       const endDisplay = Math.min(end, totalTransactions);
@@ -523,7 +566,7 @@
       renderRecentTransactions(ci, co);
     }
 
-    // --- CASH-IN ---
+    // --- CASH-IN (24h time)---
     function renderCashIn() {
       const start = document.getElementById('ciFilterStart').value;
       const end = document.getElementById('ciFilterEnd').value;
@@ -549,20 +592,23 @@
       renderList(daily, 'dailyCashIn');
       renderList(monthly, 'monthlyCashIn');
 
-      document.getElementById('ciTable').innerHTML = ci.map(t => `
-        <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-3 text-sm">${t.date}</td>
-          <td class="px-4 py-3 text-sm">${t.time}</td>
-          <td class="px-4 py-3 text-sm">${t.employee}</td>
-          <td class="px-4 py-3 text-sm">${t.group}</td>
-          <td class="px-4 py-3 text-sm">${t.game}</td>
-          <td class="px-4 py-3 text-sm font-bold text-green-600">$${t.amount.toLocaleString()}</td>
-          <td class="px-4 py-3 text-sm">${t.points.toLocaleString()}</td>
-        </tr>
-      `).join('');
+      document.getElementById('ciTable').innerHTML = ci.map(t => {
+        const time24 = convertTo24Hour(t.time);
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm">${t.date}</td>
+            <td class="px-4 py-3 text-sm font-mono">${time24}</td>
+            <td class="px-4 py-3 text-sm">${t.employee}</td>
+            <td class="px-4 py-3 text-sm">${t.group}</td>
+            <td class="px-4 py-3 text-sm">${t.game}</td>
+            <td class="px-4 py-3 text-sm font-bold text-green-600">$${t.amount.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${t.points.toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    // --- CASHOUT ---
+    // --- CASHOUT (24h time from ISO)---
     function renderCashout() {
       const start = document.getElementById('coFilterStart').value;
       const end = document.getElementById('coFilterEnd').value;
@@ -589,11 +635,11 @@
 
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
-        const time = c.created_at.substring(11, 16);
+        const time24 = getCashoutTime24(c.created_at);
         return `
           <tr class="border-b hover:bg-gray-50">
             <td class="px-4 py-3 text-sm">${c.created_at.substring(0, 10)}</td>
-            <td class="px-4 py-3 text-sm">${time}</td>
+            <td class="px-4 py-3 text-sm font-mono">${time24}</td>
             <td class="px-4 py-3 text-sm">${c.employee}</td>
             <td class="px-4 py-3 text-sm">${c.group}</td>
             <td class="px-4 py-3 text-sm">${c.game}</td>
@@ -681,21 +727,19 @@
     function applyHoldingFilter() { renderDailyHolding(); }
     function resetHoldingFilter() { document.getElementById('dhFilterDate').value=''; document.getElementById('dhFilterGroup').value=''; renderDailyHolding(); }
 
-    // --- EXPORT ---
+    // --- EXPORT (unchanged, raw data)---
     function exportToExcel(data, filename, sheetName) {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       XLSX.writeFile(wb, filename);
     }
-
     function exportOverviewExcel() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allTransactions), "Cash-In");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allCashouts), "Cashout");
       XLSX.writeFile(wb, "Payment_Tracker_Full_Export.xlsx");
     }
-
     function exportRecentTransactions() {
       const start = document.getElementById('ovFilterStart').value;
       const end = document.getElementById('ovFilterEnd').value;
@@ -709,7 +753,6 @@
       ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
       exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
     }
-
     function exportCashInExcel() { exportToExcel(allTransactions, "CashIn_Export.xlsx", "Cash-In"); }
     function exportCashoutExcel() { exportToExcel(allCashouts, "Cashout_Export.xlsx", "Cashout"); }
     function exportGameExcel() {
