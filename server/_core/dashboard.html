@@ -36,90 +36,97 @@
     <!-- ==================== OVERVIEW ==================== -->
     <div id="view-overview" class="view-section active">
       <!-- Filters -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <h2 class="text-lg font-semibold">⚙️ Filters</h2>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Group</label>
-            <select id="ovFilterGroup" class="px-2 py-1 text-sm border rounded-lg group-select"><option value="">All Groups</option></select>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Overview Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="ovFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ovFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ovFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+              <select id="ovFilterMonth" class="px-3 py-2 border rounded-lg">
+                <option value="">All Months</option>
+              </select>
+            </div>
+            <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="ovFilterStart" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="ovFilterEnd" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Month</label>
-            <select id="ovFilterMonth" class="px-2 py-1 text-sm border rounded-lg"><option value="">All Months</option></select>
-          </div>
-          <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-4 py-1 text-sm rounded-lg hover:bg-gray-400 font-medium">Reset</button>
-          <button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-green-700 font-medium">📥 Export Recent</button>
+          <button onclick="exportOverviewExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export All Data</button>
         </div>
       </div>
 
-      <!-- Summary Cards (Compact) -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="bg-blue-500 text-white p-4 rounded-2xl shadow">
-          <p class="text-xs text-blue-100">Total Cash-In</p>
-          <p class="text-2xl font-bold" id="ovTotalCashIn">$0.00</p>
-        </div>
-        <div class="bg-blue-600 text-white p-4 rounded-2xl shadow">
-          <p class="text-xs text-blue-100">Points Used</p>
-          <p class="text-2xl font-bold" id="ovTotalPointsUsed">0</p>
-        </div>
-        <div class="bg-red-500 text-white p-4 rounded-2xl shadow">
-          <p class="text-xs text-red-100">Total Cashout</p>
-          <p class="text-2xl font-bold" id="ovTotalCashout">$0.00</p>
-        </div>
-        <div class="bg-red-600 text-white p-4 rounded-2xl shadow">
-          <p class="text-xs text-red-100">Points Redeemed</p>
-          <p class="text-2xl font-bold" id="ovTotalPointsRedeemed">0</p>
+      <!-- Summary Cards -->
+      <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div><p class="text-blue-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ovTotalCashIn">$0.00</p></div>
+          <div><p class="text-blue-100 text-sm">Points Used (Cash-In)</p><p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p></div>
+          <div><p class="text-blue-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="ovTotalCashout">$0.00</p></div>
+          <div><p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p><p class="text-3xl font-bold" id="ovTotalPointsRedeemed">0</p></div>
         </div>
       </div>
 
       <!-- Net -->
-      <div class="bg-emerald-500 text-white p-4 rounded-2xl shadow mb-4">
-        <div class="grid grid-cols-3 gap-4">
-          <div><p class="text-xs text-emerald-100">Net (Cash-In - Cashout)</p><p class="text-3xl font-bold" id="ovNet">$0.00</p></div>
-          <div><p class="text-xs text-emerald-100">Cash-In Transactions</p><p class="text-3xl font-bold" id="ovCiCount">0</p></div>
-          <div><p class="text-xs text-emerald-100">Cashout Transactions</p><p class="text-3xl font-bold" id="ovCoCount">0</p></div>
+      <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-3xl shadow text-white mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div><p class="text-emerald-100 text-sm">Net (Cash-In - Cashout)</p><p class="text-4xl font-bold" id="ovNet">$0.00</p></div>
+          <div><p class="text-emerald-100 text-sm">Cash-In Transactions</p><p class="text-4xl font-bold" id="ovCiCount">0</p></div>
+          <div><p class="text-emerald-100 text-sm">Cashout Transactions</p><p class="text-4xl font-bold" id="ovCoCount">0</p></div>
         </div>
       </div>
 
-      <!-- Monthly Data (Compact) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">📅 Monthly Cash-In</h3>
-          <div class="space-y-2 max-h-48 overflow-y-auto custom-scroll" id="ovMonthlyCashIn">Loading...</div>
+      <!-- Monthly Data -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashIn">Loading...</div>
         </div>
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">📅 Monthly Cashout</h3>
-          <div class="space-y-2 max-h-48 overflow-y-auto custom-scroll" id="ovMonthlyCashout">Loading...</div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cashout</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashout">Loading...</div>
         </div>
       </div>
 
-      <!-- Recent Transactions Table -->
-      <div class="bg-white rounded-2xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b font-semibold">Recent Transactions (Newest First)</div>
+      <!-- Charts -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📈 Daily Trend</h3>
+          <canvas id="trendChart" height="150"></canvas>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📊 Cash-In Game Distribution</h3>
+          <canvas id="platformChart" height="150"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent Transactions (Combined) -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
+        <div class="px-8 py-5 border-b font-semibold">Recent Transactions (All — Newest First)</div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left">Type</th>
-                <th class="px-4 py-2 text-left">Date</th>
-                <th class="px-4 py-2 text-left">Time</th>
-                <th class="px-4 py-2 text-left">Employee</th>
-                <th class="px-4 py-2 text-left">Group</th>
-                <th class="px-4 py-2 text-left">Game</th>
-                <th class="px-4 py-2 text-left">Amount</th>
-                <th class="px-4 py-2 text-left">Points</th>
-                <th class="px-4 py-2 text-left">Playback</th>
-                <th class="px-4 py-2 text-left">Net Redeem</th>
-                <th class="px-4 py-2 text-left">Tip</th>
+                <th class="px-4 py-3 text-left text-sm">Type</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Redeem</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
               </tr>
             </thead>
             <tbody id="ovRecentTable"></tbody>
@@ -131,63 +138,65 @@
     <!-- ==================== CASH-IN VIEW ==================== -->
     <div id="view-cashin" class="view-section">
       <!-- Filters -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <h2 class="text-lg font-semibold">⚙️ Filters</h2>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Group</label>
-            <select id="ciFilterGroup" class="px-2 py-1 text-sm border rounded-lg group-select"><option value="">All Groups</option></select>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Cash-In Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="ciFilterStart" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="ciFilterEnd" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-4 py-1 text-sm rounded-lg hover:bg-gray-400 font-medium">Reset</button>
-          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-green-700 font-medium">📥 Export</button>
+          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cash-In</button>
         </div>
       </div>
 
       <!-- Cash-In Summary -->
-      <div class="bg-green-500 text-white p-4 rounded-2xl shadow mb-4">
-        <h2 class="text-lg font-semibold mb-3">💵 Cash-In Summary</h2>
-        <div class="grid grid-cols-3 gap-4">
-          <div><p class="text-xs text-green-100">Total Cash-In</p><p class="text-2xl font-bold" id="ciTotalAmount">$0.00</p></div>
-          <div><p class="text-xs text-green-100">Total Points Used</p><p class="text-2xl font-bold" id="ciTotalPoints">0</p></div>
-          <div><p class="text-xs text-green-100">Transaction Count</p><p class="text-2xl font-bold" id="ciCount">0</p></div>
+      <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">💵 Cash-In Summary</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div><p class="text-green-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ciTotalAmount">$0.00</p></div>
+          <div><p class="text-green-100 text-sm">Total Points Used</p><p class="text-3xl font-bold" id="ciTotalPoints">0</p></div>
+          <div><p class="text-green-100 text-sm">Transaction Count</p><p class="text-3xl font-bold" id="ciCount">0</p></div>
         </div>
       </div>
 
       <!-- Daily & Monthly Cash-In -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">📅 Daily Cash-In</h3>
-          <div class="space-y-2 max-h-48 overflow-y-auto custom-scroll" id="dailyCashIn">Loading...</div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyCashIn">Loading...</div>
         </div>
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">📊 Monthly Cash-In</h3>
-          <div class="space-y-2 max-h-48 overflow-y-auto custom-scroll" id="monthlyCashIn">Loading...</div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyCashIn">Loading...</div>
         </div>
       </div>
 
       <!-- Cash-In Transactions Table -->
-      <div class="bg-white rounded-2xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b font-semibold">Cash-In Transactions (Newest First)</div>
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First)</div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left">Date</th>
-                <th class="px-4 py-2 text-left">Time</th>
-                <th class="px-4 py-2 text-left">Employee</th>
-                <th class="px-4 py-2 text-left">Group</th>
-                <th class="px-4 py-2 text-left">Game</th>
-                <th class="px-4 py-2 text-left">Amount</th>
-                <th class="px-4 py-2 text-left">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
               </tr>
             </thead>
             <tbody id="ciTable"></tbody>
@@ -199,60 +208,62 @@
     <!-- ==================== CASHOUT VIEW ==================== -->
     <div id="view-cashout" class="view-section">
       <!-- Filters -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <h2 class="text-lg font-semibold">⚙️ Filters</h2>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Group</label>
-            <select id="coFilterGroup" class="px-2 py-1 text-sm border rounded-lg group-select"><option value="">All Groups</option></select>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="coFilterStart" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="coFilterEnd" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-4 py-1 text-sm rounded-lg hover:bg-gray-400 font-medium">Reset</button>
-          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-green-700 font-medium">📥 Export</button>
+          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cashout</button>
         </div>
       </div>
 
       <!-- Cashout Summary -->
-      <div class="bg-red-500 text-white p-4 rounded-2xl shadow mb-4">
-        <h2 class="text-lg font-semibold mb-3">💸 Cashout Summary</h2>
-        <div class="grid grid-cols-3 gap-4">
-          <div><p class="text-xs text-red-100">Total Cashout</p><p class="text-2xl font-bold" id="coTotalAmount">$0.00</p></div>
-          <div><p class="text-xs text-red-100">Total Points Redeemed (Net)</p><p class="text-2xl font-bold" id="coTotalPoints">0</p></div>
-          <div><p class="text-xs text-red-100">Transaction Count</p><p class="text-2xl font-bold" id="coCount">0</p></div>
+      <div class="bg-gradient-to-r from-red-500 to-rose-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6">💸 Cashout Summary</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div><p class="text-red-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="coTotalAmount">$0.00</p></div>
+          <div><p class="text-red-100 text-sm">Total Points Redeemed (Net)</p><p class="text-3xl font-bold" id="coTotalPoints">0</p></div>
+          <div><p class="text-red-100 text-sm">Transaction Count</p><p class="text-3xl font-bold" id="coCount">0</p></div>
         </div>
       </div>
 
       <!-- Points Redeemed by Game -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <h3 class="text-lg font-semibold mb-3">🎮 Points Redeemed by Game (Net)</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3" id="coGameBreakdown">Loading...</div>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <h3 class="text-2xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
       <!-- Cashout Transactions Table -->
-      <div class="bg-white rounded-2xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b font-semibold">Cashout Transactions (Newest First)</div>
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First)</div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left">Date</th>
-                <th class="px-4 py-2 text-left">Time</th>
-                <th class="px-4 py-2 text-left">Employee</th>
-                <th class="px-4 py-2 text-left">Group</th>
-                <th class="px-4 py-2 text-left">Game</th>
-                <th class="px-4 py-2 text-left">Points</th>
-                <th class="px-4 py-2 text-left">Playback</th>
-                <th class="px-4 py-2 text-left">Net Redeem</th>
-                <th class="px-4 py-2 text-left">Tip</th>
-                <th class="px-4 py-2 text-left">Cashout</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Redeem</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
               </tr>
             </thead>
             <tbody id="coTable"></tbody>
@@ -264,35 +275,37 @@
     <!-- ==================== GAME DISTRIBUTION VIEW ==================== -->
     <div id="view-gameDistribution" class="view-section">
       <!-- Filters -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <h2 class="text-lg font-semibold">⚙️ Filters</h2>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Group</label>
-            <select id="gdFilterGroup" class="px-2 py-1 text-sm border rounded-lg group-select"><option value="">All Groups</option></select>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Game Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-            <input type="date" id="gdFilterStart" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-            <input type="date" id="gdFilterEnd" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-4 py-1 text-sm rounded-lg hover:bg-gray-400 font-medium">Reset</button>
-          <button onclick="exportGameExcel()" class="bg-green-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-green-700 font-medium">📥 Export</button>
+          <button onclick="exportGameExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Game Data</button>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">🎮 Cash-In Points by Game</h3>
-          <div class="space-y-2 max-h-64 overflow-y-auto custom-scroll" id="gdCashInGames">Loading...</div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">🎮 Cash-In Points by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashInGames">Loading...</div>
         </div>
-        <div class="bg-white p-4 rounded-2xl shadow">
-          <h3 class="text-lg font-semibold mb-3">🎮 Cashout Points Redeemed by Game</h3>
-          <div class="space-y-2 max-h-64 overflow-y-auto custom-scroll" id="gdCashoutGames">Loading...</div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashoutGames">Loading...</div>
         </div>
       </div>
     </div>
@@ -300,46 +313,48 @@
     <!-- ==================== DAILY HOLDING VIEW ==================== -->
     <div id="view-dailyHolding" class="view-section">
       <!-- Filters -->
-      <div class="bg-white p-4 rounded-2xl shadow mb-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <h2 class="text-lg font-semibold">⚙️ Filters</h2>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Group</label>
-            <select id="dhFilterGroup" class="px-2 py-1 text-sm border rounded-lg group-select"><option value="">All Groups</option></select>
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <div class="flex flex-wrap justify-between items-end gap-4">
+          <div class="flex flex-wrap gap-4 items-end">
+            <h2 class="text-xl font-semibold">⚙️ Holding Filters</h2>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+              <input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Select Date</label>
-            <input type="date" id="dhFilterDate" class="px-2 py-1 text-sm border rounded-lg">
-          </div>
-          <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-blue-700 font-medium">Apply</button>
-          <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-4 py-1 text-sm rounded-lg hover:bg-gray-400 font-medium">Reset</button>
-          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-4 py-1 text-sm rounded-lg hover:bg-green-700 font-medium">📥 Export</button>
+          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Holding</button>
         </div>
       </div>
 
       <!-- Daily Holding Detail -->
-      <div class="bg-indigo-500 text-white p-4 rounded-2xl shadow mb-4">
-        <h2 class="text-lg font-semibold mb-3" id="dhSelectedDate">📅 Select a date</h2>
-        <div class="grid grid-cols-4 gap-4">
-          <div><p class="text-xs text-indigo-100">Cash-In</p><p class="text-2xl font-bold" id="dhCashIn">$0.00</p></div>
-          <div><p class="text-xs text-indigo-100">Cashout</p><p class="text-2xl font-bold" id="dhCashout">$0.00</p></div>
-          <div><p class="text-xs text-indigo-100">Net Holding</p><p class="text-2xl font-bold" id="dhNet">$0.00</p></div>
-          <div><p class="text-xs text-indigo-100">Status</p><p class="text-2xl font-bold" id="dhStatus">-</p></div>
+      <div id="dhDetailCard" class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div><p class="text-indigo-100 text-sm">Cash-In</p><p class="text-3xl font-bold" id="dhCashIn">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Cashout</p><p class="text-3xl font-bold" id="dhCashout">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Net Holding</p><p class="text-3xl font-bold" id="dhNet">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Status</p><p class="text-3xl font-bold" id="dhStatus">-</p></div>
         </div>
       </div>
 
       <!-- History Table -->
-      <div class="bg-white rounded-2xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b font-semibold">Daily Holding History (Newest First)</div>
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <table class="w-full">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left">Date</th>
-                <th class="px-4 py-2 text-left">Cash-In</th>
-                <th class="px-4 py-2 text-left">Cashout</th>
-                <th class="px-4 py-2 text-left">Net Holding</th>
-                <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Cash-In</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
+                <th class="px-4 py-3 text-left text-sm">Net Holding</th>
+                <th class="px-4 py-3 text-left text-sm">Status</th>
               </tr>
             </thead>
             <tbody id="dhTable"></tbody>
@@ -352,6 +367,7 @@
   <script>
     let allTransactions = [];
     let allCashouts = [];
+    let charts = {};
 
     async function fetchData() {
       try {
@@ -452,7 +468,7 @@
       
       const renderM = (obj, el) => {
         const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.length ? sorted.map(m => `<div class="flex justify-between p-2 bg-gray-50 rounded-lg text-sm"><span>${m}</span><span class="font-bold">$${obj[m].toLocaleString()}</span></div>`).join('') : 'No data';
+        document.getElementById(el).innerHTML = sorted.length ? sorted.map(m => `<div class="flex justify-between p-2 bg-gray-50 rounded-lg"><span>${m}</span><span class="font-bold">$${obj[m].toLocaleString()}</span></div>`).join('') : 'No data';
       };
       renderM(mCi, 'ovMonthlyCashIn');
       renderM(mCo, 'ovMonthlyCashout');
@@ -465,19 +481,44 @@
 
       document.getElementById('ovRecentTable').innerHTML = combined.map(r => `
         <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-2"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
-          <td class="px-4 py-2">${r.date}</td>
-          <td class="px-4 py-2">${r.time}</td>
-          <td class="px-4 py-2">${r.employee}</td>
-          <td class="px-4 py-2">${r.group}</td>
-          <td class="px-4 py-2">${r.game}</td>
-          <td class="px-4 py-2 font-bold">$${r.amount.toLocaleString()}</td>
-          <td class="px-4 py-2">${r.points || 0}</td>
-          <td class="px-4 py-2">${r.playback_id || '-'}</td>
-          <td class="px-4 py-2">${r.type==='Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
-          <td class="px-4 py-2">${r.tip ? '$'+r.tip : '-'}</td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+          <td class="px-4 py-3 text-sm">${r.date}</td>
+          <td class="px-4 py-3 text-sm">${r.time}</td>
+          <td class="px-4 py-3 text-sm">${r.employee}</td>
+          <td class="px-4 py-3 text-sm">${r.group}</td>
+          <td class="px-4 py-3 text-sm">${r.game}</td>
+          <td class="px-4 py-3 text-sm font-bold">$${r.amount.toLocaleString()}</td>
+          <td class="px-4 py-3 text-sm">${r.points || 0}</td>
+          <td class="px-4 py-3 text-sm">${r.playback_id || '-'}</td>
+          <td class="px-4 py-3 text-sm">${r.type==='Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
+          <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
         </tr>
       `).join('');
+
+      updateCharts(ci, co);
+    }
+
+    function updateCharts(ci, co) {
+      const daily = {};
+      ci.forEach(t => { const d = t.date; daily[d] = (daily[d] || 0) + t.amount; });
+      const labels = Object.keys(daily).sort();
+      const data = labels.map(l => daily[l]);
+
+      if (charts.trend) charts.trend.destroy();
+      charts.trend = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Cash-In', data, borderColor: '#3b82f6', fill: false }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      const games = {};
+      ci.forEach(t => { const g = t.game || 'Unknown'; games[g] = (games[g] || 0) + t.amount; });
+      if (charts.platform) charts.platform.destroy();
+      charts.platform = new Chart(document.getElementById('platformChart'), {
+        type: 'doughnut',
+        data: { labels: Object.keys(games), datasets: [{ data: Object.values(games), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'] }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
     }
 
     // --- CASH-IN ---
@@ -501,20 +542,20 @@
 
       const renderList = (obj, el) => {
         const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-2 bg-gray-50 rounded-lg text-sm"><span>${k}</span><span class="font-bold text-green-600">$${obj[k].toLocaleString()}</span></div>`).join('');
+        document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${k}</span><span class="font-bold text-green-600">$${obj[k].toLocaleString()}</span></div>`).join('');
       };
       renderList(daily, 'dailyCashIn');
       renderList(monthly, 'monthlyCashIn');
 
       document.getElementById('ciTable').innerHTML = ci.map(t => `
         <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-2">${t.date}</td>
-          <td class="px-4 py-2">${t.time}</td>
-          <td class="px-4 py-2">${t.employee}</td>
-          <td class="px-4 py-2">${t.group}</td>
-          <td class="px-4 py-2">${t.game}</td>
-          <td class="px-4 py-2 font-bold text-green-600">$${t.amount.toLocaleString()}</td>
-          <td class="px-4 py-2">${t.points.toLocaleString()}</td>
+          <td class="px-4 py-3 text-sm">${t.date}</td>
+          <td class="px-4 py-3 text-sm">${t.time}</td>
+          <td class="px-4 py-3 text-sm">${t.employee}</td>
+          <td class="px-4 py-3 text-sm">${t.group}</td>
+          <td class="px-4 py-3 text-sm">${t.game}</td>
+          <td class="px-4 py-3 text-sm font-bold text-green-600">$${t.amount.toLocaleString()}</td>
+          <td class="px-4 py-3 text-sm">${t.points.toLocaleString()}</td>
         </tr>
       `).join('');
     }
@@ -538,7 +579,7 @@
         gamePoints[c.game] = (gamePoints[c.game] || 0) + net;
       });
       document.getElementById('coGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
-        <div class="bg-gray-50 p-2 rounded-lg border border-gray-100 text-center text-sm">
+        <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
           <p class="text-xs text-gray-500 uppercase font-bold">${g}</p>
           <p class="text-lg font-bold text-red-600">${gamePoints[g].toLocaleString()}</p>
         </div>
@@ -549,16 +590,16 @@
         const time = new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         return `
           <tr class="border-b hover:bg-gray-50">
-            <td class="px-4 py-2">${c.created_at.substring(0, 10)}</td>
-            <td class="px-4 py-2">${time}</td>
-            <td class="px-4 py-2">${c.employee}</td>
-            <td class="px-4 py-2">${c.group}</td>
-            <td class="px-4 py-2">${c.game}</td>
-            <td class="px-4 py-2">${c.points.toLocaleString()}</td>
-            <td class="px-4 py-2">${c.playback_id || '0'}</td>
-            <td class="px-4 py-2 font-bold text-orange-600">${net.toLocaleString()}</td>
-            <td class="px-4 py-2 text-gray-500">$${c.tip.toLocaleString()}</td>
-            <td class="px-4 py-2 font-bold text-red-600">$${c.amount.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${c.created_at.substring(0, 10)}</td>
+            <td class="px-4 py-3 text-sm">${time}</td>
+            <td class="px-4 py-3 text-sm">${c.employee}</td>
+            <td class="px-4 py-3 text-sm">${c.group}</td>
+            <td class="px-4 py-3 text-sm">${c.game}</td>
+            <td class="px-4 py-3 text-sm">${c.points.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${c.playback_id || '0'}</td>
+            <td class="px-4 py-3 text-sm font-bold text-orange-600">${net.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-gray-500">$${c.tip.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm font-bold text-red-600">$${c.amount.toLocaleString()}</td>
           </tr>
         `;
       }).join('');
@@ -578,7 +619,7 @@
 
       const renderG = (obj, el, color) => {
         const sorted = Object.keys(obj).sort((a,b) => obj[b] - obj[a]);
-        document.getElementById(el).innerHTML = sorted.map(g => `<div class="flex justify-between p-2 bg-gray-50 rounded-lg text-sm border border-gray-100"><span>${g}</span><span class="font-bold ${color}">${obj[g].toLocaleString()}</span></div>`).join('');
+        document.getElementById(el).innerHTML = sorted.map(g => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${g}</span><span class="font-bold ${color}">${obj[g].toLocaleString()}</span></div>`).join('');
       };
       renderG(ciGames, 'gdCashInGames', 'text-blue-600');
       renderG(coGames, 'gdCashoutGames', 'text-red-600');
@@ -601,11 +642,11 @@
         const net = daily[d].ci - daily[d].co;
         return `
           <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="document.getElementById('dhFilterDate').value='${d}'; applyHoldingFilter();">
-            <td class="px-4 py-2 font-medium">${d}</td>
-            <td class="px-4 py-2 text-green-600 font-bold">$${daily[d].ci.toLocaleString()}</td>
-            <td class="px-4 py-2 text-red-600 font-bold">$${daily[d].co.toLocaleString()}</td>
-            <td class="px-4 py-2 font-bold ${net>=0?'text-emerald-600':'text-rose-600'}">$${net.toLocaleString()}</td>
-            <td class="px-4 py-2"><span class="px-2 py-1 rounded text-xs font-bold ${net>=0?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${net>=0?'PROFIT':'LOSS'}</span></td>
+            <td class="px-4 py-3 text-sm font-medium">${d}</td>
+            <td class="px-4 py-3 text-sm text-green-600 font-bold">$${daily[d].ci.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-red-600 font-bold">$${daily[d].co.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm font-bold ${net>=0?'text-emerald-600':'text-rose-600'}">$${net.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${net>=0?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${net>=0?'PROFIT':'LOSS'}</span></td>
           </tr>
         `;
       }).join('');
@@ -639,73 +680,35 @@
     function resetHoldingFilter() { document.getElementById('dhFilterDate').value=''; document.getElementById('dhFilterGroup').value=''; renderDailyHolding(); }
 
     // --- EXPORT ---
-    function exportRecentTransactions() {
-      const start = document.getElementById('ovFilterStart').value;
-      const end = document.getElementById('ovFilterEnd').value;
-      const group = document.getElementById('ovFilterGroup').value;
-      const month = document.getElementById('ovFilterMonth').value;
-
-      const ci = filterData(allTransactions, start, end, group, month, 'date');
-      const co = filterData(allCashouts, start, end, group, month, 'created_at');
-
-      const combined = [
-        ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, Points: t.points, Playback: '', NetRedeem: '', Tip: '' })),
-        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, Points: c.points, Playback: c.playback_id, NetRedeem: c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
-      ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
-
-      const ws = XLSX.utils.json_to_sheet(combined);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Recent Transactions");
-      XLSX.writeFile(wb, "Recent_Transactions.xlsx");
-    }
-
-    function exportCashInExcel() {
-      const start = document.getElementById('ciFilterStart').value;
-      const end = document.getElementById('ciFilterEnd').value;
-      const group = document.getElementById('ciFilterGroup').value;
-      const ci = filterData(allTransactions, start, end, group, null, 'date').map(t => ({ Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, Points: t.points }));
-      const ws = XLSX.utils.json_to_sheet(ci);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cash-In");
-      XLSX.writeFile(wb, "CashIn_Export.xlsx");
-    }
-
-    function exportCashoutExcel() {
-      const start = document.getElementById('coFilterStart').value;
-      const end = document.getElementById('coFilterEnd').value;
-      const group = document.getElementById('coFilterGroup').value;
-      const co = filterData(allCashouts, start, end, group, null, 'created_at').map(c => ({ Date: c.created_at.substring(0, 10), Time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), Employee: c.employee, Group: c.group, Game: c.game, Points: c.points, Playback: c.playback_id, NetRedeem: c.points - (parseFloat(c.playback_id)||0), Tip: c.tip, Cashout: c.amount }));
-      const ws = XLSX.utils.json_to_sheet(co);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cashout");
-      XLSX.writeFile(wb, "Cashout_Export.xlsx");
-    }
-
-    function exportGameExcel() {
-      const start = document.getElementById('gdFilterStart').value;
-      const end = document.getElementById('gdFilterEnd').value;
-      const group = document.getElementById('gdFilterGroup').value;
-      const ci = filterData(allTransactions, start, end, group, null, 'date').map(t => ({ Type: 'Cash-In', Game: t.game, Points: t.points, Date: t.date, Employee: t.employee, Group: t.group }));
-      const co = filterData(allCashouts, start, end, group, null, 'created_at').map(c => ({ Type: 'Cashout', Game: c.game, Points: c.points - (parseFloat(c.playback_id)||0), Date: c.created_at.substring(0, 10), Employee: c.employee, Group: c.group }));
-      const combined = [...ci, ...co];
-      const ws = XLSX.utils.json_to_sheet(combined);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Game Distribution");
-      XLSX.writeFile(wb, "Game_Distribution_Export.xlsx");
-    }
-
-    function exportHoldingExcel() {
-      const group = document.getElementById('dhFilterGroup').value;
-      const ci = group ? allTransactions.filter(t => t.group === group) : allTransactions;
-      const co = group ? allCashouts.filter(c => c.group === group) : allCashouts;
-      const daily = {};
-      ci.forEach(t => { daily[t.date] = daily[t.date] || { Date: t.date, CashIn: 0, Cashout: 0 }; daily[t.date].CashIn += t.amount; });
-      co.forEach(c => { const d = c.created_at.substring(0, 10); daily[d] = daily[d] || { Date: d, CashIn: 0, Cashout: 0 }; daily[d].Cashout += c.amount; });
-      const data = Object.values(daily).map(d => ({ Date: d.Date, CashIn: d.CashIn, Cashout: d.Cashout, Net: d.CashIn - d.Cashout, Status: (d.CashIn - d.Cashout) >= 0 ? 'PROFIT' : 'LOSS' }));
+    function exportToExcel(data, filename, sheetName) {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Daily Holding");
-      XLSX.writeFile(wb, "Daily_Holding_Export.xlsx");
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, filename);
+    }
+
+    function exportOverviewExcel() {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allTransactions), "Cash-In");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allCashouts), "Cashout");
+      XLSX.writeFile(wb, "Payment_Tracker_Full_Export.xlsx");
+    }
+    function exportCashInExcel() { exportToExcel(allTransactions, "CashIn_Export.xlsx", "Cash-In"); }
+    function exportCashoutExcel() { exportToExcel(allCashouts, "Cashout_Export.xlsx", "Cashout"); }
+    function exportGameExcel() {
+      const ci = allTransactions.map(t => ({ Game: t.game, Points: t.points, Date: t.date }));
+      const co = allCashouts.map(c => ({ Game: c.game, NetRedeem: c.points - (parseFloat(c.playback_id)||0), Date: c.created_at }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ci), "Cash-In Games");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(co), "Cashout Games");
+      XLSX.writeFile(wb, "Game_Distribution_Export.xlsx");
+    }
+    function exportHoldingExcel() {
+      const daily = {};
+      allTransactions.forEach(t => { daily[t.date] = daily[t.date] || { Date: t.date, CashIn: 0, Cashout: 0 }; daily[t.date].CashIn += t.amount; });
+      allCashouts.forEach(c => { const d = c.created_at.substring(0, 10); daily[d] = daily[d] || { Date: d, CashIn: 0, Cashout: 0 }; daily[d].Cashout += c.amount; });
+      const data = Object.values(daily).map(d => ({ ...d, Net: d.CashIn - d.Cashout, Status: (d.CashIn - d.Cashout) >= 0 ? 'PROFIT' : 'LOSS' }));
+      exportToExcel(data, "Daily_Holding_Export.xlsx", "Holding");
     }
 
     fetchData();
