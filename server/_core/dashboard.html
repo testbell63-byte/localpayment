@@ -479,10 +479,21 @@
       renderRecentTransactions(ci, co);
     }
 
+    function extractTime(timestamp) {
+      if (!timestamp) return '00:00';
+      if (timestamp.includes('T')) return timestamp.substring(11, 16);
+      if (timestamp.includes(' ')) return timestamp.split(' ').pop();
+      return '00:00';
+    }
+    function extractDate(timestamp) {
+      if (!timestamp) return '1970-01-01';
+      if (timestamp.includes('T')) return timestamp.substring(0, 10);
+      return timestamp.substring(0, 10);
+    }
     function renderRecentTransactions(ci, co) {
       const combined = [
-        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points })),
-        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: c.created_at.substring(11, 16), pointSpent: null }))
+        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: (t.date || '1970-01-01') + ' ' + (t.time || '00:00'), pointSpent: t.points })),
+        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: extractDate(c.created_at), time: extractTime(c.created_at), pointSpent: null }))
       ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
 
       const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
@@ -589,10 +600,11 @@
 
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
-        const time = c.created_at.substring(11, 16);
+        const time = extractTime(c.created_at);
+        const date = extractDate(c.created_at);
         return `
           <tr class="border-b hover:bg-gray-50">
-            <td class="px-4 py-3 text-sm">${c.created_at.substring(0, 10)}</td>
+            <td class="px-4 py-3 text-sm">${date}</td>
             <td class="px-4 py-3 text-sm">${time}</td>
             <td class="px-4 py-3 text-sm">${c.employee}</td>
             <td class="px-4 py-3 text-sm">${c.group}</td>
@@ -704,8 +716,8 @@
       const ci = filterData(allTransactions, start, end, group, month, 'date');
       const co = filterData(allCashouts, start, end, group, month, 'created_at');
       const combined = [
-        ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, 'Net Point Spent': t.points, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
-        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: c.created_at.substring(11, 16), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
+        ...ci.map(t => ({ Type: 'Cash-In', Date: t.date || '', Time: t.time || '', Employee: t.employee || '', Group: t.group || '', Game: t.game || '', Amount: t.amount || 0, 'Net Point Spent': t.points || 0, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
+        ...co.map(c => ({ Type: 'Cashout', Date: extractDate(c.created_at), Time: extractTime(c.created_at), Employee: c.employee || '', Group: c.group || '', Game: c.game || '', Amount: c.amount || 0, 'Net Point Spent': '-', 'Point Redeemed': c.points || 0, Playback: c.playback_id || 0, 'Net Point Redeemed': (c.points || 0) - (parseFloat(c.playback_id)||0), Tip: c.tip || 0 }))
       ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
       exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
     }
