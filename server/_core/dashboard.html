@@ -70,7 +70,7 @@
         <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div><p class="text-blue-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ovTotalCashIn">$0.00</p></div>
-          <div><p class="text-blue-100 text-sm">Points Used (Cash-In)</p><p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p></div>
+          <div><p class="text-blue-100 text-sm">Points Spent (Cash-In)</p><p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p></div>
           <div><p class="text-blue-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="ovTotalCashout">$0.00</p></div>
           <div><p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p><p class="text-3xl font-bold" id="ovTotalPointsRedeemed">0</p></div>
         </div>
@@ -440,6 +440,7 @@
       const totalPointsUsed = ci.reduce((s, t) => s + t.points, 0);
       const totalCo = co.reduce((s, t) => s + t.amount, 0);
       const totalPointsRedeemed = co.reduce((s, t) => s + (t.points - (parseFloat(t.playback_id) || 0)), 0);
+      const netPointsDifference = totalPointsUsed - totalPointsRedeemed;
 
       document.getElementById('ovTotalCashIn').innerText = `$${totalCi.toLocaleString(undefined, {minimumFractionDigits:2})}`;
       document.getElementById('ovTotalPointsUsed').innerText = totalPointsUsed.toLocaleString();
@@ -448,6 +449,7 @@
       document.getElementById('ovNet').innerText = `$${(totalCi - totalCo).toLocaleString(undefined, {minimumFractionDigits:2})}`;
       document.getElementById('ovCiCount').innerText = ci.length;
       document.getElementById('ovCoCount').innerText = co.length;
+
 
       // Monthly
       const mCi = {}, mCo = {};
