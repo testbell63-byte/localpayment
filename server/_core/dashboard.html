@@ -68,11 +68,12 @@
       <!-- Summary Cards -->
       <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
           <div><p class="text-blue-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ovTotalCashIn">$0.00</p></div>
           <div><p class="text-blue-100 text-sm">Points Spent (Cash-In)</p><p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p></div>
           <div><p class="text-blue-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="ovTotalCashout">$0.00</p></div>
           <div><p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p><p class="text-3xl font-bold" id="ovTotalPointsRedeemed">0</p></div>
+          <div><p class="text-blue-100 text-sm">Net Points Spent</p><p class="text-3xl font-bold" id="ovNetPointsSpent">0</p></div>
         </div>
       </div>
 
@@ -99,7 +100,10 @@
 
       <!-- Recent Transactions (Combined) -->
       <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
-        <div class="px-8 py-5 border-b font-semibold">Recent Transactions (All — Newest First)</div>
+        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
+          <span>Recent Transactions (Newest First)</span>
+          <button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium text-sm">📥 Export Recent</button>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50">
@@ -111,14 +115,19 @@
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
                 <th class="px-4 py-3 text-left text-sm">Amount</th>
-                <th class="px-4 py-3 text-left text-sm">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Spent</th>
+                <th class="px-4 py-3 text-left text-sm">Point Redeemed</th>
                 <th class="px-4 py-3 text-left text-sm">Playback</th>
-                <th class="px-4 py-3 text-left text-sm">Net Redeem</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Redeemed</th>
                 <th class="px-4 py-3 text-left text-sm">Tip</th>
               </tr>
             </thead>
             <tbody id="ovRecentTable"></tbody>
           </table>
+        </div>
+        <div class="flex justify-center items-center px-8 py-4 border-t gap-4">
+          <button onclick="loadMoreTransactions()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium" id="loadMoreBtn">📄 Load Earlier</button>
+          <span id="transactionPageInfo" class="text-gray-600 font-medium">Showing 1-25</span>
         </div>
       </div>
     </div>
@@ -247,9 +256,9 @@
                 <th class="px-4 py-3 text-left text-sm">Employee</th>
                 <th class="px-4 py-3 text-left text-sm">Group</th>
                 <th class="px-4 py-3 text-left text-sm">Game</th>
-                <th class="px-4 py-3 text-left text-sm">Points</th>
+                <th class="px-4 py-3 text-left text-sm">Point Redeemed</th>
                 <th class="px-4 py-3 text-left text-sm">Playback</th>
-                <th class="px-4 py-3 text-left text-sm">Net Redeem</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Redeemed</th>
                 <th class="px-4 py-3 text-left text-sm">Tip</th>
                 <th class="px-4 py-3 text-left text-sm">Cashout</th>
               </tr>
@@ -356,6 +365,8 @@
     let allTransactions = [];
     let allCashouts = [];
     let charts = {};
+    let recentTransactionPage = 0;
+    const TRANSACTIONS_PER_PAGE = 25;
 
     async function fetchData() {
       try {
@@ -428,6 +439,7 @@
 
     // --- OVERVIEW ---
     function renderOverview() {
+      recentTransactionPage = 0;
       const start = document.getElementById('ovFilterStart').value;
       const end = document.getElementById('ovFilterEnd').value;
       const group = document.getElementById('ovFilterGroup').value;
@@ -449,7 +461,7 @@
       document.getElementById('ovNet').innerText = `$${(totalCi - totalCo).toLocaleString(undefined, {minimumFractionDigits:2})}`;
       document.getElementById('ovCiCount').innerText = ci.length;
       document.getElementById('ovCoCount').innerText = co.length;
-
+      document.getElementById('ovNetPointsSpent').innerText = netPointsDifference.toLocaleString();
 
       // Monthly
       const mCi = {}, mCo = {};
@@ -463,13 +475,21 @@
       renderM(mCi, 'ovMonthlyCashIn');
       renderM(mCo, 'ovMonthlyCashout');
 
-      // Recent Table
-      const combined = [
-        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time })),
-        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }))
-      ].sort((a, b) => b.sortDate.localeCompare(a.sortDate)).slice(0, 50);
+      // Render paginated recent transactions
+      renderRecentTransactions(ci, co);
+    }
 
-      document.getElementById('ovRecentTable').innerHTML = combined.map(r => `
+    function renderRecentTransactions(ci, co) {
+      const combined = [
+        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points })),
+        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), pointSpent: null }))
+      ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
+      const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
+      const end = start + TRANSACTIONS_PER_PAGE;
+      const pageTransactions = combined.slice(start, end);
+
+      document.getElementById('ovRecentTable').innerHTML = pageTransactions.map(r => `
         <tr class="border-b hover:bg-gray-50">
           <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
           <td class="px-4 py-3 text-sm">${r.date}</td>
@@ -478,12 +498,29 @@
           <td class="px-4 py-3 text-sm">${r.group}</td>
           <td class="px-4 py-3 text-sm">${r.game}</td>
           <td class="px-4 py-3 text-sm font-bold">$${r.amount.toLocaleString()}</td>
-          <td class="px-4 py-3 text-sm">${r.points || 0}</td>
+          <td class="px-4 py-3 text-sm">${r.pointSpent !== null ? r.pointSpent : '-'}</td>
+          <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? r.points : '-'}</td>
           <td class="px-4 py-3 text-sm">${r.playback_id || '-'}</td>
-          <td class="px-4 py-3 text-sm">${r.type==='Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
+          <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
           <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
         </tr>
       `).join('');
+
+      const totalTransactions = combined.length;
+      const endDisplay = Math.min(end, totalTransactions);
+      document.getElementById('transactionPageInfo').innerText = `Showing ${start + 1}-${endDisplay} of ${totalTransactions}`;
+      document.getElementById('loadMoreBtn').style.display = end >= totalTransactions ? 'none' : 'block';
+    }
+
+    function loadMoreTransactions() {
+      recentTransactionPage++;
+      const start = document.getElementById('ovFilterStart').value;
+      const end = document.getElementById('ovFilterEnd').value;
+      const group = document.getElementById('ovFilterGroup').value;
+      const month = document.getElementById('ovFilterMonth').value;
+      const ci = filterData(allTransactions, start, end, group, month, 'date');
+      const co = filterData(allCashouts, start, end, group, month, 'created_at');
+      renderRecentTransactions(ci, co);
     }
 
     // --- CASH-IN ---
@@ -658,6 +695,21 @@
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allCashouts), "Cashout");
       XLSX.writeFile(wb, "Payment_Tracker_Full_Export.xlsx");
     }
+
+    function exportRecentTransactions() {
+      const start = document.getElementById('ovFilterStart').value;
+      const end = document.getElementById('ovFilterEnd').value;
+      const group = document.getElementById('ovFilterGroup').value;
+      const month = document.getElementById('ovFilterMonth').value;
+      const ci = filterData(allTransactions, start, end, group, month, 'date');
+      const co = filterData(allCashouts, start, end, group, month, 'created_at');
+      const combined = [
+        ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, 'Net Point Spent': t.points, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
+        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
+      ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
+      exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
+    }
+
     function exportCashInExcel() { exportToExcel(allTransactions, "CashIn_Export.xlsx", "Cash-In"); }
     function exportCashoutExcel() { exportToExcel(allCashouts, "Cashout_Export.xlsx", "Cashout"); }
     function exportGameExcel() {
