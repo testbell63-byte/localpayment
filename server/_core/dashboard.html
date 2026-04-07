@@ -97,18 +97,6 @@
         </div>
       </div>
 
-      <!-- Charts -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">📈 Daily Trend</h3>
-          <canvas id="trendChart" height="150"></canvas>
-        </div>
-        <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">📊 Cash-In Game Distribution</h3>
-          <canvas id="platformChart" height="150"></canvas>
-        </div>
-      </div>
-
       <!-- Recent Transactions (Combined) -->
       <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
         <div class="px-8 py-5 border-b font-semibold">Recent Transactions (All — Newest First)</div>
@@ -243,7 +231,7 @@
 
       <!-- Points Redeemed by Game -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h3 class="text-2xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
+        <h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
@@ -298,13 +286,13 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">🎮 Cash-In Points by Game</h3>
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3>
           <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashInGames">Loading...</div>
         </div>
         <div class="bg-white p-6 rounded-3xl shadow">
-          <h3 class="text-xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3>
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3>
           <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashoutGames">Loading...</div>
         </div>
       </div>
@@ -333,7 +321,7 @@
       </div>
 
       <!-- Daily Holding Detail -->
-      <div id="dhDetailCard" class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
+      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div><p class="text-indigo-100 text-sm">Cash-In</p><p class="text-3xl font-bold" id="dhCashIn">$0.00</p></div>
@@ -468,7 +456,7 @@
       
       const renderM = (obj, el) => {
         const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.length ? sorted.map(m => `<div class="flex justify-between p-2 bg-gray-50 rounded-lg"><span>${m}</span><span class="font-bold">$${obj[m].toLocaleString()}</span></div>`).join('') : 'No data';
+        document.getElementById(el).innerHTML = sorted.length ? sorted.map(m => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${m}</span><span class="font-bold">$${obj[m].toLocaleString()}</span></div>`).join('') : 'No data';
       };
       renderM(mCi, 'ovMonthlyCashIn');
       renderM(mCo, 'ovMonthlyCashout');
@@ -481,7 +469,7 @@
 
       document.getElementById('ovRecentTable').innerHTML = combined.map(r => `
         <tr class="border-b hover:bg-gray-50">
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+          <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
           <td class="px-4 py-3 text-sm">${r.date}</td>
           <td class="px-4 py-3 text-sm">${r.time}</td>
           <td class="px-4 py-3 text-sm">${r.employee}</td>
@@ -494,31 +482,6 @@
           <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
         </tr>
       `).join('');
-
-      updateCharts(ci, co);
-    }
-
-    function updateCharts(ci, co) {
-      const daily = {};
-      ci.forEach(t => { const d = t.date; daily[d] = (daily[d] || 0) + t.amount; });
-      const labels = Object.keys(daily).sort();
-      const data = labels.map(l => daily[l]);
-
-      if (charts.trend) charts.trend.destroy();
-      charts.trend = new Chart(document.getElementById('trendChart'), {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Cash-In', data, borderColor: '#3b82f6', fill: false }] },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      const games = {};
-      ci.forEach(t => { const g = t.game || 'Unknown'; games[g] = (games[g] || 0) + t.amount; });
-      if (charts.platform) charts.platform.destroy();
-      charts.platform = new Chart(document.getElementById('platformChart'), {
-        type: 'doughnut',
-        data: { labels: Object.keys(games), datasets: [{ data: Object.values(games), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'] }] },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
     }
 
     // --- CASH-IN ---
