@@ -24,7 +24,7 @@
   <div class="max-w-7xl mx-auto">
     <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
 
-    <!-- Navigation Tabs -->
+    <!-- Navigation Tabs (Add Transaction removed) -->
     <div class="flex flex-wrap gap-2 md:gap-3 mb-8">
       <button class="tab-btn active" data-view="overview" onclick="switchView('overview', this)">📊 Overview</button>
       <button class="tab-btn" data-view="cashin" onclick="switchView('cashin', this)">💵 Cash-In</button>
@@ -98,7 +98,7 @@
         </div>
       </div>
 
-      <!-- Recent Transactions -->
+      <!-- Recent Transactions (Combined) -->
       <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
         <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
           <span>Recent Transactions (Newest First · 24h Time)</span>
@@ -134,13 +134,23 @@
 
     <!-- ==================== CASH-IN VIEW ==================== -->
     <div id="view-cashin" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Cash-In Filters</h2>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Group</label><select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label><input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">End Date</label><input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg"></div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
             <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
             <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
@@ -148,6 +158,7 @@
         </div>
       </div>
 
+      <!-- Cash-In Summary -->
       <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">💵 Cash-In Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -157,26 +168,59 @@
         </div>
       </div>
 
+      <!-- Daily & Monthly Cash-In -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyCashIn">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyCashIn">Loading...</div></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyCashIn">Loading...</div>
+        </div>
       </div>
 
+      <!-- Cash-In Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
         <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First · 24h Time)</div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="ciTable"></tbody></table></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
+              </tr>
+            </thead>
+            <tbody id="ciTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- ==================== CASHOUT VIEW ==================== -->
     <div id="view-cashout" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Group</label><select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label><input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">End Date</label><input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg"></div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
             <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
             <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
@@ -184,6 +228,7 @@
         </div>
       </div>
 
+      <!-- Cashout Summary -->
       <div class="bg-gradient-to-r from-red-500 to-rose-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">💸 Cashout Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -193,43 +238,90 @@
         </div>
       </div>
 
-      <div class="bg-white p-6 rounded-3xl shadow mb-6"><h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div></div>
+      <!-- Points Redeemed by Game -->
+      <div class="bg-white p-6 rounded-3xl shadow mb-6">
+        <h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
+      </div>
 
+      <!-- Cashout Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
         <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First · 24h Time)</div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th><th>Cashout</th></tr></thead><tbody id="coTable"></tbody></table></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
+              </tr>
+            </thead>
+            <tbody id="coTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- ==================== GAME DISTRIBUTION ==================== -->
+    <!-- ==================== GAME DISTRIBUTION VIEW ==================== -->
     <div id="view-gameDistribution" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Game Filters</h2>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Group</label><select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label><input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">End Date</label><input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg"></div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
             <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
             <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
           <button onclick="exportGameExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Game Data</button>
         </div>
       </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashInGames">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashoutGames">Loading...</div></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashInGames">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashoutGames">Loading...</div>
+        </div>
       </div>
     </div>
 
-    <!-- ==================== DAILY HOLDING ==================== -->
+    <!-- ==================== DAILY HOLDING VIEW ==================== -->
     <div id="view-dailyHolding" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Holding Filters</h2>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Group</label><select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label><input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg"></div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+              <input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg">
+            </div>
             <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
             <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
@@ -237,6 +329,7 @@
         </div>
       </div>
 
+      <!-- Daily Holding Detail -->
       <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -247,9 +340,23 @@
         </div>
       </div>
 
+      <!-- History Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
         <div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead><tbody id="dhTable"></tbody></table></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Cash-In</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
+                <th class="px-4 py-3 text-left text-sm">Net Holding</th>
+                <th class="px-4 py-3 text-left text-sm">Status</th>
+              </tr>
+            </thead>
+            <tbody id="dhTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -261,7 +368,7 @@
     let recentTransactionPage = 0;
     const TRANSACTIONS_PER_PAGE = 25;
 
-    // Helper: Convert 12-hour time to 24-hour format
+    // Helper: Convert 12-hour time format (e.g., "1:26 am", "02:15 PM") to 24-hour format "01:26", "14:15"
     function convertTo24Hour(timeStr) {
       if (!timeStr) return '--:--';
       if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
@@ -284,6 +391,7 @@
       return timeStr;
     }
 
+    // Extract time from Cashout ISO string (already 24h format with leading zero)
     function getCashoutTime24(isoString) {
       if (!isoString) return '--:--';
       const timePart = isoString.substring(11, 16);
@@ -291,14 +399,9 @@
       return convertTo24Hour(timePart);
     }
 
-    // 🔐 IMPORTANT: Replace 'mySuperSecretKey123' with the exact API_KEY from your .env file
     async function fetchData() {
       try {
-        const headers = { 'x-api-key': 'mySuperSecretKey123' };
-        const [res1, res2] = await Promise.all([
-          fetch('/api/transactions', { headers }),
-          fetch('/api/cashout-transactions', { headers })
-        ]);
+        const [res1, res2] = await Promise.all([fetch('/api/transactions'), fetch('/api/cashout-transactions')]);
         const data1 = await res1.json();
         const data2 = await res2.json();
         allTransactions = data1.transactions || [];
@@ -365,6 +468,7 @@
       renderDailyHolding();
     }
 
+    // --- OVERVIEW ---
     function renderOverview() {
       recentTransactionPage = 0;
       const start = document.getElementById('ovFilterStart').value;
@@ -390,6 +494,7 @@
       document.getElementById('ovCoCount').innerText = co.length;
       document.getElementById('ovNetPointsSpent').innerText = netPointsDifference.toLocaleString();
 
+      // Monthly
       const mCi = {}, mCo = {};
       ci.forEach(t => { const m = t.date.substring(0, 7); mCi[m] = (mCi[m] || 0) + t.amount; });
       co.forEach(t => { const m = t.created_at.substring(0, 7); mCo[m] = (mCo[m] || 0) + t.amount; });
@@ -456,6 +561,7 @@
       renderRecentTransactions(ci, co);
     }
 
+    // --- CASH-IN (24h time)---
     function renderCashIn() {
       const start = document.getElementById('ciFilterStart').value;
       const end = document.getElementById('ciFilterEnd').value;
@@ -497,6 +603,7 @@
       }).join('');
     }
 
+    // --- CASHOUT (24h time from ISO)---
     function renderCashout() {
       const start = document.getElementById('coFilterStart').value;
       const end = document.getElementById('coFilterEnd').value;
@@ -541,6 +648,7 @@
       }).join('');
     }
 
+    // --- GAME DISTRIBUTION ---
     function renderGameDistribution() {
       const start = document.getElementById('gdFilterStart').value;
       const end = document.getElementById('gdFilterEnd').value;
@@ -560,6 +668,7 @@
       renderG(coGames, 'gdCashoutGames', 'text-red-600');
     }
 
+    // --- DAILY HOLDING ---
     function renderDailyHolding() {
       const group = document.getElementById('dhFilterGroup').value;
       const selDate = document.getElementById('dhFilterDate').value;
@@ -601,6 +710,7 @@
       }
     }
 
+    // --- FILTERS ---
     function applyOverviewFilter() { renderOverview(); }
     function resetOverviewFilter() { document.getElementById('ovFilterStart').value=''; document.getElementById('ovFilterEnd').value=''; document.getElementById('ovFilterGroup').value=''; document.getElementById('ovFilterMonth').value=''; renderOverview(); }
     function applyCashInFilter() { renderCashIn(); }
@@ -612,6 +722,7 @@
     function applyHoldingFilter() { renderDailyHolding(); }
     function resetHoldingFilter() { document.getElementById('dhFilterDate').value=''; document.getElementById('dhFilterGroup').value=''; renderDailyHolding(); }
 
+    // --- EXPORT ---
     function exportToExcel(data, filename, sheetName) {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
