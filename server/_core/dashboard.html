@@ -35,7 +35,6 @@
 
     <!-- ==================== OVERVIEW ==================== -->
     <div id="view-overview" class="view-section active">
-      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
@@ -51,7 +50,6 @@
         </div>
       </div>
 
-      <!-- Summary Cards -->
       <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
@@ -108,21 +106,22 @@
         </div>
       </div>
 
-      <!-- Daily & Monthly Cash-In (amounts) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashIn">Loading...</div></div>
         <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashIn">Loading...</div></div>
       </div>
 
-      <!-- Points Used by Game (new for Cash-In) -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <h3 class="text-xl font-semibold mb-4">🎮 Points Used by Game</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="ciGameBreakdown">Loading...</div>
       </div>
 
-      <!-- Cash-In Transactions Table -->
+      <!-- Cash-In Transactions Table with Export Button -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First · 24h Time)</div>
+        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
+          <span>Cash-In Transactions (Newest First · 24h Time)</span>
+          <button onclick="exportCashInTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
+        </div>
         <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="ciTable"></tbody></table></div>
       </div>
     </div>
@@ -152,21 +151,22 @@
         </div>
       </div>
 
-      <!-- Daily & Monthly Cashout (new) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashout">Loading...</div></div>
         <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashout">Loading...</div></div>
       </div>
 
-      <!-- Points Redeemed by Game (existing) -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
-      <!-- Cashout Transactions Table -->
+      <!-- Cashout Transactions Table with Export Button -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First · 24h Time)</div>
+        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
+          <span>Cashout Transactions (Newest First · 24h Time)</span>
+          <button onclick="exportCashoutTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
+        </div>
         <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th><th>Cashout</th></tr></thead><tbody id="coTable"></tbody></table></div>
       </div>
     </div>
@@ -385,7 +385,7 @@
       renderRecentTransactions(ci, co);
     }
 
-    // --- CASH-IN (with daily, monthly, and game breakdown) ---
+    // --- CASH-IN (with daily, monthly, game breakdown, and exportable table) ---
     function renderCashIn() {
       const start = document.getElementById('ciFilterStart').value;
       const end = document.getElementById('ciFilterEnd').value;
@@ -412,7 +412,7 @@
       renderList(dailyAmount, 'dailyCashIn');
       renderList(monthlyAmount, 'monthlyCashIn');
 
-      // Points used by game (new)
+      // Points used by game
       const gamePoints = {};
       ci.forEach(t => { gamePoints[t.game] = (gamePoints[t.game] || 0) + t.points; });
       document.getElementById('ciGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
@@ -422,14 +422,17 @@
         </div>
       `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
 
-      // Transactions table
+      // Store filtered data for export
+      window.lastFilteredCashIn = ci;
+
+      // Render table
       document.getElementById('ciTable').innerHTML = ci.map(t => {
         const time24 = convertTo24Hour(t.time);
         return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${t.date}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${t.employee}</td><td class="px-4 py-3">${t.group}</td><td class="px-4 py-3">${t.game}</td><td class="px-4 py-3 font-bold text-green-600">$${t.amount.toLocaleString()}</td><td class="px-4 py-3">${t.points.toLocaleString()}</td></tr>`;
       }).join('');
     }
 
-    // --- CASHOUT (with daily, monthly, and game breakdown) ---
+    // --- CASHOUT (with daily, monthly, game breakdown, and exportable table) ---
     function renderCashout() {
       const start = document.getElementById('coFilterStart').value;
       const end = document.getElementById('coFilterEnd').value;
@@ -442,7 +445,7 @@
       document.getElementById('coTotalPoints').innerText = totalPoints;
       document.getElementById('coCount').innerText = co.length;
 
-      // Daily & Monthly cashout amounts (new)
+      // Daily & Monthly cashout amounts
       const dailyAmount = {}, monthlyAmount = {};
       co.forEach(c => {
         const d = c.created_at.substring(0, 10);
@@ -457,7 +460,7 @@
       renderList(dailyAmount, 'dailyCashout');
       renderList(monthlyAmount, 'monthlyCashout');
 
-      // Points redeemed by game (existing)
+      // Points redeemed by game
       const gamePoints = {};
       co.forEach(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
@@ -470,12 +473,59 @@
         </div>
       `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
 
-      // Transactions table
+      // Store filtered data for export
+      window.lastFilteredCashout = co;
+
+      // Render table
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
         const time24 = getCashoutTime24(c.created_at);
         return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${c.created_at.substring(0,10)}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${c.employee}</td><td class="px-4 py-3">${c.group}</td><td class="px-4 py-3">${c.game}</td><td class="px-4 py-3">${c.points.toLocaleString()}</td><td class="px-4 py-3">${c.playback_id || '0'}</td><td class="px-4 py-3 font-bold text-orange-600">${net.toLocaleString()}</td><td class="px-4 py-3">$${c.tip}</td><td class="px-4 py-3 font-bold text-red-600">$${c.amount.toLocaleString()}</td></tr>`;
       }).join('');
+    }
+
+    // --- Export functions for tables ---
+    function exportCashInTransactionsTable() {
+      if (!window.lastFilteredCashIn || window.lastFilteredCashIn.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+      const data = window.lastFilteredCashIn.map(t => ({
+        Date: t.date,
+        "Time (24h)": convertTo24Hour(t.time),
+        Employee: t.employee,
+        Group: t.group,
+        Game: t.game,
+        Amount: t.amount,
+        Points: t.points
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Cash-In Transactions");
+      XLSX.writeFile(wb, `CashIn_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
+    }
+
+    function exportCashoutTransactionsTable() {
+      if (!window.lastFilteredCashout || window.lastFilteredCashout.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+      const data = window.lastFilteredCashout.map(c => ({
+        Date: c.created_at.substring(0,10),
+        "Time (24h)": getCashoutTime24(c.created_at),
+        Employee: c.employee,
+        Group: c.group,
+        Game: c.game,
+        "Point Redeemed": c.points,
+        Playback: c.playback_id || 0,
+        "Net Point Redeemed": c.points - (parseFloat(c.playback_id) || 0),
+        Tip: c.tip,
+        Cashout: c.amount
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Cashout Transactions");
+      XLSX.writeFile(wb, `Cashout_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
     }
 
     // --- GAME DISTRIBUTION (unchanged) ---
@@ -528,7 +578,7 @@
       }
     }
 
-    // --- FILTERS & EXPORTS (same as before) ---
+    // --- FILTERS & EXPORTS (existing ones kept) ---
     function applyOverviewFilter() { renderOverview(); }
     function resetOverviewFilter() { document.getElementById('ovFilterStart').value=''; document.getElementById('ovFilterEnd').value=''; document.getElementById('ovFilterGroup').value=''; document.getElementById('ovFilterMonth').value=''; renderOverview(); }
     function applyCashInFilter() { renderCashIn(); }
