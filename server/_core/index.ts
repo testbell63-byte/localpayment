@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { initTelegramBot } from "./telegramBot.js";
+import { initTelegramBot } from "./telegramBot";
 import fs from "fs";
 import path from "path";
 import rateLimit from "express-rate-limit";
