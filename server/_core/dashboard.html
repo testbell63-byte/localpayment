@@ -24,7 +24,7 @@
   <div class="max-w-7xl mx-auto">
     <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
 
-    <!-- Navigation Tabs -->
+    <!-- Navigation Tabs (Add Transaction removed) -->
     <div class="flex flex-wrap gap-2 md:gap-3 mb-8">
       <button class="tab-btn active" data-view="overview" onclick="switchView('overview', this)">📊 Overview</button>
       <button class="tab-btn" data-view="cashin" onclick="switchView('cashin', this)">💵 Cash-In</button>
@@ -35,21 +35,37 @@
 
     <!-- ==================== OVERVIEW ==================== -->
     <div id="view-overview" class="view-section active">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Overview Filters</h2>
-            <div><label class="block text-sm font-medium">Group</label><select id="ovFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium">Start Date</label><input type="date" id="ovFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium">End Date</label><input type="date" id="ovFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium">Month</label><select id="ovFilterMonth" class="px-3 py-2 border rounded-lg"><option value="">All Months</option></select></div>
-            <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="ovFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ovFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ovFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+              <select id="ovFilterMonth" class="px-3 py-2 border rounded-lg">
+                <option value="">All Months</option>
+              </select>
+            </div>
+            <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportOverviewExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export All Data</button>
+          <button onclick="exportOverviewExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export All Data</button>
         </div>
       </div>
 
+      <!-- Summary Cards -->
       <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
@@ -61,6 +77,7 @@
         </div>
       </div>
 
+      <!-- Net -->
       <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-3xl shadow text-white mb-6">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
           <div><p class="text-emerald-100 text-sm">Net (Cash-In - Cashout)</p><p class="text-4xl font-bold" id="ovNet">$0.00</p></div>
@@ -69,34 +86,79 @@
         </div>
       </div>
 
+      <!-- Monthly Data -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📅 Monthly Cash-In</h3><div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="ovMonthlyCashIn">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📅 Monthly Cashout</h3><div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="ovMonthlyCashout">Loading...</div></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashIn">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-xl font-semibold mb-4">📅 Monthly Cashout</h3>
+          <div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="ovMonthlyCashout">Loading...</div>
+        </div>
       </div>
 
+      <!-- Recent Transactions (Combined) -->
       <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold"><span>Recent Transactions (Newest First · 24h Time)</span><button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Recent</button></div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Type</th><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Net Point Spent</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th></tr></thead><tbody id="ovRecentTable"></tbody></table></div>
-        <div class="flex justify-center items-center px-8 py-4 border-t gap-4"><button onclick="loadMoreTransactions()" class="bg-blue-600 text-white px-6 py-2 rounded-lg" id="loadMoreBtn">📄 Load Earlier</button><span id="transactionPageInfo" class="text-gray-600">Showing 1-25</span></div>
+        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
+          <span>Recent Transactions (Newest First · 24h Time)</span>
+          <button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium text-sm">📥 Export Recent</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Type</th>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Spent</th>
+                <th class="px-4 py-3 text-left text-sm">Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
+              </tr>
+            </thead>
+            <tbody id="ovRecentTable"></tbody>
+          </table>
+        </div>
+        <div class="flex justify-center items-center px-8 py-4 border-t gap-4">
+          <button onclick="loadMoreTransactions()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium" id="loadMoreBtn">📄 Load Earlier</button>
+          <span id="transactionPageInfo" class="text-gray-600 font-medium">Showing 1-25</span>
+        </div>
       </div>
     </div>
 
     <!-- ==================== CASH-IN VIEW ==================== -->
     <div id="view-cashin" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Cash-In Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Cash-In</button>
+          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cash-In</button>
         </div>
       </div>
 
+      <!-- Cash-In Summary -->
       <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">💵 Cash-In Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -106,42 +168,67 @@
         </div>
       </div>
 
+      <!-- Daily & Monthly Cash-In -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashIn">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashIn">Loading...</div></div>
-      </div>
-
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h3 class="text-xl font-semibold mb-4">🎮 Points Used by Game</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="ciGameBreakdown">Loading...</div>
-      </div>
-
-      <!-- Cash-In Transactions Table with Export Button -->
-      <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
-          <span>Cash-In Transactions (Newest First · 24h Time)</span>
-          <button onclick="exportCashInTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="dailyCashIn">Loading...</div>
         </div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="ciTable"></tbody></table></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="monthlyCashIn">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Cash-In Transactions Table -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Cash-In Transactions (Newest First · 24h Time)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Amount</th>
+                <th class="px-4 py-3 text-left text-sm">Points</th>
+              </tr>
+            </thead>
+            <tbody id="ciTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- ==================== CASHOUT VIEW ==================== -->
     <div id="view-cashout" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Cashout</button>
+          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Cashout</button>
         </div>
       </div>
 
+      <!-- Cashout Summary -->
       <div class="bg-gradient-to-r from-red-500 to-rose-600 p-8 rounded-3xl shadow text-white mb-6">
         <h2 class="text-2xl font-semibold mb-6">💸 Cashout Summary</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -151,72 +238,137 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashout">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashout">Loading...</div></div>
-      </div>
-
+      <!-- Points Redeemed by Game -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
-      <!-- Cashout Transactions Table with Export Button -->
+      <!-- Cashout Transactions Table -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
-          <span>Cashout Transactions (Newest First · 24h Time)</span>
-          <button onclick="exportCashoutTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
+        <div class="px-8 py-5 border-b font-semibold">Cashout Transactions (Newest First · 24h Time)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Time (24h)</th>
+                <th class="px-4 py-3 text-left text-sm">Employee</th>
+                <th class="px-4 py-3 text-left text-sm">Group</th>
+                <th class="px-4 py-3 text-left text-sm">Game</th>
+                <th class="px-4 py-3 text-left text-sm">Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Playback</th>
+                <th class="px-4 py-3 text-left text-sm">Net Point Redeemed</th>
+                <th class="px-4 py-3 text-left text-sm">Tip</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
+              </tr>
+            </thead>
+            <tbody id="coTable"></tbody>
+          </table>
         </div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th><th>Cashout</th></tr></thead><tbody id="coTable"></tbody></table></div>
       </div>
     </div>
 
-    <!-- ==================== GAME DISTRIBUTION ==================== -->
+    <!-- ==================== GAME DISTRIBUTION VIEW ==================== -->
     <div id="view-gameDistribution" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Game Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportGameExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Game Data</button>
+          <button onclick="exportGameExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Game Data</button>
         </div>
       </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="gdCashInGames">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="gdCashoutGames">Loading...</div></div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashInGames">Loading...</div>
+        </div>
+        <div class="bg-white p-6 rounded-3xl shadow">
+          <h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3>
+          <div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 border-gray-200 rounded-2xl p-4" id="gdCashoutGames">Loading...</div>
+        </div>
       </div>
     </div>
 
-    <!-- ==================== DAILY HOLDING ==================== -->
+    <!-- ==================== DAILY HOLDING VIEW ==================== -->
     <div id="view-dailyHolding" class="view-section">
+      <!-- Filters -->
       <div class="bg-white p-6 rounded-3xl shadow mb-6">
         <div class="flex flex-wrap justify-between items-end gap-4">
           <div class="flex flex-wrap gap-4 items-end">
             <h2 class="text-xl font-semibold">⚙️ Holding Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Select Date</label><input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+              <input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg">
+            </div>
+            <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Apply</button>
+            <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium">Reset</button>
           </div>
-          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Holding</button>
+          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Holding</button>
         </div>
       </div>
-      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6"><h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-6"><div><p class="text-indigo-100 text-sm">Cash-In</p><p class="text-3xl font-bold" id="dhCashIn">$0.00</p></div><div><p class="text-indigo-100 text-sm">Cashout</p><p class="text-3xl font-bold" id="dhCashout">$0.00</p></div><div><p class="text-indigo-100 text-sm">Net Holding</p><p class="text-3xl font-bold" id="dhNet">$0.00</p></div><div><p class="text-indigo-100 text-sm">Status</p><p class="text-3xl font-bold" id="dhStatus">-</p></div></div></div>
-      <div class="bg-white rounded-3xl shadow overflow-hidden"><div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead><tbody id="dhTable"></tbody></table></div></div>
+
+      <!-- Daily Holding Detail -->
+      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6">
+        <h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div><p class="text-indigo-100 text-sm">Cash-In</p><p class="text-3xl font-bold" id="dhCashIn">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Cashout</p><p class="text-3xl font-bold" id="dhCashout">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Net Holding</p><p class="text-3xl font-bold" id="dhNet">$0.00</p></div>
+          <div><p class="text-indigo-100 text-sm">Status</p><p class="text-3xl font-bold" id="dhStatus">-</p></div>
+        </div>
+      </div>
+
+      <!-- History Table -->
+      <div class="bg-white rounded-3xl shadow overflow-hidden">
+        <div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm">Date</th>
+                <th class="px-4 py-3 text-left text-sm">Cash-In</th>
+                <th class="px-4 py-3 text-left text-sm">Cashout</th>
+                <th class="px-4 py-3 text-left text-sm">Net Holding</th>
+                <th class="px-4 py-3 text-left text-sm">Status</th>
+              </tr>
+            </thead>
+            <tbody id="dhTable"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
     let allTransactions = [];
     let allCashouts = [];
+    let charts = {};
     let recentTransactionPage = 0;
     const TRANSACTIONS_PER_PAGE = 25;
 
+    // Helper: Convert 12-hour time format (e.g., "1:26 am", "02:15 PM") to 24-hour format "01:26", "14:15"
     function convertTo24Hour(timeStr) {
       if (!timeStr) return '--:--';
       if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
@@ -227,7 +379,8 @@
         let modifier = (match[3] || '').toLowerCase();
         if (modifier.includes('pm') && hour !== 12) hour += 12;
         if (modifier.includes('am') && hour === 12) hour = 0;
-        return `${hour.toString().padStart(2, '0')}:${minute}`;
+        const hour24 = hour.toString().padStart(2, '0');
+        return `${hour24}:${minute}`;
       }
       const fallback = timeStr.match(/(\d{1,2}):(\d{2})/);
       if (fallback) {
@@ -238,6 +391,7 @@
       return timeStr;
     }
 
+    // Extract time from Cashout ISO string (already 24h format with leading zero)
     function getCashoutTime24(isoString) {
       if (!isoString) return '--:--';
       const timePart = isoString.substring(11, 16);
@@ -314,7 +468,7 @@
       renderDailyHolding();
     }
 
-    // --- OVERVIEW (unchanged) ---
+    // --- OVERVIEW ---
     function renderOverview() {
       recentTransactionPage = 0;
       const start = document.getElementById('ovFilterStart').value;
@@ -331,15 +485,16 @@
       const totalPointsRedeemed = co.reduce((s, t) => s + (t.points - (parseFloat(t.playback_id) || 0)), 0);
       const netPointsDifference = totalPointsUsed - totalPointsRedeemed;
 
-      document.getElementById('ovTotalCashIn').innerText = `$${totalCi.toLocaleString()}`;
-      document.getElementById('ovTotalPointsUsed').innerText = totalPointsUsed;
-      document.getElementById('ovTotalCashout').innerText = `$${totalCo.toLocaleString()}`;
-      document.getElementById('ovTotalPointsRedeemed').innerText = totalPointsRedeemed;
-      document.getElementById('ovNet').innerText = `$${(totalCi - totalCo).toLocaleString()}`;
+      document.getElementById('ovTotalCashIn').innerText = `$${totalCi.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('ovTotalPointsUsed').innerText = totalPointsUsed.toLocaleString();
+      document.getElementById('ovTotalCashout').innerText = `$${totalCo.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('ovTotalPointsRedeemed').innerText = totalPointsRedeemed.toLocaleString();
+      document.getElementById('ovNet').innerText = `$${(totalCi - totalCo).toLocaleString(undefined, {minimumFractionDigits:2})}`;
       document.getElementById('ovCiCount').innerText = ci.length;
       document.getElementById('ovCoCount').innerText = co.length;
-      document.getElementById('ovNetPointsSpent').innerText = netPointsDifference;
+      document.getElementById('ovNetPointsSpent').innerText = netPointsDifference.toLocaleString();
 
+      // Monthly
       const mCi = {}, mCo = {};
       ci.forEach(t => { const m = t.date.substring(0, 7); mCi[m] = (mCi[m] || 0) + t.amount; });
       co.forEach(t => { const m = t.created_at.substring(0, 7); mCo[m] = (mCo[m] || 0) + t.amount; });
@@ -362,16 +517,37 @@
 
       const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
       const end = start + TRANSACTIONS_PER_PAGE;
-      const page = combined.slice(start, end);
+      const pageTransactions = combined.slice(start, end);
 
-      document.getElementById('ovRecentTable').innerHTML = page.map(r => {
-        let displayTime = (r.type === 'Cash-In') ? convertTo24Hour(r.rawTime) : getCashoutTime24(r.rawTime);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="px-4 py-3">${r.date}</td><td class="px-4 py-3 font-mono">${displayTime}</td><td class="px-4 py-3">${r.employee}</td><td class="px-4 py-3">${r.group}</td><td class="px-4 py-3">${r.game}</td><td class="px-4 py-3 font-bold">$${r.amount.toLocaleString()}</td><td class="px-4 py-3">${r.pointSpent !== null ? r.pointSpent : '-'}</td><td class="px-4 py-3">${r.type === 'Cashout' ? r.points : '-'}</td><td class="px-4 py-3">${r.playback_id || '-'}</td><td class="px-4 py-3">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td><td class="px-4 py-3">${r.tip ? '$'+r.tip : '-'}</td></tr>`;
+      document.getElementById('ovRecentTable').innerHTML = pageTransactions.map(r => {
+        let displayTime = '';
+        if (r.type === 'Cash-In') {
+          displayTime = convertTo24Hour(r.rawTime);
+        } else {
+          displayTime = getCashoutTime24(r.rawTime);
+        }
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+            <td class="px-4 py-3 text-sm">${r.date}</td>
+            <td class="px-4 py-3 text-sm font-mono">${displayTime}</td>
+            <td class="px-4 py-3 text-sm">${r.employee}</td>
+            <td class="px-4 py-3 text-sm">${r.group}</td>
+            <td class="px-4 py-3 text-sm">${r.game}</td>
+            <td class="px-4 py-3 text-sm font-bold">$${r.amount.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${r.pointSpent !== null ? r.pointSpent : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? r.points : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.playback_id || '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td>
+            <td class="px-4 py-3 text-sm">${r.tip ? '$'+r.tip : '-'}</td>
+          </tr>
+        `;
       }).join('');
 
-      const total = combined.length;
-      document.getElementById('transactionPageInfo').innerText = `Showing ${start+1}-${Math.min(end,total)} of ${total}`;
-      document.getElementById('loadMoreBtn').style.display = end >= total ? 'none' : 'block';
+      const totalTransactions = combined.length;
+      const endDisplay = Math.min(end, totalTransactions);
+      document.getElementById('transactionPageInfo').innerText = `Showing ${start + 1}-${endDisplay} of ${totalTransactions}`;
+      document.getElementById('loadMoreBtn').style.display = end >= totalTransactions ? 'none' : 'block';
     }
 
     function loadMoreTransactions() {
@@ -385,82 +561,61 @@
       renderRecentTransactions(ci, co);
     }
 
-    // --- CASH-IN (with daily, monthly, game breakdown, and exportable table) ---
+    // --- CASH-IN (24h time)---
     function renderCashIn() {
       const start = document.getElementById('ciFilterStart').value;
       const end = document.getElementById('ciFilterEnd').value;
       const group = document.getElementById('ciFilterGroup').value;
-      let ci = filterData(allTransactions, start, end, group, null, 'date').sort((a,b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
+      const ci = filterData(allTransactions, start, end, group, null, 'date').sort((a,b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
 
       const totalAmount = ci.reduce((s, t) => s + t.amount, 0);
       const totalPoints = ci.reduce((s, t) => s + t.points, 0);
-      document.getElementById('ciTotalAmount').innerText = `$${totalAmount.toLocaleString()}`;
-      document.getElementById('ciTotalPoints').innerText = totalPoints;
+      document.getElementById('ciTotalAmount').innerText = `$${totalAmount.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('ciTotalPoints').innerText = totalPoints.toLocaleString();
       document.getElementById('ciCount').innerText = ci.length;
 
-      // Daily & Monthly amounts
-      const dailyAmount = {}, monthlyAmount = {};
+      const daily = {}, monthly = {};
       ci.forEach(t => {
-        dailyAmount[t.date] = (dailyAmount[t.date] || 0) + t.amount;
-        const m = t.date.substring(0, 7);
-        monthlyAmount[m] = (monthlyAmount[m] || 0) + t.amount;
+        daily[t.date] = (daily[t.date] || 0) + t.amount;
+        const m = t.date.substring(0, 7); monthly[m] = (monthly[m] || 0) + t.amount;
       });
+
       const renderList = (obj, el) => {
         const sorted = Object.keys(obj).sort().reverse();
         document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${k}</span><span class="font-bold text-green-600">$${obj[k].toLocaleString()}</span></div>`).join('');
       };
-      renderList(dailyAmount, 'dailyCashIn');
-      renderList(monthlyAmount, 'monthlyCashIn');
+      renderList(daily, 'dailyCashIn');
+      renderList(monthly, 'monthlyCashIn');
 
-      // Points used by game
-      const gamePoints = {};
-      ci.forEach(t => { gamePoints[t.game] = (gamePoints[t.game] || 0) + t.points; });
-      document.getElementById('ciGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
-        <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-          <p class="text-xs text-gray-500 uppercase font-bold">${g}</p>
-          <p class="text-lg font-bold text-green-600">${gamePoints[g].toLocaleString()}</p>
-        </div>
-      `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
-
-      // Store filtered data for export
-      window.lastFilteredCashIn = ci;
-
-      // Render table
       document.getElementById('ciTable').innerHTML = ci.map(t => {
         const time24 = convertTo24Hour(t.time);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${t.date}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${t.employee}</td><td class="px-4 py-3">${t.group}</td><td class="px-4 py-3">${t.game}</td><td class="px-4 py-3 font-bold text-green-600">$${t.amount.toLocaleString()}</td><td class="px-4 py-3">${t.points.toLocaleString()}</td></tr>`;
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm">${t.date}</td>
+            <td class="px-4 py-3 text-sm font-mono">${time24}</td>
+            <td class="px-4 py-3 text-sm">${t.employee}</td>
+            <td class="px-4 py-3 text-sm">${t.group}</td>
+            <td class="px-4 py-3 text-sm">${t.game}</td>
+            <td class="px-4 py-3 text-sm font-bold text-green-600">$${t.amount.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${t.points.toLocaleString()}</td>
+          </tr>
+        `;
       }).join('');
     }
 
-    // --- CASHOUT (with daily, monthly, game breakdown, and exportable table) ---
+    // --- CASHOUT (24h time from ISO)---
     function renderCashout() {
       const start = document.getElementById('coFilterStart').value;
       const end = document.getElementById('coFilterEnd').value;
       const group = document.getElementById('coFilterGroup').value;
-      let co = filterData(allCashouts, start, end, group, null, 'created_at').sort((a,b) => b.created_at.localeCompare(a.created_at));
+      const co = filterData(allCashouts, start, end, group, null, 'created_at').sort((a,b) => b.created_at.localeCompare(a.created_at));
 
       const totalAmount = co.reduce((s, c) => s + c.amount, 0);
       const totalPoints = co.reduce((s, c) => s + (c.points - (parseFloat(c.playback_id) || 0)), 0);
-      document.getElementById('coTotalAmount').innerText = `$${totalAmount.toLocaleString()}`;
-      document.getElementById('coTotalPoints').innerText = totalPoints;
+      document.getElementById('coTotalAmount').innerText = `$${totalAmount.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('coTotalPoints').innerText = totalPoints.toLocaleString();
       document.getElementById('coCount').innerText = co.length;
 
-      // Daily & Monthly cashout amounts
-      const dailyAmount = {}, monthlyAmount = {};
-      co.forEach(c => {
-        const d = c.created_at.substring(0, 10);
-        dailyAmount[d] = (dailyAmount[d] || 0) + c.amount;
-        const m = d.substring(0, 7);
-        monthlyAmount[m] = (monthlyAmount[m] || 0) + c.amount;
-      });
-      const renderList = (obj, el) => {
-        const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${k}</span><span class="font-bold text-red-600">$${obj[k].toLocaleString()}</span></div>`).join('');
-      };
-      renderList(dailyAmount, 'dailyCashout');
-      renderList(monthlyAmount, 'monthlyCashout');
-
-      // Points redeemed by game
       const gamePoints = {};
       co.forEach(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
@@ -471,64 +626,29 @@
           <p class="text-xs text-gray-500 uppercase font-bold">${g}</p>
           <p class="text-lg font-bold text-red-600">${gamePoints[g].toLocaleString()}</p>
         </div>
-      `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
+      `).join('');
 
-      // Store filtered data for export
-      window.lastFilteredCashout = co;
-
-      // Render table
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
         const time24 = getCashoutTime24(c.created_at);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${c.created_at.substring(0,10)}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${c.employee}</td><td class="px-4 py-3">${c.group}</td><td class="px-4 py-3">${c.game}</td><td class="px-4 py-3">${c.points.toLocaleString()}</td><td class="px-4 py-3">${c.playback_id || '0'}</td><td class="px-4 py-3 font-bold text-orange-600">${net.toLocaleString()}</td><td class="px-4 py-3">$${c.tip}</td><td class="px-4 py-3 font-bold text-red-600">$${c.amount.toLocaleString()}</td></tr>`;
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm">${c.created_at.substring(0, 10)}</td>
+            <td class="px-4 py-3 text-sm font-mono">${time24}</td>
+            <td class="px-4 py-3 text-sm">${c.employee}</td>
+            <td class="px-4 py-3 text-sm">${c.group}</td>
+            <td class="px-4 py-3 text-sm">${c.game}</td>
+            <td class="px-4 py-3 text-sm">${c.points.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm">${c.playback_id || '0'}</td>
+            <td class="px-4 py-3 text-sm font-bold text-orange-600">${net.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-gray-500">$${c.tip.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm font-bold text-red-600">$${c.amount.toLocaleString()}</td>
+          </tr>
+        `;
       }).join('');
     }
 
-    // --- Export functions for tables ---
-    function exportCashInTransactionsTable() {
-      if (!window.lastFilteredCashIn || window.lastFilteredCashIn.length === 0) {
-        alert("No data to export.");
-        return;
-      }
-      const data = window.lastFilteredCashIn.map(t => ({
-        Date: t.date,
-        "Time (24h)": convertTo24Hour(t.time),
-        Employee: t.employee,
-        Group: t.group,
-        Game: t.game,
-        Amount: t.amount,
-        Points: t.points
-      }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cash-In Transactions");
-      XLSX.writeFile(wb, `CashIn_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
-    }
-
-    function exportCashoutTransactionsTable() {
-      if (!window.lastFilteredCashout || window.lastFilteredCashout.length === 0) {
-        alert("No data to export.");
-        return;
-      }
-      const data = window.lastFilteredCashout.map(c => ({
-        Date: c.created_at.substring(0,10),
-        "Time (24h)": getCashoutTime24(c.created_at),
-        Employee: c.employee,
-        Group: c.group,
-        Game: c.game,
-        "Point Redeemed": c.points,
-        Playback: c.playback_id || 0,
-        "Net Point Redeemed": c.points - (parseFloat(c.playback_id) || 0),
-        Tip: c.tip,
-        Cashout: c.amount
-      }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cashout Transactions");
-      XLSX.writeFile(wb, `Cashout_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
-    }
-
-    // --- GAME DISTRIBUTION (unchanged) ---
+    // --- GAME DISTRIBUTION ---
     function renderGameDistribution() {
       const start = document.getElementById('gdFilterStart').value;
       const end = document.getElementById('gdFilterEnd').value;
@@ -538,7 +658,7 @@
 
       const ciGames = {}, coGames = {};
       ci.forEach(t => { ciGames[t.game] = (ciGames[t.game] || 0) + t.points; });
-      co.forEach(c => { const net = c.points - (parseFloat(c.playback_id) || 0); coGames[c.game] = (coGames[c.game] || 0) + net; });
+      co.forEach(c => { coGames[c.game] = (coGames[c.game] || 0) + (c.points - (parseFloat(c.playback_id) || 0)); });
 
       const renderG = (obj, el, color) => {
         const sorted = Object.keys(obj).sort((a,b) => obj[b] - obj[a]);
@@ -548,20 +668,32 @@
       renderG(coGames, 'gdCashoutGames', 'text-red-600');
     }
 
-    // --- DAILY HOLDING (unchanged) ---
+    // --- DAILY HOLDING ---
     function renderDailyHolding() {
       const group = document.getElementById('dhFilterGroup').value;
       const selDate = document.getElementById('dhFilterDate').value;
+      
       const ci = group ? allTransactions.filter(t => t.group === group) : allTransactions;
       const co = group ? allCashouts.filter(c => c.group === group) : allCashouts;
+
       const daily = {};
       ci.forEach(t => { daily[t.date] = daily[t.date] || { ci: 0, co: 0 }; daily[t.date].ci += t.amount; });
-      co.forEach(c => { const d = c.created_at.substring(0,10); daily[d] = daily[d] || { ci: 0, co: 0 }; daily[d].co += c.amount; });
-      const sorted = Object.keys(daily).sort().reverse();
-      document.getElementById('dhTable').innerHTML = sorted.map(d => {
+      co.forEach(c => { const d = c.created_at.substring(0, 10); daily[d] = daily[d] || { ci: 0, co: 0 }; daily[d].co += c.amount; });
+
+      const sortedDates = Object.keys(daily).sort().reverse();
+      document.getElementById('dhTable').innerHTML = sortedDates.map(d => {
         const net = daily[d].ci - daily[d].co;
-        return `<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="document.getElementById('dhFilterDate').value='${d}'; applyHoldingFilter();"><td class="px-4 py-3">${d}</td><td class="text-green-600 font-bold">$${daily[d].ci.toLocaleString()}</td><td class="text-red-600 font-bold">$${daily[d].co.toLocaleString()}</td><td class="font-bold ${net>=0?'text-emerald-600':'text-rose-600'}">$${net.toLocaleString()}</td><td><span class="px-2 py-1 rounded text-xs font-bold ${net>=0?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${net>=0?'PROFIT':'LOSS'}</span></td></tr>`;
+        return `
+          <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="document.getElementById('dhFilterDate').value='${d}'; applyHoldingFilter();">
+            <td class="px-4 py-3 text-sm font-medium">${d}</td>
+            <td class="px-4 py-3 text-sm text-green-600 font-bold">$${daily[d].ci.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-red-600 font-bold">$${daily[d].co.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm font-bold ${net>=0?'text-emerald-600':'text-rose-600'}">$${net.toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs font-bold ${net>=0?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${net>=0?'PROFIT':'LOSS'}</span></td>
+          </tr>
+        `;
       }).join('');
+
       if (selDate && daily[selDate]) {
         const d = daily[selDate]; const net = d.ci - d.co;
         document.getElementById('dhSelectedDate').innerText = `📅 ${selDate}`;
@@ -578,7 +710,7 @@
       }
     }
 
-    // --- FILTERS & EXPORTS (existing ones kept) ---
+    // --- FILTERS ---
     function applyOverviewFilter() { renderOverview(); }
     function resetOverviewFilter() { document.getElementById('ovFilterStart').value=''; document.getElementById('ovFilterEnd').value=''; document.getElementById('ovFilterGroup').value=''; document.getElementById('ovFilterMonth').value=''; renderOverview(); }
     function applyCashInFilter() { renderCashIn(); }
@@ -590,6 +722,7 @@
     function applyHoldingFilter() { renderDailyHolding(); }
     function resetHoldingFilter() { document.getElementById('dhFilterDate').value=''; document.getElementById('dhFilterGroup').value=''; renderDailyHolding(); }
 
+    // --- EXPORT ---
     function exportToExcel(data, filename, sheetName) {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
@@ -603,13 +736,16 @@
       XLSX.writeFile(wb, "Payment_Tracker_Full_Export.xlsx");
     }
     function exportRecentTransactions() {
-      const start = document.getElementById('ovFilterStart').value, end = document.getElementById('ovFilterEnd').value, group = document.getElementById('ovFilterGroup').value, month = document.getElementById('ovFilterMonth').value;
+      const start = document.getElementById('ovFilterStart').value;
+      const end = document.getElementById('ovFilterEnd').value;
+      const group = document.getElementById('ovFilterGroup').value;
+      const month = document.getElementById('ovFilterMonth').value;
       const ci = filterData(allTransactions, start, end, group, month, 'date');
       const co = filterData(allCashouts, start, end, group, month, 'created_at');
       const combined = [
         ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, 'Net Point Spent': t.points, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
-        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0,10), Time: c.created_at.substring(11,16), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
-      ].sort((a,b) => (b.Date+' '+b.Time).localeCompare(a.Date+' '+a.Time));
+        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0, 10), Time: c.created_at.substring(11, 16), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
+      ].sort((a, b) => (b.Date + ' ' + b.Time).localeCompare(a.Date + ' ' + a.Time));
       exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
     }
     function exportCashInExcel() { exportToExcel(allTransactions, "CashIn_Export.xlsx", "Cash-In"); }
@@ -625,7 +761,7 @@
     function exportHoldingExcel() {
       const daily = {};
       allTransactions.forEach(t => { daily[t.date] = daily[t.date] || { Date: t.date, CashIn: 0, Cashout: 0 }; daily[t.date].CashIn += t.amount; });
-      allCashouts.forEach(c => { const d = c.created_at.substring(0,10); daily[d] = daily[d] || { Date: d, CashIn: 0, Cashout: 0 }; daily[d].Cashout += c.amount; });
+      allCashouts.forEach(c => { const d = c.created_at.substring(0, 10); daily[d] = daily[d] || { Date: d, CashIn: 0, Cashout: 0 }; daily[d].Cashout += c.amount; });
       const data = Object.values(daily).map(d => ({ ...d, Net: d.CashIn - d.Cashout, Status: (d.CashIn - d.Cashout) >= 0 ? 'PROFIT' : 'LOSS' }));
       exportToExcel(data, "Daily_Holding_Export.xlsx", "Holding");
     }
