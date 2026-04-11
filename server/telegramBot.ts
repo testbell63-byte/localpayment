@@ -119,7 +119,7 @@ async function checkPendingAndNotify(bot: TelegramBot, pendingCashoutsMap: Map<a
   const totalPending = pendingIncomes.length + pendingCashoutsCount;
   const now = Date.now();
   if (totalPending >= 20 && (now - lastNotificationSent > 3600000)) {
-    await bot.sendMessage(ADMIN_ID, `⚠️ *Pending Approvals Alert*\n\n📌 Income: ${pendingIncomes.length}\n💸 Cashout: ${pendingCashoutsCount}\n🔔 Total: ${totalPending}\n\nUse /pending to view details.`, { parse_mode: "Markdown" });
+    await bot.sendMessage(ADMIN_ID, `⚠️ *Pending Approvals Alert*\n\n📌 Income: ${pendingIncomes.length}\n💸 Cashout: ${pendingCashoutsCount}\n🔔 Total: ${totalPending}\n\nUse /pending to view details.`, { parse_mode: "Markdown" }).catch(() => {});
     lastNotificationSent = now;
   }
 }
@@ -179,10 +179,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const cashoutMessages = new Map();
   const pendingCashouts = new Map();
 
-  // Make pendingCashouts globally accessible for the periodic check
   (global as any).pendingCashoutsMap = pendingCashouts;
 
-  // Periodic check for high pending count (every 30 minutes)
   setInterval(() => checkPendingAndNotify(bot, pendingCashouts), 1800000);
 
   // ----------------------------- INCOME FLOW (photo) -----------------------------
@@ -269,7 +267,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     pendingCashoutsList.forEach(([id, data]) => {
       reply += `🆔 ${id} | ${data.state.group} | $${data.state.amount}\n`;
     });
-    await bot.sendMessage(ADMIN_ID, reply, { parse_mode: "Markdown" });
+    await bot.sendMessage(ADMIN_ID, reply, { parse_mode: "Markdown" }).catch(() => {});
   });
 
   bot.onText(/\/delete/, async (msg) => {
@@ -282,7 +280,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       else await bot.sendMessage(chatId, "❌ Could not identify cashout ID.");
       return;
     }
-    // For income records: soft delete by appending negative entry
     if (!fs.existsSync(RECORDS_FILE)) return;
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
     if (lines.length <= 1) return;
@@ -494,31 +491,21 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         const cst = getCST();
         savePendingIncome(state, incomeId, cst);
 
-        // Build admin message
+        // Forward the original screenshot to admin group (only)
+        try {
+          await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
+        } catch (e) {
+          console.error("Failed to forward screenshot to group:", e);
+        }
+
+        // Send text summary with approval buttons (only to group)
         let adminMsg = `📌 *NEW INCOME REQUEST*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🏢 Group: ${state.groupName}\n💰 Amount: $${state.amount}\n🎮 Games & Points:\n`;
         state.records.forEach((r: any, i: number) => {
           adminMsg += `${i+1}. ${r.game}: ${r.points} points\n`;
         });
         adminMsg += `📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}\n🆔 ID: ${incomeId}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏳ Waiting for admin approval...`;
 
-        // Forward the original screenshot to admin group and private chat
-        try {
-          await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
-          await bot.forwardMessage(ADMIN_ID, state.originalChatId, state.originalMessageId);
-        } catch (e) {
-          console.error("Failed to forward screenshot:", e);
-        }
-
-        // Send the text summary with approval buttons
         await bot.sendMessage(REPORT_GROUP_ID, adminMsg, {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "✅ Approve", callback_data: `income_approve_${incomeId}` }, { text: "❌ Deny", callback_data: `income_deny_${incomeId}` }]
-            ]
-          }
-        });
-        await bot.sendMessage(ADMIN_ID, adminMsg, {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
