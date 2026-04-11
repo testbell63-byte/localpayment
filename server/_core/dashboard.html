@@ -4,10 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Payment Tracker</title>
+  <!-- Playfair Display – free, elegant, luxury serif font -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
+    /* Apply Playfair Display globally */
+    body, button, input, select, table, .tab-btn, .font-semibold, h1, h2, h3, h4, .text-sm, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl {
+      font-family: 'Playfair Display', 'Times New Roman', serif;
+    }
+    /* Keep numbers and data readable */
+    .font-mono, .tabular-nums {
+      font-family: 'Playfair Display', monospace;
+    }
     .custom-scroll::-webkit-scrollbar { width: 6px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
@@ -116,7 +126,6 @@
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="ciGameBreakdown">Loading...</div>
       </div>
 
-      <!-- Cash-In Transactions Table with Export Button -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
         <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
           <span>Cash-In Transactions (Newest First · 24h Time)</span>
@@ -161,7 +170,6 @@
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
       </div>
 
-      <!-- Cashout Transactions Table with Export Button -->
       <div class="bg-white rounded-3xl shadow overflow-hidden">
         <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
           <span>Cashout Transactions (Newest First · 24h Time)</span>
@@ -314,7 +322,7 @@
       renderDailyHolding();
     }
 
-    // --- OVERVIEW (unchanged) ---
+    // --- OVERVIEW ---
     function renderOverview() {
       recentTransactionPage = 0;
       const start = document.getElementById('ovFilterStart').value;
@@ -385,7 +393,7 @@
       renderRecentTransactions(ci, co);
     }
 
-    // --- CASH-IN (with daily, monthly, game breakdown, and exportable table) ---
+    // --- CASH-IN ---
     function renderCashIn() {
       const start = document.getElementById('ciFilterStart').value;
       const end = document.getElementById('ciFilterEnd').value;
@@ -398,7 +406,6 @@
       document.getElementById('ciTotalPoints').innerText = totalPoints;
       document.getElementById('ciCount').innerText = ci.length;
 
-      // Daily & Monthly amounts
       const dailyAmount = {}, monthlyAmount = {};
       ci.forEach(t => {
         dailyAmount[t.date] = (dailyAmount[t.date] || 0) + t.amount;
@@ -412,7 +419,6 @@
       renderList(dailyAmount, 'dailyCashIn');
       renderList(monthlyAmount, 'monthlyCashIn');
 
-      // Points used by game
       const gamePoints = {};
       ci.forEach(t => { gamePoints[t.game] = (gamePoints[t.game] || 0) + t.points; });
       document.getElementById('ciGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
@@ -422,17 +428,15 @@
         </div>
       `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
 
-      // Store filtered data for export
       window.lastFilteredCashIn = ci;
 
-      // Render table
       document.getElementById('ciTable').innerHTML = ci.map(t => {
         const time24 = convertTo24Hour(t.time);
         return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${t.date}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${t.employee}</td><td class="px-4 py-3">${t.group}</td><td class="px-4 py-3">${t.game}</td><td class="px-4 py-3 font-bold text-green-600">$${t.amount.toLocaleString()}</td><td class="px-4 py-3">${t.points.toLocaleString()}</td></tr>`;
       }).join('');
     }
 
-    // --- CASHOUT (with daily, monthly, game breakdown, and exportable table) ---
+    // --- CASHOUT ---
     function renderCashout() {
       const start = document.getElementById('coFilterStart').value;
       const end = document.getElementById('coFilterEnd').value;
@@ -445,7 +449,6 @@
       document.getElementById('coTotalPoints').innerText = totalPoints;
       document.getElementById('coCount').innerText = co.length;
 
-      // Daily & Monthly cashout amounts
       const dailyAmount = {}, monthlyAmount = {};
       co.forEach(c => {
         const d = c.created_at.substring(0, 10);
@@ -460,7 +463,6 @@
       renderList(dailyAmount, 'dailyCashout');
       renderList(monthlyAmount, 'monthlyCashout');
 
-      // Points redeemed by game
       const gamePoints = {};
       co.forEach(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
@@ -473,10 +475,8 @@
         </div>
       `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
 
-      // Store filtered data for export
       window.lastFilteredCashout = co;
 
-      // Render table
       document.getElementById('coTable').innerHTML = co.map(c => {
         const net = c.points - (parseFloat(c.playback_id) || 0);
         const time24 = getCashoutTime24(c.created_at);
@@ -528,7 +528,7 @@
       XLSX.writeFile(wb, `Cashout_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
     }
 
-    // --- GAME DISTRIBUTION (unchanged) ---
+    // --- GAME DISTRIBUTION ---
     function renderGameDistribution() {
       const start = document.getElementById('gdFilterStart').value;
       const end = document.getElementById('gdFilterEnd').value;
@@ -548,7 +548,7 @@
       renderG(coGames, 'gdCashoutGames', 'text-red-600');
     }
 
-    // --- DAILY HOLDING (unchanged) ---
+    // --- DAILY HOLDING ---
     function renderDailyHolding() {
       const group = document.getElementById('dhFilterGroup').value;
       const selDate = document.getElementById('dhFilterDate').value;
@@ -578,7 +578,7 @@
       }
     }
 
-    // --- FILTERS & EXPORTS (existing ones kept) ---
+    // --- FILTERS & EXPORTS ---
     function applyOverviewFilter() { renderOverview(); }
     function resetOverviewFilter() { document.getElementById('ovFilterStart').value=''; document.getElementById('ovFilterEnd').value=''; document.getElementById('ovFilterGroup').value=''; document.getElementById('ovFilterMonth').value=''; renderOverview(); }
     function applyCashInFilter() { renderCashIn(); }
