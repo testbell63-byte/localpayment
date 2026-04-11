@@ -501,7 +501,15 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         });
         adminMsg += `📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}\n🆔 ID: ${incomeId}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏳ Waiting for admin approval...`;
 
-        // Send to admin group and private chat
+        // Forward the original screenshot to admin group and private chat
+        try {
+          await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
+          await bot.forwardMessage(ADMIN_ID, state.originalChatId, state.originalMessageId);
+        } catch (e) {
+          console.error("Failed to forward screenshot:", e);
+        }
+
+        // Send the text summary with approval buttons
         await bot.sendMessage(REPORT_GROUP_ID, adminMsg, {
           parse_mode: "Markdown",
           reply_markup: {
@@ -519,8 +527,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           }
         });
 
-        // Confirm to user
-        await bot.sendMessage(chatId, `✅ Your income request has been submitted for admin approval.\n🆔 ID: ${incomeId}`);
+        // Thank you + waiting message to user
+        await bot.sendMessage(chatId, `✅ **Thank you!** Your income request has been submitted.\n🆔 ID: ${incomeId}\n⏳ Waiting for admin approval. You will be notified once approved.`);
+
         userState.delete(chatId);
         await bot.answerCallbackQuery(query.id);
         return;
