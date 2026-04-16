@@ -8,7 +8,7 @@ const app = express();
 const server = createServer(app);
 
 const PORT = process.env.PORT || 8080;
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 const CASHOUT_RECORDS_FILE = path.join(process.cwd(), "cashout_records.csv");
 
@@ -76,14 +76,8 @@ const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILW
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-const webhookPath = `/bot${BOT_TOKEN.replace(":", "_")}`;
-const webhookUrl = `${baseUrl}${webhookPath}`;
-bot.setWebHook(webhookUrl)
-  .then(() => console.log(`✅ Webhook registered: ${webhookUrl}`))
-  .catch((err) => console.error("❌ Failed to set webhook:", err));
-
 // CRITICAL: Handle the Telegram Webhook updates
-app.post(webhookPath, (req, res) => {
+app.post(`/bot${BOT_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
