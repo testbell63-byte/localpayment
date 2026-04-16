@@ -8,7 +8,7 @@ const app = express();
 const server = createServer(app);
 
 const PORT = process.env.PORT || 8080;
-const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 const CASHOUT_RECORDS_FILE = path.join(process.cwd(), "cashout_records.csv");
 
