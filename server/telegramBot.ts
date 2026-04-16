@@ -413,8 +413,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     if (cashoutId) { removeCashoutRecord(cashoutId); userState.delete(chatId); try { await bot.sendMessage(chatId, `❌ **CASHOUT CANCELLED**\nID: ${cashoutId}\nReason: Supporting document was deleted.`); } catch (e) {} }
   });
 
-  const webhookPath = `/bot${token}`;
-  bot.setWebHook(baseUrl + webhookPath).then(() => console.log("✅ Webhook set")).catch(err => console.error("Webhook failed:", err));
   return bot;
 }
 
