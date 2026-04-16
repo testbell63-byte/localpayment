@@ -76,13 +76,14 @@ const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILW
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-const webhookUrl = `${baseUrl}/bot${BOT_TOKEN}`;
+const webhookPath = `/bot${BOT_TOKEN.replace(":", "_")}`;
+const webhookUrl = `${baseUrl}${webhookPath}`;
 bot.setWebHook(webhookUrl)
   .then(() => console.log(`✅ Webhook registered: ${webhookUrl}`))
   .catch((err) => console.error("❌ Failed to set webhook:", err));
 
 // CRITICAL: Handle the Telegram Webhook updates
-app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+app.post(webhookPath, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
