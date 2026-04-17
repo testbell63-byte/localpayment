@@ -2,23 +2,6 @@ import TelegramBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import path from 'path';
 
-// Environment variables (Railway injects these automatically)
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-    console.error('TELEGRAM_BOT_TOKEN is required');
-    process.exit(1);
-}
-
-const bot = new TelegramBot(token, { polling: true });
-
-// CSV file paths
-const csvFilePath = path.join(__dirname, '../records.csv');
-const cashoutCsvPath = path.join(__dirname, '../cashout_records.csv');
-
-// Group IDs from environment
-const REPORTING_GROUP_ID = process.env.REPORTING_GROUP_ID || '';
-const CASHOUT_GROUP_ID = process.env.CASHOUT_GROUP_ID || '';
-
 // ============================================
 // UPDATED GAME LIST (Change #1)
 // ============================================
@@ -53,8 +36,8 @@ interface CashoutState {
     step: string;
     game?: string;
     pointsRedeemed?: number;
-    playback?: number;      // optional, default 0 (Change #2)
-    tip?: number;           // optional, default 0 (Change #2)
+    playback?: number;      // optional, default 0
+    tip?: number;           // optional, default 0
     cashoutAmount?: number;
     customerDetails?: string;
 }
@@ -67,22 +50,18 @@ interface UserState {
 
 const userStates: Record<number, UserState> = {};
 
-// ============================================
-// REMOVED /start COMMAND (Change #4)
-// ============================================
-// The /start handler has been completely removed.
+// CSV file paths (will be set relative to project root)
+let csvFilePath: string;
+let cashoutCsvPath: string;
 
-// Set bot commands for Telegram menu
-bot.setMyCommands([
-    { command: "cashin", description: "📥 Record a cash in transaction" },
-    { command: "cashout", description: "📤 Request a cashout" }
-]);
+// Group IDs (will be set from env)
+let REPORTING_GROUP_ID: string;
+let CASHOUT_GROUP_ID: string;
 
 // Helper function to generate inline keyboard for game selection
 function generateGameKeyboard(selectedGames: string[] = []): TelegramBot.InlineKeyboardMarkup {
     const keyboard: TelegramBot.InlineKeyboardButton[][] = [];
     
-    // Add game buttons in rows of 2
     for (let i = 0; i < GAME_LIST.length; i += 2) {
         const row: TelegramBot.InlineKeyboardButton[] = [];
         const game1 = GAME_LIST[i];
@@ -104,9 +83,7 @@ function generateGameKeyboard(selectedGames: string[] = []): TelegramBot.InlineK
         keyboard.push(row);
     }
     
-    // Add Done button
     keyboard.push([{ text: '✅ Done', callback_data: 'games_done' }]);
-    
     return { inline_keyboard: keyboard };
 }
 
@@ -130,353 +107,8 @@ function generateNumpadKeyboard(currentValue: string = ''): TelegramBot.InlineKe
     return { inline_keyboard: keyboard };
 }
 
-// ============================================
-// /cashin COMMAND
-// ============================================
-bot.onText(/\/cashin/, async (msg) => {
-    const chatId = msg.chat.id;
-    userStates[chatId] = {
-        step: 'cashin',
-        cashin: { step: 'awaiting_photo' }
-    };
-    await bot.sendMessage(chatId, '📸 Please send a photo or screenshot of the transaction.');
-});
-
-// ============================================
-// /cashout COMMAND
-// ============================================
-bot.onText(/\/cashout/, async (msg) => {
-    const chatId = msg.chat.id;
-    userStates[chatId] = {
-        step: 'cashout',
-        cashout: { step: 'awaiting_game' }
-    };
-    
-    const keyboard = generateGameKeyboard();
-    await bot.sendMessage(chatId, '🎮 Select the game for cashout:', { reply_markup: keyboard });
-});
-
-// ============================================
-// CALLBACK QUERY HANDLER
-// ============================================
-bot.on('callback_query', async (query) => {
-    const chatId = query.message?.chat.id;
-    if (!chatId) return;
-    
-    const data = query.data;
-    const userState = userStates[chatId];
-    if (!userState) return;
-    
-    await bot.answerCallbackQuery(query.id);
-    
-    // Handle game selection for cashin
-    if (userState.step === 'cashin' && userState.cashin?.step === 'selecting_games') {
-        const cashin = userState.cashin;
-        
-        if (data?.startsWith('select_game_')) {
-            const game = data.replace('select_game_', '');
-            
-            if (game === 'Others') {
-                cashin.step = 'custom_game_name';
-                await bot.sendMessage(chatId, '✏️ Please type the custom game name:');
-                return;
-            }
-            
-            // Initialize games array if needed
-            if (!cashin.games) cashin.games = [];
-            
-            // Toggle game selection
-            const existingIndex = cashin.games.findIndex(g => g.name === game);
-            if (existingIndex >= 0) {
-                cashin.games.splice(existingIndex, 1);
-            } else {
-                cashin.games.push({ name: game, amount: 0, points: 0 });
-            }
-            
-            const selectedNames = cashin.games.map(g => g.name);
-            const keyboard = generateGameKeyboard(selectedNames);
-            await bot.editMessageReplyMarkup(keyboard, {
-                chat_id: chatId,
-                message_id: query.message?.message_id
-            });
-            return;
-        }
-        
-        if (data === 'games_done') {
-            if (!cashin.games || cashin.games.length === 0) {
-                await bot.sendMessage(chatId, '⚠️ Please select at least one game.');
-                return;
-            }
-            
-            cashin.currentGameIndex = 0;
-            cashin.step = 'entering_amount';
-            const game = cashin.games[0].name;
-            const keyboard = generateNumpadKeyboard();
-            await bot.sendMessage(chatId, `💰 Enter dollar amount for ${game}:`, { reply_markup: keyboard });
-            return;
-        }
-    }
-    
-    // ============================================
-    // CASHOUT CALLBACK HANDLERS (Change #2)
-    // ============================================
-    if (userState.step === 'cashout' && userState.cashout) {
-        const cashout = userState.cashout;
-        
-        // Game selection for cashout
-        if (data?.startsWith('select_game_')) {
-            const game = data.replace('select_game_', '');
-            
-            if (game === 'Others') {
-                cashout.step = 'custom_game';
-                await bot.sendMessage(chatId, '✏️ Please type the custom game name:');
-                return;
-            }
-            
-            cashout.game = game;
-            cashout.step = 'points_redeemed';
-            await bot.sendMessage(chatId, `🎯 Enter points redeemed for ${game}:`);
-            return;
-        }
-        
-        // Playback confirmation
-        if (data === 'cashout_playback_yes') {
-            cashout.step = 'playback_amount';
-            await bot.sendMessage(chatId, '💰 Enter playback amount (numbers only):');
-            return;
-        }
-        
-        if (data === 'cashout_playback_no') {
-            cashout.playback = 0;
-            cashout.step = 'tip_confirm';
-            await bot.sendMessage(chatId, '💸 Do you want to add a tip?', {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "✅ Yes", callback_data: "cashout_tip_yes" }],
-                        [{ text: "❌ No", callback_data: "cashout_tip_no" }]
-                    ]
-                }
-            });
-            return;
-        }
-        
-        // Tip confirmation
-        if (data === 'cashout_tip_yes') {
-            cashout.step = 'tip_amount';
-            await bot.sendMessage(chatId, '💵 Enter tip amount (numbers only):');
-            return;
-        }
-        
-        if (data === 'cashout_tip_no') {
-            cashout.tip = 0;
-            cashout.step = 'cashout_amount';
-            await bot.sendMessage(chatId, '💲 Enter cashout amount:');
-            return;
-        }
-    }
-    
-    // Numpad handling for cashin amounts and points
-    if (userState.step === 'cashin' && userState.cashin) {
-        const cashin = userState.cashin;
-        const currentGame = cashin.games?.[cashin.currentGameIndex || 0];
-        if (!currentGame) return;
-        
-        const isAmountStep = cashin.step === 'entering_amount';
-        const isPointsStep = cashin.step === 'entering_points';
-        
-        if (isAmountStep || isPointsStep) {
-            const currentValue = isAmountStep 
-                ? (currentGame.amount?.toString() || '')
-                : (currentGame.points?.toString() || '');
-            
-            if (data?.startsWith('numpad_')) {
-                const key = data.replace('numpad_', '');
-                let newValue = currentValue;
-                
-                if (key === '⌫') {
-                    newValue = currentValue.slice(0, -1);
-                } else if (key === '.') {
-                    if (!currentValue.includes('.')) {
-                        newValue = currentValue + key;
-                    }
-                } else {
-                    newValue = currentValue + key;
-                }
-                
-                if (isAmountStep) {
-                    currentGame.amount = parseFloat(newValue) || 0;
-                } else {
-                    currentGame.points = parseFloat(newValue) || 0;
-                }
-                
-                const keyboard = generateNumpadKeyboard(newValue);
-                await bot.editMessageReplyMarkup(keyboard, {
-                    chat_id: chatId,
-                    message_id: query.message?.message_id
-                });
-                return;
-            }
-            
-            if (data === 'numpad_done') {
-                if (isAmountStep) {
-                    cashin.step = 'entering_points';
-                    const keyboard = generateNumpadKeyboard();
-                    await bot.sendMessage(chatId, `🎯 Enter points earned for ${currentGame.name}:`, { reply_markup: keyboard });
-                } else {
-                    // Move to next game or finish
-                    const nextIndex = (cashin.currentGameIndex || 0) + 1;
-                    if (cashin.games && nextIndex < cashin.games.length) {
-                        cashin.currentGameIndex = nextIndex;
-                        cashin.step = 'entering_amount';
-                        const nextGame = cashin.games[nextIndex].name;
-                        const keyboard = generateNumpadKeyboard();
-                        await bot.sendMessage(chatId, `💰 Enter dollar amount for ${nextGame}:`, { reply_markup: keyboard });
-                    } else {
-                        // All games entered, submit to reporting group
-                        await submitCashIn(chatId, cashin);
-                    }
-                }
-                return;
-            }
-        }
-    }
-});
-
-// ============================================
-// MESSAGE HANDLER
-// ============================================
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const userState = userStates[chatId];
-    if (!userState) return;
-    
-    const text = msg.text;
-    const photo = msg.photo;
-    
-    // ============================================
-    // CASHIN FLOW
-    // ============================================
-    if (userState.step === 'cashin' && userState.cashin) {
-        const cashin = userState.cashin;
-        
-        // Awaiting photo
-        if (cashin.step === 'awaiting_photo' && photo) {
-            cashin.photoFileId = photo[photo.length - 1].file_id;
-            cashin.step = 'selecting_games';
-            const keyboard = generateGameKeyboard();
-            await bot.sendMessage(chatId, '🎮 Select games for this transaction:', { reply_markup: keyboard });
-            return;
-        }
-        
-        // Custom game name input
-        if (cashin.step === 'custom_game_name' && text) {
-            const customGame = text.trim();
-            if (!cashin.games) cashin.games = [];
-            cashin.games.push({ name: customGame, amount: 0, points: 0 });
-            
-            cashin.step = 'selecting_games';
-            const selectedNames = cashin.games.map(g => g.name);
-            const keyboard = generateGameKeyboard(selectedNames);
-            await bot.sendMessage(chatId, '➕ Game added. Select more or press Done:', { reply_markup: keyboard });
-            return;
-        }
-    }
-    
-    // ============================================
-    // CASHOUT FLOW (Change #2)
-    // ============================================
-    if (userState.step === 'cashout' && userState.cashout) {
-        const cashout = userState.cashout;
-        
-        // Custom game name
-        if (cashout.step === 'custom_game' && text) {
-            cashout.game = text.trim();
-            cashout.step = 'points_redeemed';
-            await bot.sendMessage(chatId, `🎯 Enter points redeemed for ${cashout.game}:`);
-            return;
-        }
-        
-        // Points redeemed
-        if (cashout.step === 'points_redeemed' && text) {
-            const points = parseFloat(text);
-            if (isNaN(points)) {
-                await bot.sendMessage(chatId, '❌ Please enter a valid number.');
-                return;
-            }
-            cashout.pointsRedeemed = points;
-            cashout.step = 'playback_confirm';
-            
-            await bot.sendMessage(chatId, '🎮 Do you have playback?', {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "✅ Yes", callback_data: "cashout_playback_yes" }],
-                        [{ text: "❌ No", callback_data: "cashout_playback_no" }]
-                    ]
-                }
-            });
-            return;
-        }
-        
-        // Playback amount
-        if (cashout.step === 'playback_amount' && text) {
-            const amount = parseFloat(text);
-            if (isNaN(amount)) {
-                await bot.sendMessage(chatId, '❌ Please enter a valid number for playback.');
-                return;
-            }
-            cashout.playback = amount;
-            cashout.step = 'tip_confirm';
-            
-            await bot.sendMessage(chatId, '💸 Do you want to add a tip?', {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "✅ Yes", callback_data: "cashout_tip_yes" }],
-                        [{ text: "❌ No", callback_data: "cashout_tip_no" }]
-                    ]
-                }
-            });
-            return;
-        }
-        
-        // Tip amount
-        if (cashout.step === 'tip_amount' && text) {
-            const amount = parseFloat(text);
-            if (isNaN(amount)) {
-                await bot.sendMessage(chatId, '❌ Please enter a valid number for tip.');
-                return;
-            }
-            cashout.tip = amount;
-            cashout.step = 'cashout_amount';
-            await bot.sendMessage(chatId, '💲 Enter cashout amount:');
-            return;
-        }
-        
-        // Cashout amount
-        if (cashout.step === 'cashout_amount' && text) {
-            const amount = parseFloat(text);
-            if (isNaN(amount)) {
-                await bot.sendMessage(chatId, '❌ Please enter a valid number for cashout amount.');
-                return;
-            }
-            cashout.cashoutAmount = amount;
-            cashout.step = 'customer_details';
-            await bot.sendMessage(chatId, '📝 Enter customer payment details (e.g., PayPal, Zelle info):');
-            return;
-        }
-        
-        // Customer details (final step)
-        if (cashout.step === 'customer_details' && text) {
-            cashout.customerDetails = text;
-            await submitCashOut(chatId, cashout, msg.from);
-            return;
-        }
-    }
-});
-
-// ============================================
-// SUBMIT CASHIN TO REPORTING GROUP
-// ============================================
-async function submitCashIn(chatId: number, cashin: CashInState) {
+// Submit cashin to reporting group
+async function submitCashIn(bot: TelegramBot, chatId: number, cashin: CashInState) {
     const user = await bot.getChat(chatId);
     const username = user.username ? `@${user.username}` : user.first_name || 'Unknown';
     
@@ -519,10 +151,8 @@ async function submitCashIn(chatId: number, cashin: CashInState) {
     delete userStates[chatId];
 }
 
-// ============================================
-// SUBMIT CASHOUT TO BOTH GROUPS (Change #3)
-// ============================================
-async function submitCashOut(chatId: number, cashout: CashoutState, from: TelegramBot.User) {
+// Submit cashout to both groups (Change #3)
+async function submitCashOut(bot: TelegramBot, chatId: number, cashout: CashoutState, from: TelegramBot.User) {
     const username = from.username ? `@${from.username}` : from.first_name || 'Unknown';
     
     let message = `📤 *New Cashout Request*\n`;
@@ -556,7 +186,7 @@ async function submitCashOut(chatId: number, cashout: CashoutState, from: Telegr
         });
     }
     
-    // 2. Send copy to reporting group (Change #3 - no buttons)
+    // 2. Send copy to reporting group (Change #3)
     if (REPORTING_GROUP_ID) {
         await bot.sendMessage(REPORTING_GROUP_ID, message, { parse_mode: 'Markdown' });
     }
@@ -566,33 +196,384 @@ async function submitCashOut(chatId: number, cashout: CashoutState, from: Telegr
 }
 
 // ============================================
-// APPROVE/DENY CALLBACKS
+// EXPORTED INIT FUNCTION (works with index.ts)
 // ============================================
-bot.on('callback_query', async (query) => {
-    const chatId = query.message?.chat.id;
-    const data = query.data;
+export function initTelegramBot(token: string, baseUrl?: string): TelegramBot {
+    // Set up bot with webhook if baseUrl provided, otherwise polling
+    const bot = baseUrl 
+        ? new TelegramBot(token, { webHook: { port: 3000 } })
+        : new TelegramBot(token, { polling: true });
     
-    if (data?.startsWith('approve_cashout_')) {
-        const userId = data.replace('approve_cashout_', '');
-        await bot.sendMessage(userId, '✅ Your cashout request has been approved!');
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-            chat_id: chatId,
-            message_id: query.message?.message_id
-        });
-        await bot.sendMessage(chatId!, `✅ Cashout approved by ${query.from.username || 'admin'}`);
-        return;
+    if (baseUrl) {
+        bot.setWebHook(`${baseUrl}/bot${token}`);
+        console.log(`Webhook set to ${baseUrl}/bot${token}`);
     }
     
-    if (data?.startsWith('deny_cashout_')) {
-        const userId = data.replace('deny_cashout_', '');
-        await bot.sendMessage(userId, '❌ Your cashout request has been denied.');
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-            chat_id: chatId,
-            message_id: query.message?.message_id
-        });
-        await bot.sendMessage(chatId!, `❌ Cashout denied by ${query.from.username || 'admin'}`);
-        return;
-    }
-});
-
-console.log('🤖 Telegram bot is running...');
+    // Set paths relative to project root
+    csvFilePath = path.join(process.cwd(), 'records.csv');
+    cashoutCsvPath = path.join(process.cwd(), 'cashout_records.csv');
+    
+    // Load group IDs from environment
+    REPORTING_GROUP_ID = process.env.REPORTING_GROUP_ID || '';
+    CASHOUT_GROUP_ID = process.env.CASHOUT_GROUP_ID || '';
+    
+    // ============================================
+    // SET COMMANDS (Change #4 - no /start)
+    // ============================================
+    bot.setMyCommands([
+        { command: "cashin", description: "📥 Record a cash in transaction" },
+        { command: "cashout", description: "📤 Request a cashout" }
+    ]);
+    
+    // ============================================
+    // /cashin COMMAND
+    // ============================================
+    bot.onText(/\/cashin/, async (msg) => {
+        const chatId = msg.chat.id;
+        userStates[chatId] = {
+            step: 'cashin',
+            cashin: { step: 'awaiting_photo' }
+        };
+        await bot.sendMessage(chatId, '📸 Please send a photo or screenshot of the transaction.');
+    });
+    
+    // ============================================
+    // /cashout COMMAND
+    // ============================================
+    bot.onText(/\/cashout/, async (msg) => {
+        const chatId = msg.chat.id;
+        userStates[chatId] = {
+            step: 'cashout',
+            cashout: { step: 'awaiting_game' }
+        };
+        
+        const keyboard = generateGameKeyboard();
+        await bot.sendMessage(chatId, '🎮 Select the game for cashout:', { reply_markup: keyboard });
+    });
+    
+    // ============================================
+    // CALLBACK QUERY HANDLER
+    // ============================================
+    bot.on('callback_query', async (query) => {
+        const chatId = query.message?.chat.id;
+        if (!chatId) return;
+        
+        const data = query.data;
+        const userState = userStates[chatId];
+        if (!userState) return;
+        
+        await bot.answerCallbackQuery(query.id);
+        
+        // Handle game selection for cashin
+        if (userState.step === 'cashin' && userState.cashin?.step === 'selecting_games') {
+            const cashin = userState.cashin;
+            
+            if (data?.startsWith('select_game_')) {
+                const game = data.replace('select_game_', '');
+                
+                if (game === 'Others') {
+                    cashin.step = 'custom_game_name';
+                    await bot.sendMessage(chatId, '✏️ Please type the custom game name:');
+                    return;
+                }
+                
+                if (!cashin.games) cashin.games = [];
+                
+                const existingIndex = cashin.games.findIndex(g => g.name === game);
+                if (existingIndex >= 0) {
+                    cashin.games.splice(existingIndex, 1);
+                } else {
+                    cashin.games.push({ name: game, amount: 0, points: 0 });
+                }
+                
+                const selectedNames = cashin.games.map(g => g.name);
+                const keyboard = generateGameKeyboard(selectedNames);
+                await bot.editMessageReplyMarkup(keyboard, {
+                    chat_id: chatId,
+                    message_id: query.message?.message_id
+                });
+                return;
+            }
+            
+            if (data === 'games_done') {
+                if (!cashin.games || cashin.games.length === 0) {
+                    await bot.sendMessage(chatId, '⚠️ Please select at least one game.');
+                    return;
+                }
+                
+                cashin.currentGameIndex = 0;
+                cashin.step = 'entering_amount';
+                const game = cashin.games[0].name;
+                const keyboard = generateNumpadKeyboard();
+                await bot.sendMessage(chatId, `💰 Enter dollar amount for ${game}:`, { reply_markup: keyboard });
+                return;
+            }
+        }
+        
+        // ============================================
+        // CASHOUT CALLBACK HANDLERS (Change #2)
+        // ============================================
+        if (userState.step === 'cashout' && userState.cashout) {
+            const cashout = userState.cashout;
+            
+            if (data?.startsWith('select_game_')) {
+                const game = data.replace('select_game_', '');
+                
+                if (game === 'Others') {
+                    cashout.step = 'custom_game';
+                    await bot.sendMessage(chatId, '✏️ Please type the custom game name:');
+                    return;
+                }
+                
+                cashout.game = game;
+                cashout.step = 'points_redeemed';
+                await bot.sendMessage(chatId, `🎯 Enter points redeemed for ${game}:`);
+                return;
+            }
+            
+            // Playback confirmation
+            if (data === 'cashout_playback_yes') {
+                cashout.step = 'playback_amount';
+                await bot.sendMessage(chatId, '💰 Enter playback amount (numbers only):');
+                return;
+            }
+            
+            if (data === 'cashout_playback_no') {
+                cashout.playback = 0;
+                cashout.step = 'tip_confirm';
+                await bot.sendMessage(chatId, '💸 Do you want to add a tip?', {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "✅ Yes", callback_data: "cashout_tip_yes" }],
+                            [{ text: "❌ No", callback_data: "cashout_tip_no" }]
+                        ]
+                    }
+                });
+                return;
+            }
+            
+            // Tip confirmation
+            if (data === 'cashout_tip_yes') {
+                cashout.step = 'tip_amount';
+                await bot.sendMessage(chatId, '💵 Enter tip amount (numbers only):');
+                return;
+            }
+            
+            if (data === 'cashout_tip_no') {
+                cashout.tip = 0;
+                cashout.step = 'cashout_amount';
+                await bot.sendMessage(chatId, '💲 Enter cashout amount:');
+                return;
+            }
+        }
+        
+        // Numpad handling for cashin
+        if (userState.step === 'cashin' && userState.cashin) {
+            const cashin = userState.cashin;
+            const currentGame = cashin.games?.[cashin.currentGameIndex || 0];
+            if (!currentGame) return;
+            
+            const isAmountStep = cashin.step === 'entering_amount';
+            const isPointsStep = cashin.step === 'entering_points';
+            
+            if (isAmountStep || isPointsStep) {
+                const currentValue = isAmountStep 
+                    ? (currentGame.amount?.toString() || '')
+                    : (currentGame.points?.toString() || '');
+                
+                if (data?.startsWith('numpad_')) {
+                    const key = data.replace('numpad_', '');
+                    let newValue = currentValue;
+                    
+                    if (key === '⌫') {
+                        newValue = currentValue.slice(0, -1);
+                    } else if (key === '.') {
+                        if (!currentValue.includes('.')) {
+                            newValue = currentValue + key;
+                        }
+                    } else {
+                        newValue = currentValue + key;
+                    }
+                    
+                    if (isAmountStep) {
+                        currentGame.amount = parseFloat(newValue) || 0;
+                    } else {
+                        currentGame.points = parseFloat(newValue) || 0;
+                    }
+                    
+                    const keyboard = generateNumpadKeyboard(newValue);
+                    await bot.editMessageReplyMarkup(keyboard, {
+                        chat_id: chatId,
+                        message_id: query.message?.message_id
+                    });
+                    return;
+                }
+                
+                if (data === 'numpad_done') {
+                    if (isAmountStep) {
+                        cashin.step = 'entering_points';
+                        const keyboard = generateNumpadKeyboard();
+                        await bot.sendMessage(chatId, `🎯 Enter points earned for ${currentGame.name}:`, { reply_markup: keyboard });
+                    } else {
+                        const nextIndex = (cashin.currentGameIndex || 0) + 1;
+                        if (cashin.games && nextIndex < cashin.games.length) {
+                            cashin.currentGameIndex = nextIndex;
+                            cashin.step = 'entering_amount';
+                            const nextGame = cashin.games[nextIndex].name;
+                            const keyboard = generateNumpadKeyboard();
+                            await bot.sendMessage(chatId, `💰 Enter dollar amount for ${nextGame}:`, { reply_markup: keyboard });
+                        } else {
+                            await submitCashIn(bot, chatId, cashin);
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // Approve/Deny cashout
+        if (data?.startsWith('approve_cashout_')) {
+            const userId = data.replace('approve_cashout_', '');
+            await bot.sendMessage(userId, '✅ Your cashout request has been approved!');
+            await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                chat_id: chatId,
+                message_id: query.message?.message_id
+            });
+            await bot.sendMessage(chatId!, `✅ Cashout approved by ${query.from.username || 'admin'}`);
+            return;
+        }
+        
+        if (data?.startsWith('deny_cashout_')) {
+            const userId = data.replace('deny_cashout_', '');
+            await bot.sendMessage(userId, '❌ Your cashout request has been denied.');
+            await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                chat_id: chatId,
+                message_id: query.message?.message_id
+            });
+            await bot.sendMessage(chatId!, `❌ Cashout denied by ${query.from.username || 'admin'}`);
+            return;
+        }
+    });
+    
+    // ============================================
+    // MESSAGE HANDLER
+    // ============================================
+    bot.on('message', async (msg) => {
+        const chatId = msg.chat.id;
+        const userState = userStates[chatId];
+        if (!userState) return;
+        
+        const text = msg.text;
+        const photo = msg.photo;
+        
+        // CASHIN FLOW
+        if (userState.step === 'cashin' && userState.cashin) {
+            const cashin = userState.cashin;
+            
+            if (cashin.step === 'awaiting_photo' && photo) {
+                cashin.photoFileId = photo[photo.length - 1].file_id;
+                cashin.step = 'selecting_games';
+                const keyboard = generateGameKeyboard();
+                await bot.sendMessage(chatId, '🎮 Select games for this transaction:', { reply_markup: keyboard });
+                return;
+            }
+            
+            if (cashin.step === 'custom_game_name' && text) {
+                const customGame = text.trim();
+                if (!cashin.games) cashin.games = [];
+                cashin.games.push({ name: customGame, amount: 0, points: 0 });
+                
+                cashin.step = 'selecting_games';
+                const selectedNames = cashin.games.map(g => g.name);
+                const keyboard = generateGameKeyboard(selectedNames);
+                await bot.sendMessage(chatId, '➕ Game added. Select more or press Done:', { reply_markup: keyboard });
+                return;
+            }
+        }
+        
+        // CASHOUT FLOW (Change #2)
+        if (userState.step === 'cashout' && userState.cashout) {
+            const cashout = userState.cashout;
+            
+            if (cashout.step === 'custom_game' && text) {
+                cashout.game = text.trim();
+                cashout.step = 'points_redeemed';
+                await bot.sendMessage(chatId, `🎯 Enter points redeemed for ${cashout.game}:`);
+                return;
+            }
+            
+            if (cashout.step === 'points_redeemed' && text) {
+                const points = parseFloat(text);
+                if (isNaN(points)) {
+                    await bot.sendMessage(chatId, '❌ Please enter a valid number.');
+                    return;
+                }
+                cashout.pointsRedeemed = points;
+                cashout.step = 'playback_confirm';
+                
+                await bot.sendMessage(chatId, '🎮 Do you have playback?', {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "✅ Yes", callback_data: "cashout_playback_yes" }],
+                            [{ text: "❌ No", callback_data: "cashout_playback_no" }]
+                        ]
+                    }
+                });
+                return;
+            }
+            
+            if (cashout.step === 'playback_amount' && text) {
+                const amount = parseFloat(text);
+                if (isNaN(amount)) {
+                    await bot.sendMessage(chatId, '❌ Please enter a valid number for playback.');
+                    return;
+                }
+                cashout.playback = amount;
+                cashout.step = 'tip_confirm';
+                
+                await bot.sendMessage(chatId, '💸 Do you want to add a tip?', {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "✅ Yes", callback_data: "cashout_tip_yes" }],
+                            [{ text: "❌ No", callback_data: "cashout_tip_no" }]
+                        ]
+                    }
+                });
+                return;
+            }
+            
+            if (cashout.step === 'tip_amount' && text) {
+                const amount = parseFloat(text);
+                if (isNaN(amount)) {
+                    await bot.sendMessage(chatId, '❌ Please enter a valid number for tip.');
+                    return;
+                }
+                cashout.tip = amount;
+                cashout.step = 'cashout_amount';
+                await bot.sendMessage(chatId, '💲 Enter cashout amount:');
+                return;
+            }
+            
+            if (cashout.step === 'cashout_amount' && text) {
+                const amount = parseFloat(text);
+                if (isNaN(amount)) {
+                    await bot.sendMessage(chatId, '❌ Please enter a valid number for cashout amount.');
+                    return;
+                }
+                cashout.cashoutAmount = amount;
+                cashout.step = 'customer_details';
+                await bot.sendMessage(chatId, '📝 Enter customer payment details (e.g., PayPal, Zelle info):');
+                return;
+            }
+            
+            if (cashout.step === 'customer_details' && text) {
+                cashout.customerDetails = text;
+                await submitCashOut(bot, chatId, cashout, msg.from);
+                return;
+            }
+        }
+    });
+    
+    console.log('🤖 Telegram bot is running...');
+    return bot;
+}
