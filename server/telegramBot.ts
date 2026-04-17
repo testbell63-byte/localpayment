@@ -11,7 +11,6 @@ const ADMIN_ID = 920244681;
 if (!fs.existsSync(RECORDS_FILE)) {
   fs.writeFileSync(RECORDS_FILE, "Date,Time,Day,Group,Employee,Amount,Game,Points,Notes\n");
 }
-
 if (!fs.existsSync(CASHOUT_RECORDS_FILE)) {
   fs.writeFileSync(CASHOUT_RECORDS_FILE, "id,created_at,updated_at,group,employee,amount,game,points,playback_id,tip\n");
 }
@@ -21,9 +20,9 @@ function getCST() {
   const cstTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
   return {
     date: cstTime.toISOString().split("T")[0],
-    time: cstTime.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true }),
+    time: cstTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
     day: cstTime.toLocaleDateString("en-US", { weekday: "long" }),
-    isoTime: cstTime.toISOString()
+    isoTime: cstTime.toISOString(),
   };
 }
 
@@ -31,362 +30,652 @@ function generateCashoutId() {
   return `CO_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// ─── Build the income menu message + keyboard ───────────────────────────────
+function buildIncomeMenu(state: any) {
+  const amount = state.amount > 0 ? `$${state.amount}` : "─ tap to set";
+  const games = state.selectedGames.length > 0 ? state.selectedGames.join(", ") : "─ tap to set";
+  const pointsLine = state.selectedGames.length > 0
+    ? state.selectedGames.map((g: string) => {
+        const pts = state.gamePoints?.[g];
+        return `  ${g}: ${pts !== undefined ? pts + " pts" : "─ tap to set"}`;
+      }).join("\n")
+    : "  ─ select game first";
+
+  const text =
+    `📸 *New Income Entry*\n` +
+    `👤 ${state.employeeName} · ${state.groupName}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 Amount:  ${amount}\n` +
+    `🎮 Game(s): ${games}\n` +
+    `🎯 Points:\n${pointsLine}\n` +
+    `━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard: any[][] = [
+    [{ text: `💰 Set Amount${state.amount > 0 ? " ✅" : ""}`, callback_data: "im_edit_amount" }],
+    [{ text: `🎮 Select Game(s)${state.selectedGames.length > 0 ? " ✅" : ""}`, callback_data: "im_edit_game" }],
+  ];
+
+  // one button per game to set its points
+  for (const g of state.selectedGames) {
+    const pts = state.gamePoints?.[g];
+    keyboard.push([{ text: `🎯 Points for ${g}${pts !== undefined ? " ✅" : ""}`, callback_data: `im_edit_points_${g}` }]);
+  }
+
+  const allFilled = state.amount > 0 &&
+    state.selectedGames.length > 0 &&
+    state.selectedGames.every((g: string) => state.gamePoints?.[g] !== undefined);
+
+  if (allFilled) {
+    keyboard.push([{ text: "✅ Submit", callback_data: "im_submit" }]);
+  }
+  keyboard.push([{ text: "❌ Cancel", callback_data: "im_cancel" }]);
+
+  return { text, keyboard };
+}
+
+// ─── Build the cashout menu message + keyboard ───────────────────────────────
+function buildCashoutMenu(state: any) {
+  const text =
+    `💸 *Cashout Request*\n` +
+    `👤 ${state.employeeName} · ${state.groupName}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🎮 Game:           ${state.game || "─ tap to set"}\n` +
+    `🎯 Points:         ${state.points > 0 ? state.points : "─ tap to set"}\n` +
+    `🎫 Playback:       ${state.playback_points !== "" ? state.playback_points : "─ tap to set"}\n` +
+    `💵 Tip:            ${state.tip !== "" ? "$" + state.tip : "─ tap to set"}\n` +
+    `💰 Amount:         ${state.amount > 0 ? "$" + state.amount : "─ tap to set"}\n` +
+    `📎 Payment:        ${state.mediaType ? (state.mediaType === "photo" ? "📸 Photo" : "📝 Text") : "─ tap to set"}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🆔 ID: \`${state.cashoutId}\``;
+
+  const keyboard: any[][] = [
+    [
+      { text: `🎮 Game${state.game ? " ✅" : ""}`, callback_data: "co_edit_game" },
+      { text: `🎯 Points${state.points > 0 ? " ✅" : ""}`, callback_data: "co_edit_points" },
+    ],
+    [
+      { text: `🎫 Playback${state.playback_points !== "" ? " ✅" : ""}`, callback_data: "co_edit_playback" },
+      { text: `💵 Tip${state.tip !== "" ? " ✅" : ""}`, callback_data: "co_edit_tip" },
+    ],
+    [
+      { text: `💰 Amount${state.amount > 0 ? " ✅" : ""}`, callback_data: "co_edit_amount" },
+      { text: `📎 Payment${state.mediaType ? " ✅" : ""}`, callback_data: "co_edit_media" },
+    ],
+  ];
+
+  const allFilled =
+    state.game &&
+    state.points > 0 &&
+    state.playback_points !== "" &&
+    state.tip !== "" &&
+    state.amount > 0 &&
+    state.mediaType;
+
+  if (allFilled) {
+    keyboard.push([{ text: "✅ Submit Cashout", callback_data: "co_submit" }]);
+  }
+  keyboard.push([{ text: "❌ Cancel", callback_data: "co_cancel" }]);
+
+  return { text, keyboard };
+}
+
+// ─── Number pad keyboard ─────────────────────────────────────────────────────
+function numpad(prefix: string) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "1", callback_data: `${prefix}_1` }, { text: "2", callback_data: `${prefix}_2` }, { text: "3", callback_data: `${prefix}_3` }],
+        [{ text: "4", callback_data: `${prefix}_4` }, { text: "5", callback_data: `${prefix}_5` }, { text: "6", callback_data: `${prefix}_6` }],
+        [{ text: "7", callback_data: `${prefix}_7` }, { text: "8", callback_data: `${prefix}_8` }, { text: "9", callback_data: `${prefix}_9` }],
+        [{ text: "0", callback_data: `${prefix}_0` }, { text: ".", callback_data: `${prefix}_dot` }],
+        [{ text: "⬅️ Back", callback_data: `${prefix}_back` }, { text: "✅ Done", callback_data: `${prefix}_done` }],
+      ],
+    },
+  };
+}
+
+const gameKeyboard = (prefix: string) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: "FK", callback_data: `${prefix}_FK` }, { text: "JW", callback_data: `${prefix}_JW` }, { text: "GV", callback_data: `${prefix}_GV` }],
+      [{ text: "Orion", callback_data: `${prefix}_Orion` }, { text: "MW", callback_data: `${prefix}_MW` }, { text: "VS", callback_data: `${prefix}_VS` }],
+      [{ text: "FunStation", callback_data: `${prefix}_FunStation` }, { text: "PM", callback_data: `${prefix}_PM` }, { text: "CM", callback_data: `${prefix}_CM` }],
+      [{ text: "UP", callback_data: `${prefix}_UP` }, { text: "Monstor", callback_data: `${prefix}_Monstor` }, { text: "Other", callback_data: `${prefix}_Other` }],
+      [{ text: "✅ Done", callback_data: `${prefix}_done` }],
+    ],
+  },
+});
+
 export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const bot = new TelegramBot(token);
   console.log("[Bot] Starting with Income & Cashout flows");
 
-  const userState = new Map();
-  const adminMessages = new Map();
-  const cashoutMessages = new Map();
-  const pendingCashouts = new Map();
+  // state maps
+  const userState = new Map<number, any>();       // chatId → state
+  const menuMsgId = new Map<number, number>();     // chatId → menu message id
+  const inputMsgId = new Map<number, number>();    // chatId → active numpad/prompt message id
+  const adminMessages = new Map<number, any>();    // adminMsgId → data
+  const pendingCashouts = new Map<string, any>();  // cashoutId → data
 
-  const numberKeyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "1", callback_data: "num_1" }, { text: "2", callback_data: "num_2" }, { text: "3", callback_data: "num_3" }],
-        [{ text: "4", callback_data: "num_4" }, { text: "5", callback_data: "num_5" }, { text: "6", callback_data: "num_6" }],
-        [{ text: "7", callback_data: "num_7" }, { text: "8", callback_data: "num_8" }, { text: "9", callback_data: "num_9" }],
-        [{ text: "0", callback_data: "num_0" }, { text: ".", callback_data: "num_dot" }],
-        [{ text: "⬅️ Back", callback_data: "num_back" }, { text: "✅ Done", callback_data: "num_done" }]
-      ]
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  async function refreshIncomeMenu(chatId: number) {
+    const state = userState.get(chatId);
+    if (!state) return;
+    const { text, keyboard } = buildIncomeMenu(state);
+    const mid = menuMsgId.get(chatId);
+    if (mid) {
+      await bot.editMessageText(text, {
+        chat_id: chatId, message_id: mid,
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: keyboard },
+      }).catch(() => {});
     }
-  };
+  }
 
-  const cashoutNumberKeyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "1", callback_data: "cashout_num_1" }, { text: "2", callback_data: "cashout_num_2" }, { text: "3", callback_data: "cashout_num_3" }],
-        [{ text: "4", callback_data: "cashout_num_4" }, { text: "5", callback_data: "cashout_num_5" }, { text: "6", callback_data: "cashout_num_6" }],
-        [{ text: "7", callback_data: "cashout_num_7" }, { text: "8", callback_data: "cashout_num_8" }, { text: "9", callback_data: "cashout_num_9" }],
-        [{ text: "0", callback_data: "cashout_num_0" }, { text: ".", callback_data: "cashout_num_dot" }],
-        [{ text: "⬅️ Back", callback_data: "cashout_num_back" }, { text: "✅ Done", callback_data: "cashout_num_done" }]
-      ]
+  async function refreshCashoutMenu(chatId: number) {
+    const state = userState.get(chatId);
+    if (!state) return;
+    const { text, keyboard } = buildCashoutMenu(state);
+    const mid = menuMsgId.get(chatId);
+    if (mid) {
+      await bot.editMessageText(text, {
+        chat_id: chatId, message_id: mid,
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: keyboard },
+      }).catch(() => {});
     }
-  };
+  }
 
-  const gameKeyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "FK", callback_data: "game_FK" }],
-        [{ text: "JW", callback_data: "game_JW" }],
-        [{ text: "GV", callback_data: "game_GV" }],
-        [{ text: "Orion", callback_data: "game_Orion" }],
-        [{ text: "MW", callback_data: "game_MW" }],
-        [{ text: "FunStation", callback_data: "game_FunStation" }],
-        [{ text: "VS", callback_data: "game_VS" }],
-        [{ text: "PM", callback_data: "game_PM" }],
-        [{ text: "CM", callback_data: "game_CM" }],
-        [{ text: "UP", callback_data: "game_UP" }],
-        [{ text: "Monstor", callback_data: "game_Monstor" }],
-        [{ text: "Other", callback_data: "game_Other" }],
-        [{ text: "✅ Done", callback_data: "game_done" }]
-      ]
-    }
-  };
+  async function deleteInputMsg(chatId: number) {
+    const mid = inputMsgId.get(chatId);
+    if (mid) { await bot.deleteMessage(chatId, mid).catch(() => {}); inputMsgId.delete(chatId); }
+  }
 
+  // ── photo handler (income) ────────────────────────────────────────────────
   bot.on("photo", async (msg) => {
     const chatId = msg.chat.id;
-    const groupName = msg.chat.title || "Unknown Group";
-    const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
     const state = userState.get(chatId);
 
-    if (state && state.type === "cashout" && state.step === "waiting_picture") {
-      state.mediaCaption = msg.caption || "Payment method screenshot";
+    // cashout: photo as payment proof
+    if (state?.type === "cashout" && state.step === "waiting_media") {
       state.mediaType = "photo";
+      state.mediaCaption = msg.caption || "Payment screenshot";
       state.photoFileId = msg.photo?.[msg.photo.length - 1]?.file_id;
-      state.photoMessageId = msg.message_id;
-      state.step = "cashout_game";
-      state.amountInput = "";
-      cashoutMessages.set(`${chatId}_photo_${msg.message_id}`, state.cashoutId);
-      await bot.sendMessage(chatId, `📸 Picture received!\n\nStep 1: Select Game:`, gameKeyboard);
+      state.step = "menu";
+      userState.set(chatId, state);
+      await deleteInputMsg(chatId);
+      await refreshCashoutMenu(chatId);
       return;
     }
 
-    userState.set(chatId, {
+    // new income entry
+    const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
+    const groupName = msg.chat.title || "Unknown Group";
+    const newState = {
       type: "income",
-      step: "amount",
+      step: "menu",
+      amount: 0,
       amountInput: "",
+      selectedGames: [] as string[],
+      gamePoints: {} as Record<string, number>,
+      currentEditGame: null as string | null,
       employeeName,
       groupName,
-      selectedGames: [],
-      records: [],
       originalMessageId: msg.message_id,
-      originalChatId: chatId
-    });
+      originalChatId: chatId,
+    };
+    userState.set(chatId, newState);
 
-    await bot.sendMessage(chatId, `📸 Screenshot received from ${employeeName} (${groupName})\n\nEnter the deposited amount:`, numberKeyboard);
+    const { text, keyboard } = buildIncomeMenu(newState);
+    const sentMsg = await bot.sendMessage(chatId, text, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: keyboard },
+    });
+    menuMsgId.set(chatId, sentMsg.message_id);
   });
 
+  // ── /cashout command ──────────────────────────────────────────────────────
   bot.onText(/\/(cashout|co)/, async (msg) => {
     const chatId = msg.chat.id;
-    const groupName = msg.chat.title || "Unknown Group";
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
-
+    const groupName = msg.chat.title || "Unknown Group";
     const cashoutId = generateCashoutId();
 
-    userState.set(chatId, {
+    const newState = {
       type: "cashout",
-      step: "media_choice",
+      step: "menu",
       cashoutId,
       employeeName,
       groupName,
       createdAt: getCST().isoTime,
       updatedAt: getCST().isoTime,
       amount: 0,
+      amountInput: "",
       game: "",
       points: 0,
-      playback_points: "0",
-      tip: 0,
-      mediaType: null,
+      playback_points: "",
+      tip: "",
+      mediaType: null as string | null,
       mediaCaption: "",
-      amountInput: ""
-    });
+      photoFileId: null as string | null,
+    };
+    userState.set(chatId, newState);
 
-    await bot.sendMessage(chatId, `💸 **Cashout Request Started**\n\nEmployee: ${employeeName}\nGroup: ${groupName}\n\nHow would you like to provide payment details?`, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📸 Attach Picture", callback_data: "cashout_picture" }],
-          [{ text: "📝 Write Details", callback_data: "cashout_text" }]
-        ]
-      }
+    const { text, keyboard } = buildCashoutMenu(newState);
+    const sentMsg = await bot.sendMessage(chatId, text, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: keyboard },
     });
+    menuMsgId.set(chatId, sentMsg.message_id);
   });
 
+  // ── text handler ──────────────────────────────────────────────────────────
+  bot.on("text", async (msg) => {
+    if (msg.text?.startsWith("/")) return;
+    const chatId = msg.chat.id;
+    const state = userState.get(chatId);
+    if (!state) return;
+
+    // income: custom game name
+    if (state.type === "income" && state.step === "custom_game") {
+      const name = msg.text!.trim();
+      if (!state.selectedGames.includes(name)) state.selectedGames.push(name);
+      state.step = "menu";
+      await deleteInputMsg(chatId);
+      await bot.deleteMessage(chatId, msg.message_id).catch(() => {});
+      await refreshIncomeMenu(chatId);
+      return;
+    }
+
+    // cashout: text payment details
+    if (state.type === "cashout" && state.step === "waiting_media") {
+      state.mediaType = "text";
+      state.mediaCaption = msg.text!.trim();
+      state.step = "menu";
+      await deleteInputMsg(chatId);
+      await bot.deleteMessage(chatId, msg.message_id).catch(() => {});
+      await refreshCashoutMenu(chatId);
+      return;
+    }
+
+    // cashout: custom game name
+    if (state.type === "cashout" && state.step === "custom_game") {
+      state.game = msg.text!.trim();
+      state.step = "menu";
+      await deleteInputMsg(chatId);
+      await bot.deleteMessage(chatId, msg.message_id).catch(() => {});
+      await refreshCashoutMenu(chatId);
+      return;
+    }
+  });
+
+  // ── callback_query handler ────────────────────────────────────────────────
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id!;
     const data = query.data!;
     const state = userState.get(chatId);
 
-    if (data.startsWith("cashout_deny_")) {
-      const cashoutId = data.replace("cashout_deny_", "");
+    await bot.answerCallbackQuery(query.id).catch(() => {});
+
+    // ── Admin approve/deny ──────────────────────────────────────────────────
+    if (data.startsWith("cashout_approve_") || data.startsWith("cashout_deny_")) {
+      const isApprove = data.startsWith("cashout_approve_");
+      const cashoutId = data.replace(isApprove ? "cashout_approve_" : "cashout_deny_", "");
       const adminData = adminMessages.get(query.message?.message_id!);
-      const denierId = query.from?.id;
-      
-      if (denierId !== ADMIN_ID) {
-        await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can deny cashouts!", show_alert: true });
+      if (query.from?.id !== ADMIN_ID) {
+        await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can do this!", show_alert: true });
         return;
       }
-      
-      if (adminData && adminData.cashoutId === cashoutId) {
-        const { state: cashoutState, chatId: originalChatId } = adminData;
-        const denierName = query.from?.first_name || query.from?.username || "Unknown";
+      if (adminData?.cashoutId === cashoutId) {
+        const { state: coState, chatId: origChatId } = adminData;
+        const actorName = query.from?.first_name || "Admin";
+        const label = isApprove ? "✅ APPROVED" : "❌ DENIED";
+        if (isApprove) saveCashoutRecord(coState);
 
-        const deniedMsg = `❌ **DENIED** by ${denierName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${cashoutState.game}\n🎯 Points Redeemed: ${cashoutState.points}\n🎫 Playback Points: ${cashoutState.playback_points}\n💵 Tip: $${cashoutState.tip}\n💰 Final Cashout: $${cashoutState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${cashoutState.employeeName}\n🆔 Cashout ID: ${cashoutId}\n\nThis cashout has been denied.`;
+        const summary =
+          `${label} by ${actorName}\n\n` +
+          `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🎮 Game: ${coState.game}\n🎯 Points: ${coState.points}\n` +
+          `🎫 Playback: ${coState.playback_points}\n💵 Tip: $${coState.tip}\n` +
+          `💰 Amount: $${coState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👤 Employee: ${coState.employeeName}\n🆔 ID: ${cashoutId}`;
 
-        await bot.editMessageText(deniedMsg, { chat_id: originalChatId, message_id: query.message?.message_id! }).catch(() => {});
-        try { await bot.sendMessage(REPORT_GROUP_ID, `❌ **CASHOUT DENIED**\n\n👤 Employee: ${cashoutState.employeeName}\n🎮 Game: ${cashoutState.game}\n💰 Amount: $${cashoutState.amount}\n👨‍⚖️ Denied By: ${denierName} (Admin)\n🆔 Cashout ID: ${cashoutId}`); } catch (_) {}
-        adminMessages.delete(query.message?.message_id!);
-        const pending = pendingCashouts.get(cashoutId);
-        if (pending) {
-          try { await bot.editMessageText(`❌ Your cashout request (ID: ${cashoutId}) was denied by admin.`, { chat_id: pending.userChatId, message_id: pending.userEditMsgId }); } catch (_) {}
-          pendingCashouts.delete(cashoutId);
-        }
-      }
-      await bot.answerCallbackQuery(query.id, { text: "❌ Cashout Denied!", show_alert: true });
-      return;
-    }
+        await bot.editMessageText(summary, { chat_id: origChatId, message_id: query.message?.message_id! }).catch(() => {});
 
-    if (data.startsWith("cashout_approve_")) {
-      const cashoutId = data.replace("cashout_approve_", "");
-      const adminData = adminMessages.get(query.message?.message_id!);
-      const approverId = query.from?.id;
-      
-      if (approverId !== ADMIN_ID) {
-        await bot.answerCallbackQuery(query.id, { text: "❌ Only admin can approve cashouts!", show_alert: true });
-        return;
-      }
-      
-      if (adminData && adminData.cashoutId === cashoutId) {
-        const { state: coState, chatId: originalChatId } = adminData;
-        const approverName = query.from?.first_name || query.from?.username || "Unknown";
-        saveCashoutRecord(coState);
-        const approvedMsg = `✅ **APPROVED** by ${approverName}\n\n📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${coState.game}\n🎯 Points Redeemed: ${coState.points}\n🎫 Playback Points: ${coState.playback_points}\n💵 Tip: $${coState.tip}\n💰 Final Cashout: $${coState.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${coState.employeeName}\n🆔 Cashout ID: ${cashoutId}`;
-        await bot.editMessageText(approvedMsg, { chat_id: originalChatId, message_id: query.message?.message_id! }).catch(() => {});
         try {
-          await bot.sendMessage(REPORT_GROUP_ID, `✅ **CASHOUT APPROVED**\n👤 Employee: ${coState.employeeName}\n💰 Amount: $${coState.amount}\n🆔 ID: ${cashoutId}`);
-          if (coState.mediaType === "photo" && coState.photoFileId) { await bot.sendPhoto(REPORT_GROUP_ID, coState.photoFileId, { caption: `📸 Payment Screenshot\n${coState.mediaCaption}` }); }
-          else if (coState.mediaType === "text" && coState.mediaCaption) { await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment Details:\n${coState.mediaCaption}`); }
+          await bot.sendMessage(REPORT_GROUP_ID, `${label}\n👤 ${coState.employeeName} · 💰 $${coState.amount} · 🆔 ${cashoutId}`);
+          if (isApprove && coState.mediaType === "photo" && coState.photoFileId) {
+            await bot.sendPhoto(REPORT_GROUP_ID, coState.photoFileId, { caption: `📸 Payment\n${coState.mediaCaption}` });
+          } else if (isApprove && coState.mediaType === "text") {
+            await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment Details:\n${coState.mediaCaption}`);
+          }
         } catch (_) {}
+
         adminMessages.delete(query.message?.message_id!);
         const pending = pendingCashouts.get(cashoutId);
         if (pending) {
-          try { await bot.editMessageText(`✅ Your cashout request (ID: ${cashoutId}) was approved by admin.`, { chat_id: pending.userChatId, message_id: pending.userEditMsgId }); } catch (_) {}
+          const userMsg = isApprove ? `✅ Cashout ${cashoutId} approved.` : `❌ Cashout ${cashoutId} denied.`;
+          await bot.editMessageText(userMsg, { chat_id: pending.userChatId, message_id: pending.userEditMsgId }).catch(() => {});
           pendingCashouts.delete(cashoutId);
         }
       }
-      await bot.answerCallbackQuery(query.id, { text: "✅ Cashout Approved!", show_alert: true });
       return;
     }
 
+    // ── User edit/cancel pending cashout ────────────────────────────────────
     if (data.startsWith("user_edit_")) {
       const cashoutId = data.replace("user_edit_", "");
       const pending = pendingCashouts.get(cashoutId);
       if (!pending) { await bot.answerCallbackQuery(query.id, { text: "No longer editable", show_alert: true }); return; }
-      userState.set(chatId, { ...pending.state, step: "cashout_review" });
-      showCashoutReview(chatId, pending.state, bot);
-      await bot.answerCallbackQuery(query.id); return;
+      userState.set(chatId, { ...pending.state, step: "menu" });
+      const { text, keyboard } = buildCashoutMenu(pending.state);
+      const sentMsg = await bot.sendMessage(chatId, text, { parse_mode: "Markdown", reply_markup: { inline_keyboard: keyboard } });
+      menuMsgId.set(chatId, sentMsg.message_id);
+      return;
     }
 
     if (data.startsWith("user_cancel_")) {
       const cashoutId = data.replace("user_cancel_", "");
       const pending = pendingCashouts.get(cashoutId);
       if (!pending) { await bot.answerCallbackQuery(query.id, { text: "No longer active", show_alert: true }); return; }
-      try { await bot.editMessageText(`🚫 CANCELLED by user\n🆔 ID: ${cashoutId}`, { chat_id: pending.adminChatId, message_id: pending.adminMsgId }); } catch (_) {}
-      adminMessages.delete(pending.adminMsgId); pendingCashouts.delete(cashoutId); userState.delete(chatId);
-      await bot.editMessageText(`🚫 Cancelled successfully.`, { chat_id: chatId, message_id: query.message?.message_id! });
-      await bot.answerCallbackQuery(query.id); return;
+      await bot.editMessageText(`🚫 Cancelled by user · 🆔 ${cashoutId}`, { chat_id: pending.adminChatId, message_id: pending.adminMsgId }).catch(() => {});
+      adminMessages.delete(pending.adminMsgId);
+      pendingCashouts.delete(cashoutId);
+      userState.delete(chatId);
+      await bot.editMessageText("🚫 Cancelled.", { chat_id: chatId, message_id: query.message?.message_id! }).catch(() => {});
+      return;
     }
 
     if (!state) return;
 
+    // ════════════════════════════════════════════════════════════════════════
+    // INCOME FLOW
+    // ════════════════════════════════════════════════════════════════════════
     if (state.type === "income") {
-      if (data.startsWith("num_")) {
-        const action = data.replace("num_", "");
-        if (action === "back") { state.amountInput = (state.amountInput || "").slice(0, -1); }
+
+      // open amount numpad
+      if (data === "im_edit_amount") {
+        state.amountInput = state.amount > 0 ? state.amount.toString() : "";
+        state.step = "amount";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId, `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`, numpad("im_num"));
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // open game selector
+      if (data === "im_edit_game") {
+        state.step = "game";
+        await deleteInputMsg(chatId);
+        const selected = state.selectedGames.length > 0 ? `Selected: ${state.selectedGames.join(", ")}\n\n` : "";
+        const m = await bot.sendMessage(chatId, `${selected}🎮 Select game(s), then tap Done:`, gameKeyboard("im_game"));
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // open points numpad for a specific game
+      if (data.startsWith("im_edit_points_")) {
+        const game = data.replace("im_edit_points_", "");
+        state.currentEditGame = game;
+        state.amountInput = state.gamePoints?.[game]?.toString() || "";
+        state.step = "points";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId, `🎯 Points for ${game}:\n\n👉 ${state.amountInput || "0"}`, numpad("im_num"));
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // numpad input
+      if (data.startsWith("im_num_")) {
+        const action = data.replace("im_num_", "");
+        if (action === "back") state.amountInput = (state.amountInput || "").slice(0, -1);
         else if (action === "dot") { if (!state.amountInput.includes(".")) state.amountInput += "."; }
         else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
-          if (isNaN(value) || value <= 0) { await bot.answerCallbackQuery(query.id); return; }
           if (state.step === "amount") {
-            state.amount = value; state.step = "game";
-            await bot.sendMessage(chatId, `✅ Amount saved: $${value}\n\nStep 2: Select games:`, gameKeyboard);
-          } else if (state.step === "per_game_points") {
-            const currentGame = state.selectedGames[state.currentGameIndex];
-            const cst = getCST();
-            state.records.push({ date: cst.date, time: cst.time, day: cst.day, employee: state.employeeName, amount: state.amount, game: currentGame, points: value });
-            state.currentGameIndex++;
-            if (state.currentGameIndex < state.selectedGames.length) {
-              state.amountInput = "";
-              await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[state.currentGameIndex]}:`, numberKeyboard);
-            } else {
-              state.step = "final_confirm";
-              let summaryText = `📋 **SUMMARY**\n\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
-              state.records.forEach((r: any, i: number) => { summaryText += `${i+1}. ${r.game}: ${r.points} points\n`; });
-              summaryText += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-              await bot.sendMessage(chatId, summaryText, { reply_markup: { inline_keyboard: [[{ text: "✅ Yes - Save", callback_data: "confirm_yes" }, { text: "❌ No", callback_data: "confirm_no" }]] } });
-            }
-            await bot.answerCallbackQuery(query.id); return;
+            if (!isNaN(value) && value > 0) { state.amount = value; state.step = "menu"; }
+          } else if (state.step === "points" && state.currentEditGame) {
+            if (!isNaN(value)) { state.gamePoints[state.currentEditGame] = value; state.currentEditGame = null; state.step = "menu"; }
           }
+          await deleteInputMsg(chatId);
+          await refreshIncomeMenu(chatId);
+          return;
         } else { state.amountInput = (state.amountInput || "") + action; }
-        const displayText = `💰 Enter Amount:\n\n👉 ${state.amountInput || "0"}`;
-        await bot.editMessageText(displayText, { chat_id: chatId, message_id: query.message!.message_id, reply_markup: numberKeyboard.reply_markup }).catch(() => {});
-        await bot.answerCallbackQuery(query.id); return;
-      }
 
-      if (state.step === "game") {
-        if (data === "game_done") {
-          if (state.selectedGames.length === 0) { await bot.sendMessage(chatId, "Please select at least one game."); await bot.answerCallbackQuery(query.id); return; }
-          state.step = "per_game_points"; state.currentGameIndex = 0; state.amountInput = "";
-          await bot.sendMessage(chatId, `Enter points for ${state.selectedGames[0]}:`, numberKeyboard);
-        } else if (data === "game_Other") {
-          state.step = "custom_game"; await bot.sendMessage(chatId, "Type the custom game name:");
-        } else {
-          const game = data.replace("game_", "");
-          if (!state.selectedGames.includes(game)) state.selectedGames.push(game);
-          await bot.sendMessage(chatId, `Selected: ${state.selectedGames.join(", ")}\n\nYou can select more or press Done.`, gameKeyboard);
+        // update numpad display
+        const mid = inputMsgId.get(chatId);
+        const label = state.step === "points" ? `🎯 Points for ${state.currentEditGame}` : "💰 Enter Amount";
+        if (mid) {
+          await bot.editMessageText(`${label}:\n\n👉 ${state.amountInput || "0"}`, {
+            chat_id: chatId, message_id: mid, reply_markup: numpad("im_num").reply_markup,
+          }).catch(() => {});
         }
-        await bot.answerCallbackQuery(query.id); return;
+        return;
       }
 
-      if (state.step === "final_confirm" && data === "confirm_yes") {
-        for (const r of state.records) {
-          const row = `${r.date},${r.time},${r.day},"${state.groupName}","${r.employee}",${r.amount},"${r.game}",${r.points},\n`;
+      // game selection
+      if (data.startsWith("im_game_")) {
+        const action = data.replace("im_game_", "");
+        if (action === "done") {
+          state.step = "menu";
+          await deleteInputMsg(chatId);
+          await refreshIncomeMenu(chatId);
+        } else if (action === "Other") {
+          state.step = "custom_game";
+          await deleteInputMsg(chatId);
+          const m = await bot.sendMessage(chatId, "✏️ Type the custom game name:");
+          inputMsgId.set(chatId, m.message_id);
+        } else {
+          if (!state.selectedGames.includes(action)) state.selectedGames.push(action);
+          const mid = inputMsgId.get(chatId);
+          if (mid) {
+            await bot.editMessageText(
+              `Selected: ${state.selectedGames.join(", ")}\n\n🎮 Select more or tap Done:`,
+              { chat_id: chatId, message_id: mid, reply_markup: gameKeyboard("im_game").reply_markup }
+            ).catch(() => {});
+          }
+        }
+        return;
+      }
+
+      // submit
+      if (data === "im_submit") {
+        const cst = getCST();
+        for (const game of state.selectedGames) {
+          const points = state.gamePoints[game] || 0;
+          const row = `${cst.date},${cst.time},${cst.day},"${state.groupName}","${state.employeeName}",${state.amount},"${game}",${points},\n`;
           fs.appendFileSync(RECORDS_FILE, row);
         }
-        let successMsg = `✅ **Payment Record**\n\n**Group:** ${state.groupName}\n**Amount Received:** $${state.amount}\n\n**Games & Points:**\n`;
-        state.records.forEach((r: any, i: number) => { successMsg += `${i+1}. ${r.game}: ${r.points} points\n`; });
-        successMsg += `\n📅 ${state.records[0].date} | ${state.records[0].day} | ${state.records[0].time}`;
-        try { await bot.sendMessage(REPORT_GROUP_ID, successMsg); await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId); } catch (e) {}
-        await bot.sendMessage(chatId, successMsg, { parse_mode: "Markdown" });
-        await bot.sendMessage(chatId, "✅ **Thank you for confirming!**");
+        let summary = `✅ *Payment Recorded*\n\n👤 ${state.employeeName} · ${state.groupName}\n💰 Amount: $${state.amount}\n\n*Games & Points:*\n`;
+        state.selectedGames.forEach((g: string, i: number) => { summary += `${i + 1}. ${g}: ${state.gamePoints[g] || 0} pts\n`; });
+        summary += `\n📅 ${cst.date} · ${cst.day} · ${cst.time}`;
+
+        try {
+          await bot.sendMessage(REPORT_GROUP_ID, summary, { parse_mode: "Markdown" });
+          await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
+        } catch (_) {}
+
+        // update the menu message to show success
+        const mid = menuMsgId.get(chatId);
+        if (mid) await bot.editMessageText(summary, { chat_id: chatId, message_id: mid, parse_mode: "Markdown" }).catch(() => {});
         userState.delete(chatId);
+        menuMsgId.delete(chatId);
+        return;
       }
 
-      if (state.step === "final_confirm" && data === "confirm_no") {
-        await bot.sendMessage(chatId, "❌ **Cancelled.** Please post the picture again.");
+      // cancel
+      if (data === "im_cancel") {
+        const mid = menuMsgId.get(chatId);
+        if (mid) await bot.editMessageText("❌ Cancelled.", { chat_id: chatId, message_id: mid }).catch(() => {});
         userState.delete(chatId);
+        menuMsgId.delete(chatId);
+        await deleteInputMsg(chatId);
+        return;
       }
-      await bot.answerCallbackQuery(query.id); return;
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // CASHOUT FLOW
+    // ════════════════════════════════════════════════════════════════════════
     if (state.type === "cashout") {
-      if (data === "cashout_picture") { state.step = "waiting_picture"; state.mediaType = "picture"; await bot.sendMessage(chatId, "📸 Please send a picture of your payment method:"); await bot.answerCallbackQuery(query.id); return; }
-      if (data === "cashout_text") { state.step = "waiting_text"; state.mediaType = "text"; await bot.sendMessage(chatId, "📝 Please write the details of your cashout:"); await bot.answerCallbackQuery(query.id); return; }
 
-      if (data.startsWith("cashout_num_")) {
-        const action = data.replace("cashout_num_", "");
-        if (action === "back") { state.amountInput = (state.amountInput || "").slice(0, -1); }
+      // open game selector
+      if (data === "co_edit_game") {
+        state.step = "game";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId, `🎮 Select game:`, gameKeyboard("co_game"));
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // game selection
+      if (data.startsWith("co_game_")) {
+        const action = data.replace("co_game_", "");
+        if (action === "done") {
+          state.step = "menu";
+          await deleteInputMsg(chatId);
+          await refreshCashoutMenu(chatId);
+        } else if (action === "Other") {
+          state.step = "custom_game";
+          await deleteInputMsg(chatId);
+          const m = await bot.sendMessage(chatId, "✏️ Type the custom game name:");
+          inputMsgId.set(chatId, m.message_id);
+        } else {
+          state.game = action;
+          state.step = "menu";
+          await deleteInputMsg(chatId);
+          await refreshCashoutMenu(chatId);
+        }
+        return;
+      }
+
+      // open numpad for a field
+      const numpadFields: Record<string, { field: string; label: string }> = {
+        co_edit_points:   { field: "points",         label: "🎯 Points Redeemed" },
+        co_edit_playback: { field: "playback_points", label: "🎫 Playback Points" },
+        co_edit_tip:      { field: "tip",             label: "💵 Tip" },
+        co_edit_amount:   { field: "amount",           label: "💰 Cashout Amount" },
+      };
+
+      if (numpadFields[data]) {
+        const { field, label } = numpadFields[data];
+        state.step = field;
+        state.amountInput = state[field]?.toString() || "";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId, `${label}:\n\n👉 ${state.amountInput || "0"}`, numpad("co_num"));
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // numpad input
+      if (data.startsWith("co_num_")) {
+        const action = data.replace("co_num_", "");
+        if (action === "back") state.amountInput = (state.amountInput || "").slice(0, -1);
         else if (action === "dot") { if (!state.amountInput.includes(".")) state.amountInput += "."; }
         else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
-          if (isNaN(value)) { await bot.sendMessage(chatId, "❌ Please enter a valid number."); await bot.answerCallbackQuery(query.id); return; }
-          if (state.step === "cashout_points") { state.points = value; state.step = "cashout_playback"; state.amountInput = ""; await bot.sendMessage(chatId, `✅ Points: ${value}\n\nStep 3: Enter Playback Value:`, cashoutNumberKeyboard); }
-          else if (state.step === "cashout_playback") { state.playback_points = state.amountInput || "0"; state.step = "cashout_tip"; state.amountInput = ""; await bot.sendMessage(chatId, `✅ Playback: ${state.playback_points}\n\nStep 4: Enter Tip:`, cashoutNumberKeyboard); }
-          else if (state.step === "cashout_tip") { state.tip = parseFloat(state.amountInput || "0"); state.step = "cashout_amount"; state.amountInput = ""; await bot.sendMessage(chatId, `✅ Tip: $${state.tip}\n\nStep 5: Enter Cashout Amount:`, cashoutNumberKeyboard); }
-          else if (state.step === "cashout_amount") { state.amount = value; state.step = "cashout_review"; await showCashoutReview(chatId, state, bot); }
-          await bot.answerCallbackQuery(query.id); return;
+          if (state.step === "points")         state.points = isNaN(value) ? 0 : value;
+          else if (state.step === "playback_points") state.playback_points = state.amountInput || "0";
+          else if (state.step === "tip")        state.tip = state.amountInput || "0";
+          else if (state.step === "amount")     state.amount = isNaN(value) ? 0 : value;
+          state.step = "menu";
+          await deleteInputMsg(chatId);
+          await refreshCashoutMenu(chatId);
+          return;
         } else { state.amountInput = (state.amountInput || "") + action; }
-        let displayText = "";
-        if (state.step === "cashout_points") displayText = `🎮 Enter Points:\n\n👉 ${state.amountInput || "0"}`;
-        else if (state.step === "cashout_playback") displayText = `🎫 Enter Playback Points:\n\n👉 ${state.amountInput || "0"}`;
-        else if (state.step === "cashout_tip") displayText = `💵 Enter Tip:\n\n👉 ${state.amountInput || "0"}`;
-        else if (state.step === "cashout_amount") displayText = `💰 Enter Cashout Amount:\n\n👉 ${state.amountInput || "0"}`;
-        await bot.editMessageText(displayText, { chat_id: chatId, message_id: query.message!.message_id, reply_markup: cashoutNumberKeyboard.reply_markup }).catch(() => {});
-        await bot.answerCallbackQuery(query.id); return;
-      }
 
-      if (state.step === "cashout_game") {
-        if (data === "game_done") {
-          if (!state.game) { await bot.sendMessage(chatId, "❌ Please select a game."); await bot.answerCallbackQuery(query.id); return; }
-          state.step = "cashout_points"; state.amountInput = "";
-          await bot.sendMessage(chatId, `✅ Game: ${state.game}\n\nStep 2: Enter Points Redeemed:`, cashoutNumberKeyboard);
-        } else if (data === "game_Other") {
-          state.step = "cashout_custom_game"; await bot.sendMessage(chatId, "Type the custom game name:");
-        } else {
-          const game = data.replace("game_", ""); state.game = game;
-          await bot.sendMessage(chatId, `✅ Selected: ${game}`, gameKeyboard);
+        // labels for numpad display
+        const labelMap: Record<string, string> = {
+          points: "🎯 Points Redeemed",
+          playback_points: "🎫 Playback Points",
+          tip: "💵 Tip",
+          amount: "💰 Cashout Amount",
+        };
+        const mid = inputMsgId.get(chatId);
+        if (mid) {
+          await bot.editMessageText(`${labelMap[state.step] || "Enter value"}:\n\n👉 ${state.amountInput || "0"}`, {
+            chat_id: chatId, message_id: mid, reply_markup: numpad("co_num").reply_markup,
+          }).catch(() => {});
         }
-        await bot.answerCallbackQuery(query.id); return;
+        return;
       }
 
-      if (data === "cashout_confirm") {
-        state.step = "cashout_pending_admin"; state.updatedAt = getCST().isoTime;
-        const adminMsg = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback Points: ${state.playback_points}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n⏳ Waiting for admin approval...`;
-        const adminMsgObj = await bot.sendMessage(chatId, adminMsg, { reply_markup: { inline_keyboard: [[{ text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` }, { text: "❌ DENY", callback_data: `cashout_deny_${state.cashoutId}` }]] } });
+      // payment method
+      if (data === "co_edit_media") {
+        state.step = "waiting_media";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId, "📎 Send a photo, or type your payment details as text:");
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
+      // submit cashout
+      if (data === "co_submit") {
+        state.updatedAt = getCST().isoTime;
+        state.step = "pending_admin";
+
+        const adminMsg =
+          `📊 CASHOUT REQUEST\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🎮 Game: ${state.game}\n🎯 Points: ${state.points}\n` +
+          `🎫 Playback: ${state.playback_points}\n💵 Tip: $${state.tip}\n` +
+          `💰 Amount: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👤 ${state.employeeName} · ${state.groupName}\n🆔 ${state.cashoutId}`;
+
+        const adminMsgObj = await bot.sendMessage(chatId, adminMsg, {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: "✅ APPROVE", callback_data: `cashout_approve_${state.cashoutId}` },
+              { text: "❌ DENY",    callback_data: `cashout_deny_${state.cashoutId}` },
+            ]],
+          },
+        });
+
         if (adminMsgObj) {
           adminMessages.set(adminMsgObj.message_id, { cashoutId: state.cashoutId, state: { ...state }, chatId });
-          const userControlMsg = await bot.sendMessage(chatId, `✅ **Submitted!**\n🆔 ID: ${state.cashoutId}\n\nYou can edit or cancel until admin acts:`, {
-            reply_markup: { inline_keyboard: [[{ text: "✏️ Edit", callback_data: `user_edit_${state.cashoutId}` }, { text: "🗑️ Cancel", callback_data: `user_cancel_${state.cashoutId}` }]] }
+          const userControlMsg = await bot.sendMessage(chatId, `✅ Submitted · 🆔 ${state.cashoutId}\n\nEdit or cancel until admin acts:`, {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: "✏️ Edit", callback_data: `user_edit_${state.cashoutId}` },
+                { text: "🗑️ Cancel", callback_data: `user_cancel_${state.cashoutId}` },
+              ]],
+            },
           });
-          pendingCashouts.set(state.cashoutId, { state: { ...state }, adminMsgId: adminMsgObj.message_id, adminChatId: chatId, userEditMsgId: userControlMsg?.message_id, userChatId: chatId });
+          pendingCashouts.set(state.cashoutId, {
+            state: { ...state },
+            adminMsgId: adminMsgObj.message_id,
+            adminChatId: chatId,
+            userEditMsgId: userControlMsg?.message_id,
+            userChatId: chatId,
+          });
         }
-        userState.delete(chatId); await bot.answerCallbackQuery(query.id); return;
+
+        // update menu message to show submitted state
+        const mid = menuMsgId.get(chatId);
+        if (mid) await bot.editMessageText(`⏳ Cashout submitted · 🆔 ${state.cashoutId}\nWaiting for admin approval...`, { chat_id: chatId, message_id: mid }).catch(() => {});
+        userState.delete(chatId);
+        menuMsgId.delete(chatId);
+        return;
       }
 
-      if (data.startsWith("cashout_edit_")) {
-        const field = data.replace("cashout_edit_", "");
-        if (field === "game") { state.step = "cashout_game"; await bot.sendMessage(chatId, `Current Game: ${state.game}\n\nSelect New Game:`, gameKeyboard); }
-        else if (field === "points") { state.step = "cashout_points"; state.amountInput = state.points.toString(); await bot.sendMessage(chatId, `🎮 Current Points: ${state.points}\n\nEdit Points:`, cashoutNumberKeyboard); }
-        else if (field === "playback") { state.step = "cashout_playback"; state.amountInput = state.playback_points; await bot.sendMessage(chatId, `🎫 Current Playback: ${state.playback_points}\n\nEdit Playback:`, cashoutNumberKeyboard); }
-        else if (field === "tip") { state.step = "cashout_tip"; state.amountInput = state.tip.toString(); await bot.sendMessage(chatId, `💵 Current Tip: $${state.tip}\n\nEdit Tip:`, cashoutNumberKeyboard); }
-        else if (field === "amount") { state.step = "cashout_amount"; state.amountInput = state.amount.toString(); await bot.sendMessage(chatId, `💰 Current Amount: $${state.amount}\n\nEdit Amount:`, cashoutNumberKeyboard); }
-        await bot.answerCallbackQuery(query.id); return;
+      // cancel
+      if (data === "co_cancel") {
+        const mid = menuMsgId.get(chatId);
+        if (mid) await bot.editMessageText("❌ Cashout cancelled.", { chat_id: chatId, message_id: mid }).catch(() => {});
+        userState.delete(chatId);
+        menuMsgId.delete(chatId);
+        await deleteInputMsg(chatId);
+        return;
       }
-      await bot.answerCallbackQuery(query.id);
     }
   });
 
-  bot.on("text", async (msg) => {
-    const chatId = msg.chat.id; const state = userState.get(chatId);
-    if (state) {
-      if (state.type === "income" && state.step === "custom_game") { state.selectedGames.push(msg.text!.trim()); state.step = "game"; await bot.sendMessage(chatId, `Added "${msg.text}"\nSelected: ${state.selectedGames.join(", ")}`, gameKeyboard); }
-      if (state.type === "cashout" && state.step === "waiting_text") { state.mediaCaption = msg.text; state.mediaType = "text"; state.textMessageId = msg.message_id; state.step = "cashout_game"; state.amountInput = ""; cashoutMessages.set(`${chatId}_text_${msg.message_id}`, state.cashoutId); await bot.sendMessage(chatId, `✅ Details received: "${msg.text}"\n\nStep 1: Select Game:`, gameKeyboard); }
-      if (state.type === "cashout" && state.step === "cashout_custom_game") { state.game = msg.text; state.step = "cashout_points"; state.amountInput = ""; await bot.sendMessage(chatId, `✅ Game: ${msg.text}\n\nStep 2: Enter Points Redeemed:`, cashoutNumberKeyboard); }
-    }
-  });
-
+  // ── /delete command ───────────────────────────────────────────────────────
   bot.onText(/\/delete/, async (msg) => {
-    if (!msg.reply_to_message) { await bot.sendMessage(msg.chat.id, "❌ Please **reply** to the message you want to delete with /delete"); return; }
+    if (!msg.reply_to_message) {
+      await bot.sendMessage(msg.chat.id, "❌ Reply to a message with /delete to remove it.");
+      return;
+    }
     const chatId = msg.chat.id;
     if (chatId === CASHOUT_GROUP_ID) {
       const text = msg.reply_to_message.text || msg.reply_to_message.caption || "";
@@ -401,33 +690,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const lastLine = lines[lines.length - 1];
     const parts = lastLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     const cst = getCST();
-    const row = `${cst.date},${cst.time},${cst.day},"${parts[3] || ''}","${parts[4] || ''}",-${parseFloat(parts[5]) || 0},"${parts[6] || ''}",-${parseFloat(parts[7]) || 0},DELETED\n`;
+    const row = `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${parts[4] || ""}",-${parseFloat(parts[5]) || 0},"${parts[6] || ""}",-${parseFloat(parts[7]) || 0},DELETED\n`;
     fs.appendFileSync(RECORDS_FILE, row);
-    await bot.sendMessage(chatId, `✅ Record deleted successfully.`);
+    await bot.sendMessage(chatId, "✅ Record deleted.");
   });
 
-  bot.on("deleted_message", async (msg) => {
-    const chatId = msg.chat.id; const messageId = msg.message_id; const state = userState.get(chatId);
-    if (!state || state.type !== "cashout") return;
-    const cashoutId = cashoutMessages.get(`${chatId}_photo_${messageId}`) || cashoutMessages.get(`${chatId}_text_${messageId}`) || adminMessages.get(messageId)?.cashoutId;
-    if (cashoutId) { removeCashoutRecord(cashoutId); userState.delete(chatId); try { await bot.sendMessage(chatId, `❌ **CASHOUT CANCELLED**\nID: ${cashoutId}\nReason: Supporting document was deleted.`); } catch (e) {} }
-  });
-
-return bot;
-}
-
-function showCashoutReview(chatId: number, state: any, bot: TelegramBot) {
-  const reviewText = `📊 CASHOUT SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎮 Game: ${state.game}\n🎯 Points Redeemed: ${state.points}\n🎫 Playback Points: ${state.playback_points}\n💵 Tip: $${state.tip}\n💰 Final Cashout: $${state.amount}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Employee: ${state.employeeName}\n🆔 Cashout ID: ${state.cashoutId}\n\n**All fields are editable. Click to edit or confirm:**`;
-  bot.sendMessage(chatId, reviewText, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "✏️ Edit Game", callback_data: "cashout_edit_game" }, { text: "✏️ Edit Points", callback_data: "cashout_edit_points" }],
-        [{ text: "✏️ Edit Playback", callback_data: "cashout_edit_playback" }, { text: "✏️ Edit Tip", callback_data: "cashout_edit_tip" }],
-        [{ text: "✏️ Edit Amount", callback_data: "cashout_edit_amount" }],
-        [{ text: "✅ Confirm & Submit", callback_data: "cashout_confirm" }]
-      ]
-    }
-  }).catch(() => {});
+  return bot;
 }
 
 function saveCashoutRecord(state: any) {
@@ -438,8 +706,7 @@ function saveCashoutRecord(state: any) {
 function removeCashoutRecord(cashoutId: string) {
   try {
     const content = fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8");
-    const lines = content.split("\n");
-    const filtered = lines.filter(line => !line.includes(cashoutId));
+    const filtered = content.split("\n").filter(l => !l.includes(cashoutId));
     fs.writeFileSync(CASHOUT_RECORDS_FILE, filtered.join("\n"));
-  } catch (err) {}
+  } catch (_) {}
 }
