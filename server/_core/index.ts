@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { initTelegramBot } from "../telegramBot.js";
+import { updateSnapshot, startReportScheduler, registerReportCommands } from "../reporting.js";
 import fs from "fs";
 import path from "path";
 
@@ -75,6 +76,8 @@ app.get("/dashboard", (req, res) => {
 const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
+startReportScheduler(bot);
+registerReportCommands(bot);
 
 const webhookPath = `/bot${BOT_TOKEN.replace(":", "_")}`;
 const webhookUrl = `${baseUrl}${webhookPath}`;
