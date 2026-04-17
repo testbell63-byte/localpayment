@@ -1,4 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
+import { updateSnapshot } from "./reporting.js";
 import fs from "fs";
 import path from "path";
 
@@ -426,6 +427,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment: ${coState.mediaCaption}`);
             }
           } catch (_) {}
+          await updateSnapshot(bot).catch(() => {});
         }
 
         const summary =
@@ -605,6 +607,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
           }
         } catch (_) {}
+        await updateSnapshot(bot).catch(() => {});
 
         const fullSummary =
           `✅ *Payment Recorded*\n` +
