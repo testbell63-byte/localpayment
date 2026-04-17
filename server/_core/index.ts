@@ -78,7 +78,13 @@ const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 
 const webhookPath = `/bot${BOT_TOKEN.replace(":", "_")}`;
 const webhookUrl = `${baseUrl}${webhookPath}`;
-bot.setWebHook(webhookUrl)
+
+// Clear existing webhook first to bypass rate limit
+bot.deleteWebHook()
+  .then(() => {
+    console.log("✅ Webhook cleared");
+    return bot.setWebHook(webhookUrl);
+  })
   .then(() => console.log(`✅ Webhook registered: ${webhookUrl}`))
   .catch((err) => console.error("❌ Failed to set webhook:", err));
 
