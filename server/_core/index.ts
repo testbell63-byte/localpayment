@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { initTelegramBot } from "../telegramBot.js";
+import { initTelegramBot } from "./telegramBot";   // ← no .js extension
 import fs from "fs";
 import path from "path";
 
@@ -8,7 +8,7 @@ const app = express();
 const server = createServer(app);
 
 const PORT = process.env.PORT || 8080;
-const BOT_TOKEN = process.env.BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 const CASHOUT_RECORDS_FILE = path.join(process.cwd(), "cashout_records.csv");
 
@@ -76,7 +76,8 @@ const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILW
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-// CRITICAL: Handle the Telegram Webhook updates
+// IMPORTANT: The webhook URL must match exactly what you set manually.
+// Your current webhook is: https://localpayment-production.up.railway.app/bot8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
