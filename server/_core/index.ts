@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { initTelegramBot } from "./telegramBot";   // ← no .js, no .ts
+import { initTelegramBot } from "./telegramBot.ts";
 import fs from "fs";
 import path from "path";
 
