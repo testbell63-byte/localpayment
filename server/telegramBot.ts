@@ -1,10 +1,8 @@
 import TelegramBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
+// Environment variables (Railway injects these automatically)
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
     console.error('TELEGRAM_BOT_TOKEN is required');
@@ -55,8 +53,8 @@ interface CashoutState {
     step: string;
     game?: string;
     pointsRedeemed?: number;
-    playback?: number;      // optional, default 0
-    tip?: number;           // optional, default 0
+    playback?: number;      // optional, default 0 (Change #2)
+    tip?: number;           // optional, default 0 (Change #2)
     cashoutAmount?: number;
     customerDetails?: string;
 }
@@ -72,7 +70,7 @@ const userStates: Record<number, UserState> = {};
 // ============================================
 // REMOVED /start COMMAND (Change #4)
 // ============================================
-// The /start handler has been removed entirely.
+// The /start handler has been completely removed.
 
 // Set bot commands for Telegram menu
 bot.setMyCommands([
@@ -558,7 +556,7 @@ async function submitCashOut(chatId: number, cashout: CashoutState, from: Telegr
         });
     }
     
-    // 2. NEW: Send copy to reporting group (no buttons)
+    // 2. Send copy to reporting group (Change #3 - no buttons)
     if (REPORTING_GROUP_ID) {
         await bot.sendMessage(REPORTING_GROUP_ID, message, { parse_mode: 'Markdown' });
     }
