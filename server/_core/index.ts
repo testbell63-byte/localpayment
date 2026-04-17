@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { initTelegramBot } from "./telegramBot.js";
+import { initTelegramBot } from "./telegramBot";   // ← no .js extension
 import fs from "fs";
 import path from "path";
 
@@ -74,15 +74,15 @@ app.get("/dashboard", (req, res) => {
 
 const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
 
-// ✅ CRITICAL: Keep the colon in the webhook path
+// ✅ Correct webhook path – keep the colon
 const webhookPath = `/bot${BOT_TOKEN}`;
 const webhookUrl = `${baseUrl}${webhookPath}`;
 
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-// Do NOT call bot.setWebHook here – it is already set manually and would cause 429 errors.
-// The webhook is already correctly set to: https://localpayment-production.up.railway.app/bot8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE
+// Do NOT set the webhook here – it is already set manually and would cause 429 errors
+// bot.setWebHook(webhookUrl).catch(err => console.error("Webhook error:", err));
 
 app.post(webhookPath, (req, res) => {
   bot.processUpdate(req.body);
