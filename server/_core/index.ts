@@ -360,6 +360,11 @@ bot.on("text", async (msg) => {
   }
 });
 
+app.post("/test", (req, res) => {
+  console.log("Test endpoint hit", req.body);
+  res.send("OK");
+});
+
 // ---------------------- WEBHOOK & SERVER ----------------------
 const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : `http://localhost:${PORT}`;
 const webhookPath = `/bot${BOT_TOKEN}`;
