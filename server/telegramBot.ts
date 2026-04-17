@@ -33,36 +33,41 @@ function generateCashoutId() {
 function buildIncomeMenu(state: any) {
   const gameLines = state.selectedGames.length > 0
     ? state.selectedGames.map((g: string) => {
-        const amt = state.gameAmounts?.[g] !== undefined ? `$${state.gameAmounts[g]}` : "─";
-        const pts = state.gamePoints?.[g] !== undefined ? `${state.gamePoints[g]} pts` : "─";
-        return `  ${g}: ${amt} · ${pts}`;
+        const pts = state.gamePoints?.[g] !== undefined ? `${state.gamePoints[g]} pts` : "─ tap to set";
+        return `  ${g}: ${pts}`;
       }).join("\n")
     : "  ─ select games first";
+
+  const amountLine = state.amount !== undefined && state.amount !== null
+    ? `$${state.amount}`
+    : "─ tap to set";
 
   const text =
     `📸 *New Income Entry*\n` +
     `👤 ${state.employeeName} · ${state.groupName}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 Amount Received: ${amountLine}\n` +
     `🎮 Game(s): ${state.selectedGames.length > 0 ? state.selectedGames.join(", ") : "─ tap to set"}\n` +
-    `💰 Per-game Amount & Points:\n${gameLines}\n` +
+    `🎯 Points per Game:\n${gameLines}\n` +
     `━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard: any[][] = [
+    [{ text: `💰 Amount Received${state.amount !== undefined && state.amount !== null ? " ✅" : ""}`, callback_data: "im_edit_amount" }],
     [{ text: `🎮 Select Game(s)${state.selectedGames.length > 0 ? " ✅" : ""}`, callback_data: "im_edit_game" }],
   ];
+
   for (const g of state.selectedGames) {
-    const hasAmt = state.gameAmounts?.[g] !== undefined;
     const hasPts = state.gamePoints?.[g] !== undefined;
     keyboard.push([
-      { text: `💰 ${g} Amount${hasAmt ? " ✅" : ""}`, callback_data: `im_edit_amount_${g}` },
       { text: `🎯 ${g} Points${hasPts ? " ✅" : ""}`, callback_data: `im_edit_points_${g}` },
     ]);
   }
+
   const allFilled =
+    state.amount !== undefined && state.amount !== null &&
     state.selectedGames.length > 0 &&
-    state.selectedGames.every((g: string) =>
-      state.gameAmounts?.[g] !== undefined && state.gamePoints?.[g] !== undefined
-    );
+    state.selectedGames.every((g: string) => state.gamePoints?.[g] !== undefined);
+
   if (allFilled) keyboard.push([{ text: "✅ Submit", callback_data: "im_submit" }]);
   keyboard.push([{ text: "❌ Cancel", callback_data: "im_cancel" }]);
   return { text, keyboard };
@@ -139,13 +144,18 @@ function numpad(prefix: string) {
   };
 }
 
+// ─── Updated game keyboard ────────────────────────────────────────────────────
 const gameKeyboard = (prefix: string) => ({
   reply_markup: {
     inline_keyboard: [
-      [{ text: "FK", callback_data: `${prefix}_FK` }, { text: "JW", callback_data: `${prefix}_JW` }, { text: "GV", callback_data: `${prefix}_GV` }],
-      [{ text: "Orion", callback_data: `${prefix}_Orion` }, { text: "MW", callback_data: `${prefix}_MW` }, { text: "VS", callback_data: `${prefix}_VS` }],
-      [{ text: "FunStation", callback_data: `${prefix}_FunStation` }, { text: "PM", callback_data: `${prefix}_PM` }, { text: "CM", callback_data: `${prefix}_CM` }],
-      [{ text: "UP", callback_data: `${prefix}_UP` }, { text: "Monstor", callback_data: `${prefix}_Monstor` }, { text: "Other", callback_data: `${prefix}_Other` }],
+      [{ text: "Juwa",        callback_data: `${prefix}_Juwa` },        { text: "Game Vault",   callback_data: `${prefix}_Game Vault` }],
+      [{ text: "Firekirin",   callback_data: `${prefix}_Firekirin` },   { text: "Milkyway",     callback_data: `${prefix}_Milkyway` }],
+      [{ text: "OrionStars",  callback_data: `${prefix}_OrionStars` },  { text: "Vblink",       callback_data: `${prefix}_Vblink` }],
+      [{ text: "PandaMasters",callback_data: `${prefix}_PandaMasters` },{ text: "UltraPanda",   callback_data: `${prefix}_UltraPanda` }],
+      [{ text: "VegasSweeps", callback_data: `${prefix}_VegasSweeps` }, { text: "Fun-Station",  callback_data: `${prefix}_Fun-Station` }],
+      [{ text: "Gameroom",    callback_data: `${prefix}_Gameroom` },    { text: "Cashmachine",  callback_data: `${prefix}_Cashmachine` }],
+      [{ text: "Mr All in One", callback_data: `${prefix}_Mr All in One` }, { text: "Monster", callback_data: `${prefix}_Monster` }],
+      [{ text: "✏️ Others (type name)", callback_data: `${prefix}_Other` }],
       [{ text: "✅ Done", callback_data: `${prefix}_done` }],
     ],
   },
@@ -158,9 +168,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const userState = new Map<number, any>();
   const menuMsgId = new Map<number, number>();
   const inputMsgId = new Map<number, number>();
-  // adminMsgId → { cashoutId, state, userChatId }
   const adminMessages = new Map<number, any>();
-  // cashoutId → { state, adminMsgId, adminChatId, userEditMsgId, userChatId }
   const pendingCashouts = new Map<string, any>();
 
   // ── helpers ───────────────────────────────────────────────────────────────
@@ -236,8 +244,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const newState = {
       type: "income", step: "menu",
       selectedGames: [] as string[],
-      gameAmounts: {} as Record<string, number>,
       gamePoints: {} as Record<string, number>,
+      amount: null as number | null,        // single Amount Received
       currentEditGame: null as string | null,
       currentEditField: null as string | null,
       amountInput: "",
@@ -259,7 +267,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const newState = {
       type: "cashout", step: "game",
       cashoutId, employeeName, groupName,
-      originChatId: chatId,           // ← remember which group this started in
+      originChatId: chatId,
       createdAt: getCST().isoTime, updatedAt: getCST().isoTime,
       game: "", points: 0, playback_points: 0, tip: 0, amount: 0,
       amountInput: "",
@@ -291,7 +299,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const chatId = msg.chat.id;
     const state = userState.get(chatId);
 
-    // Cashout: waiting for payment photo (main flow or edit)
     if (state?.type === "cashout" && (state.step === "media" || state.step === "media_edit")) {
       state.mediaType = "photo";
       state.mediaCaption = msg.caption || "Payment screenshot";
@@ -302,7 +309,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // New income entry triggered by photo
+    // New income entry
     const employeeName = msg.from?.first_name || msg.from?.username || "Unknown";
     const groupName = msg.chat.title || "Unknown Group";
     await startCashIn(chatId, employeeName, groupName, msg.message_id);
@@ -324,7 +331,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const state = userState.get(chatId);
     if (!state) return;
 
-    // Income: custom game name
     if (state.type === "income" && state.step === "custom_game") {
       const name = msg.text!.trim();
       if (!state.selectedGames.includes(name)) state.selectedGames.push(name);
@@ -335,7 +341,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // Cashout: text payment details (main flow or edit)
     if (state.type === "cashout" && (state.step === "media" || state.step === "media_edit")) {
       state.mediaType = "text";
       state.mediaCaption = msg.text!.trim();
@@ -345,7 +350,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // Cashout: custom game name
     if (state.type === "cashout" && state.step === "custom_game") {
       state.game = msg.text!.trim();
       state.step = "points";
@@ -388,7 +392,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     }
 
     // ── Admin APPROVE / DENY ──────────────────────────────────────────────
-    // Note: approval message is in the same group where cashout was initiated
     if (data.startsWith("cashout_approve_") || data.startsWith("cashout_deny_")) {
       const isApprove = data.startsWith("cashout_approve_");
       const cashoutId = data.replace(isApprove ? "cashout_approve_" : "cashout_deny_", "");
@@ -400,15 +403,12 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }
 
       if (adminData?.cashoutId === cashoutId) {
-        const { state: coState, userChatId } = adminData;
+        const { state: coState } = adminData;
         const actorName = query.from?.first_name || "Owner";
         const label = isApprove ? "✅ APPROVED" : "❌ DENIED";
 
         if (isApprove) {
-          // Save to CSV only on approval
           saveCashoutRecord(coState);
-
-          // Report to REPORT group (same as cash-in)
           const cst = getCST();
           const reportMsg =
             `✅ *Cashout Approved* · 👤 ${coState.employeeName} · ${coState.groupName}\n` +
@@ -428,7 +428,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           } catch (_) {}
         }
 
-        // Update the approval message in the group
         const summary =
           `${label} by ${actorName}\n` +
           `🎮 ${coState.game} · 🎯 ${coState.points} pts` +
@@ -439,17 +438,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           chat_id: chatId, message_id: query.message?.message_id!,
         }).catch(() => {});
 
-        // Notify employee via their edit/cancel message
         const pending = pendingCashouts.get(cashoutId);
         if (pending) {
-          const userMsg = isApprove
-            ? `✅ Your cashout was *approved* · 🆔 ${cashoutId}`
-            : `❌ Your cashout was *denied* · 🆔 ${cashoutId}`;
-          await bot.editMessageText(userMsg, {
-            chat_id: pending.userChatId,
-            message_id: pending.userEditMsgId,
-            parse_mode: "Markdown",
-          }).catch(() => {});
+          await bot.editMessageText(
+            isApprove
+              ? `✅ Your cashout was *approved* · 🆔 ${cashoutId}`
+              : `❌ Your cashout was *denied* · 🆔 ${cashoutId}`,
+            { chat_id: pending.userChatId, message_id: pending.userEditMsgId, parse_mode: "Markdown" }
+          ).catch(() => {});
           pendingCashouts.delete(cashoutId);
         }
         adminMessages.delete(query.message?.message_id!);
@@ -457,7 +453,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       return;
     }
 
-    // ── User edit/cancel pending cashout ──────────────────────────────────
+    // ── User edit/cancel ──────────────────────────────────────────────────
     if (data.startsWith("user_edit_")) {
       const cashoutId = data.replace("user_edit_", "");
       const pending = pendingCashouts.get(cashoutId);
@@ -491,6 +487,20 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     // ══════════════════════════════════════════════════════════════════════
     if (state.type === "income") {
 
+      // Amount Received button
+      if (data === "im_edit_amount") {
+        state.currentEditField = "amount";
+        state.amountInput = state.amount !== null ? state.amount.toString() : "";
+        state.step = "editing";
+        await deleteInputMsg(chatId);
+        const m = await bot.sendMessage(chatId,
+          `💰 *Amount Received:*\n\n👉 ${state.amountInput || "0"}`, {
+            parse_mode: "Markdown", ...numpad("im_num"),
+          });
+        inputMsgId.set(chatId, m.message_id);
+        return;
+      }
+
       if (data === "im_edit_game") {
         state.step = "game";
         await deleteInputMsg(chatId);
@@ -500,28 +510,17 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      if (data.startsWith("im_edit_amount_")) {
-        const game = data.replace("im_edit_amount_", "");
-        state.currentEditGame = game; state.currentEditField = "amount";
-        state.amountInput = state.gameAmounts?.[game]?.toString() || "";
-        state.step = "editing";
-        await deleteInputMsg(chatId);
-        const m = await bot.sendMessage(chatId, `💰 Amount for *${game}*:\n\n👉 ${state.amountInput || "0"}`, {
-          parse_mode: "Markdown", ...numpad("im_num"),
-        });
-        inputMsgId.set(chatId, m.message_id);
-        return;
-      }
-
       if (data.startsWith("im_edit_points_")) {
         const game = data.replace("im_edit_points_", "");
-        state.currentEditGame = game; state.currentEditField = "points";
+        state.currentEditGame = game;
+        state.currentEditField = "points";
         state.amountInput = state.gamePoints?.[game]?.toString() || "";
         state.step = "editing";
         await deleteInputMsg(chatId);
-        const m = await bot.sendMessage(chatId, `🎯 Points for *${game}*:\n\n👉 ${state.amountInput || "0"}`, {
-          parse_mode: "Markdown", ...numpad("im_num"),
-        });
+        const m = await bot.sendMessage(chatId,
+          `🎯 Points for *${game}*:\n\n👉 ${state.amountInput || "0"}`, {
+            parse_mode: "Markdown", ...numpad("im_num"),
+          });
         inputMsgId.set(chatId, m.message_id);
         return;
       }
@@ -532,17 +531,24 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         else if (action === "dot") { if (!state.amountInput.includes(".")) state.amountInput += "."; }
         else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
-          if (!isNaN(value) && state.currentEditGame) {
-            if (state.currentEditField === "amount") state.gameAmounts[state.currentEditGame] = value;
-            else if (state.currentEditField === "points") state.gamePoints[state.currentEditGame] = value;
+          if (state.currentEditField === "amount") {
+            state.amount = isNaN(value) ? 0 : value;
+            state.currentEditField = null;
+          } else if (state.currentEditField === "points" && state.currentEditGame) {
+            state.gamePoints[state.currentEditGame] = isNaN(value) ? 0 : value;
+            state.currentEditGame = null;
+            state.currentEditField = null;
           }
-          state.currentEditGame = null; state.currentEditField = null; state.step = "menu";
+          state.step = "menu";
           await deleteInputMsg(chatId);
           await refreshIncomeMenu(chatId);
           return;
         } else { state.amountInput = (state.amountInput || "") + action; }
+
         const mid = inputMsgId.get(chatId);
-        const label = state.currentEditField === "points" ? `🎯 Points for *${state.currentEditGame}*` : `💰 Amount for *${state.currentEditGame}*`;
+        const label = state.currentEditField === "points"
+          ? `🎯 Points for *${state.currentEditGame}*`
+          : `💰 *Amount Received*`;
         if (mid) {
           await bot.editMessageText(`${label}:\n\n👉 ${state.amountInput || "0"}`, {
             chat_id: chatId, message_id: mid, parse_mode: "Markdown",
@@ -558,7 +564,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           state.step = "menu"; await deleteInputMsg(chatId); await refreshIncomeMenu(chatId);
         } else if (action === "Other") {
           state.step = "custom_game"; await deleteInputMsg(chatId);
-          const m = await bot.sendMessage(chatId, "✏️ Type the custom game name:");
+          const m = await bot.sendMessage(chatId, "✏️ Type the game name:");
           inputMsgId.set(chatId, m.message_id);
         } else {
           if (!state.selectedGames.includes(action)) state.selectedGames.push(action);
@@ -575,17 +581,22 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
       if (data === "im_submit") {
         const cst = getCST();
-        for (const game of state.selectedGames) {
-          const amt = state.gameAmounts[game] || 0;
+        const totalAmt = state.amount || 0;
+
+        // First game gets the full amount, rest get $0 with note
+        state.selectedGames.forEach((game: string, index: number) => {
           const pts = state.gamePoints[game] || 0;
+          const amt = index === 0 ? totalAmt : 0;
+          const note = index === 0 ? "" : "Part of multi-game session";
           fs.appendFileSync(RECORDS_FILE,
-            `${cst.date},${cst.time},${cst.day},"${state.groupName}","${state.employeeName}",${amt},"${game}",${pts},\n`
+            `${cst.date},${cst.time},${cst.day},"${state.groupName}","${state.employeeName}",${amt},"${game}",${pts},"${note}"\n`
           );
-        }
-        const totalAmt = state.selectedGames.reduce((s: number, g: string) => s + (state.gameAmounts[g] || 0), 0);
+        });
+
         const gamesSummary = state.selectedGames.map((g: string) =>
-          `${g}: $${state.gameAmounts[g] || 0} · ${state.gamePoints[g] || 0}pts`
+          `${g}: ${state.gamePoints[g] || 0}pts`
         ).join(" | ");
+
         try {
           await bot.sendMessage(REPORT_GROUP_ID,
             `✅ Cash-In · 👤 ${state.employeeName} · 💰 $${totalAmt} · 📅 ${cst.date} ${cst.time}\n🎮 ${gamesSummary}`
@@ -594,10 +605,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
           }
         } catch (_) {}
+
         const fullSummary =
-          `✅ *Payment Recorded*\n👤 ${state.employeeName} · ${state.groupName}\n\n` +
-          state.selectedGames.map((g: string) => `🎮 ${g}: $${state.gameAmounts[g] || 0} · ${state.gamePoints[g] || 0} pts`).join("\n") +
+          `✅ *Payment Recorded*\n` +
+          `👤 ${state.employeeName} · ${state.groupName}\n` +
+          `💰 Amount Received: $${totalAmt}\n\n` +
+          state.selectedGames.map((g: string) => `🎮 ${g}: ${state.gamePoints[g] || 0} pts`).join("\n") +
           `\n\n📅 ${cst.date} · ${cst.day} · ${cst.time}`;
+
         const mid = menuMsgId.get(chatId);
         if (mid) await bot.editMessageText(fullSummary, { chat_id: chatId, message_id: mid, parse_mode: "Markdown" }).catch(() => {});
         userState.delete(chatId); menuMsgId.delete(chatId);
@@ -617,13 +632,13 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     // ══════════════════════════════════════════════════════════════════════
     if (state.type === "cashout") {
 
-      // ── Step 1: Game selection ──────────────────────────────────────────
+      // Step 1: Game
       if (data.startsWith("co_game_") && !data.startsWith("co_game_edit_")) {
         const action = data.replace("co_game_", "");
         if (action === "Other") {
           state.step = "custom_game";
           await deleteInputMsg(chatId);
-          const m = await bot.sendMessage(chatId, "✏️ Type the custom game name:");
+          const m = await bot.sendMessage(chatId, "✏️ Type the game name:");
           inputMsgId.set(chatId, m.message_id);
         } else if (action !== "done") {
           state.game = action;
@@ -640,7 +655,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      // ── Playback yes/no ─────────────────────────────────────────────────
+      // Playback yes/no
       if (data === "co_playback_yes") {
         state.step = "playback_amount"; state.amountInput = "";
         await deleteInputMsg(chatId);
@@ -663,7 +678,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      // ── Tip yes/no ──────────────────────────────────────────────────────
+      // Tip yes/no
       if (data === "co_tip_yes") {
         state.step = "tip_amount"; state.amountInput = "";
         await deleteInputMsg(chatId);
@@ -683,7 +698,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      // ── Numpad for all cashout steps ────────────────────────────────────
+      // Numpad for all cashout steps
       if (data.startsWith("co_num_")) {
         const action = data.replace("co_num_", "");
 
@@ -694,12 +709,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         } else if (action === "done") {
           const value = parseFloat(state.amountInput || "0");
 
-          // ── Main flow steps ──
           if (state.step === "points") {
             state.points = isNaN(value) ? 0 : value;
             state.step = "playback_ask";
             await deleteInputMsg(chatId);
-            // Update progress in menu message
             const mid = menuMsgId.get(chatId);
             if (mid) {
               await bot.editMessageText(
@@ -754,18 +767,16 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             return;
           }
 
-          // ── Edit mode steps ──
-          if (state.step === "edit_points")   { state.points = isNaN(value) ? 0 : value;   await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
+          // Edit mode
+          if (state.step === "edit_points")   { state.points = isNaN(value) ? 0 : value;          await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
           if (state.step === "edit_playback") { state.playback_points = isNaN(value) ? 0 : value; await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
-          if (state.step === "edit_tip")      { state.tip = isNaN(value) ? 0 : value;      await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
-          if (state.step === "edit_amount")   { state.amount = isNaN(value) ? 0 : value;   await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
-
+          if (state.step === "edit_tip")      { state.tip = isNaN(value) ? 0 : value;             await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
+          if (state.step === "edit_amount")   { state.amount = isNaN(value) ? 0 : value;          await deleteInputMsg(chatId); await showCashoutReview(chatId); return; }
           return;
         } else {
           state.amountInput = (state.amountInput || "") + action;
         }
 
-        // Update display — input message for step messages, menu message for "points" step
         const labelMap: Record<string, string> = {
           points: "🎯 *Points Redeemed*",
           playback_amount: "🎫 *Playback Points*",
@@ -777,17 +788,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           edit_amount: "💰 *Cashout Amount ($)*",
         };
         const label = labelMap[state.step] || "Enter value";
-        const displayText = `${label}:\n\n👉 ${state.amountInput || "0"}`;
 
         const imid = inputMsgId.get(chatId);
         if (imid) {
-          await bot.editMessageText(displayText, {
-            chat_id: chatId, message_id: imid,
-            parse_mode: "Markdown",
+          await bot.editMessageText(`${label}:\n\n👉 ${state.amountInput || "0"}`, {
+            chat_id: chatId, message_id: imid, parse_mode: "Markdown",
             reply_markup: numpad("co_num").reply_markup,
           }).catch(() => {});
         } else {
-          // "points" step uses the menu message
           const mmid = menuMsgId.get(chatId);
           if (mmid) {
             await bot.editMessageText(
@@ -799,9 +807,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         return;
       }
 
-      // ── Review / Edit menu buttons ──────────────────────────────────────
-      if (data === "co_review_edit")  { await showCashoutEditMenu(chatId); return; }
-      if (data === "co_back_review")  { await showCashoutReview(chatId); return; }
+      // Review / Edit
+      if (data === "co_review_edit") { await showCashoutEditMenu(chatId); return; }
+      if (data === "co_back_review") { await showCashoutReview(chatId); return; }
 
       if (data === "co_edit_game") {
         state.step = "game_edit";
@@ -851,11 +859,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         inputMsgId.set(chatId, m.message_id); return;
       }
 
-      // ── Submit for owner approval ────────────────────────────────────────
+      // Submit for approval
       if (data === "co_submit") {
         state.updatedAt = getCST().isoTime;
         const cst = getCST();
-        // originChatId = the group where cashout was started = where approval msg goes
         const originChatId: number = state.originChatId || chatId;
 
         const adminSummary =
@@ -866,7 +873,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           `${state.tip > 0 ? ` · 💵 $${state.tip} tip` : ""} · 💰 $${state.amount}\n` +
           `🆔 \`${state.cashoutId}\``;
 
-        // Send approval request to the SAME group the cashout was started in
         const adminMsgObj = await bot.sendMessage(originChatId, adminSummary, {
           parse_mode: "Markdown",
           reply_markup: {
@@ -877,7 +883,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           },
         }).catch((e: any) => { console.error("Failed to send approval msg:", e); return null; });
 
-        // Show payment proof in same group
         if (state.mediaType === "photo" && state.photoFileId) {
           await bot.sendPhoto(originChatId, state.photoFileId, {
             caption: `📸 Payment proof · ${state.employeeName} · $${state.amount} · 🆔 ${state.cashoutId}`,
@@ -896,7 +901,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           });
         }
 
-        // Send edit/cancel controls
         const userControlMsg = await bot.sendMessage(chatId,
           `✅ *Submitted for approval*\n🆔 ${state.cashoutId}\n\nYou can edit or cancel until the owner acts:`, {
             parse_mode: "Markdown",
@@ -917,7 +921,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           userChatId: chatId,
         });
 
-        // Update review message
         const mid = menuMsgId.get(chatId);
         if (mid) {
           await bot.editMessageText(
