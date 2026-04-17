@@ -166,16 +166,6 @@ function buildSnapshot(dateStr: string, updatedTime: string): string {
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   }
 
-  if (allGroups.length > 1) {
-    lines.push(`📈 *TOTAL*`);
-    lines.push(
-      `💵 $${totalCiAmt.toLocaleString()} in (${totalCiTx} tx)   ` +
-      `💸 $${totalCoAmt.toLocaleString()} out (${totalCoTx} tx)`
-    );
-    lines.push(`📈 Net Holding: *$${totalNet.toLocaleString()}*`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  }
-
   lines.push(`🕐 Last updated: ${updatedTime}`);
 
   return lines.join("\n");
