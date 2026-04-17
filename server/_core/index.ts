@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { initTelegramBot } from "./telegramBot";   // ← no .js extension
+import { initTelegramBot } from "./telegramBot";   // ← no .js, no .ts
 import fs from "fs";
 import path from "path";
 
@@ -76,8 +76,8 @@ const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILW
 const bot = initTelegramBot(BOT_TOKEN, baseUrl);
 (global as any).telegramBot = bot;
 
-// IMPORTANT: The webhook URL must match exactly what you set manually.
-// Your current webhook is: https://localpayment-production.up.railway.app/bot8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE
+// The webhook path must match exactly the URL you set manually.
+// Your current webhook: https://localpayment-production.up.railway.app/bot8661823502:AAE6-JE7keWdI4eRHKHcMtu09f2eFA4N-dE
 app.post(`/bot${BOT_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
