@@ -32,7 +32,7 @@ function getCashInRecords() {
     game: p[6] || "",
     points: parseFloat(p[7]) || 0,
     notes: p[8] || "",
-  })).filter(r => r.amount > 0); // exclude the $0 multi-game rows for amount totals
+  })).filter(r => r.amount !== 0); // exclude $0 multi-game rows but keep negative deletion rows
 }
 
 function getCashInRecordsAll() {
@@ -102,84 +102,83 @@ function tableDivider() {
   return "─".repeat(34);
 }
 
-// ─── Build snapshot text (simplified) ────────────────────────────────────────
+// ─── Build snapshot text (per-group) ─────────────────────────────────────────
 function buildSnapshot(dateStr: string, updatedTime: string): string {
-  const ciAll  = getCashInRecordsAll();
-  const ci     = getCashInRecords();
-  const co     = getCashoutRecords();
+  const ciAll = getCashInRecordsAll();
+  const ci    = getCashInRecords();
+  const co    = getCashoutRecords();
+  const monthStr = dateStr.substring(0, 7);
 
-  // ── Today ──
-  const todayCiAmt = ci.filter(r => r.date === dateStr).reduce((s, r) => s + r.amount, 0);
-  const todayCoAmt = co.filter(r => r.created_at.startsWith(dateStr)).reduce((s, r) => s + r.amount, 0);
-  const todayNet   = todayCiAmt - todayCoAmt;
-
-  // ── This month ──
-  const monthStr   = dateStr.substring(0, 7);
-  const monthCiAmt = ci.filter(r => r.date.startsWith(monthStr)).reduce((s, r) => s + r.amount, 0);
-  const monthCoAmt = co.filter(r => r.created_at.startsWith(monthStr)).reduce((s, r) => s + r.amount, 0);
-  const monthNet   = monthCiAmt - monthCoAmt;
-
-  // ── Net points per game (spent - redeemed) ──
-  // Points spent: all cash-in rows (including $0 multi-game rows)
-  const ptsSpent: Record<string, number> = {};
-  ciAll.forEach(r => { ptsSpent[r.game] = (ptsSpent[r.game] || 0) + r.points; });
-
-  // Points redeemed: cashout rows
-  const ptsRedeemed: Record<string, number> = {};
-  co.forEach(r => {
-    const net = r.points - r.playback; // net redeemed = points minus playback
-    ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + net;
-  });
-
-  // All games across both
-  const allGames = Array.from(new Set([
-    ...Object.keys(ptsSpent),
-    ...Object.keys(ptsRedeemed),
+  // All unique groups
+  const allGroups = Array.from(new Set([
+    ...ciAll.map(r => r.group),
+    ...co.map(r => r.group),
   ])).filter(Boolean).sort();
-
-  const gameNetPts: Record<string, number> = {};
-  for (const game of allGames) {
-    const spent    = ptsSpent[game]    || 0;
-    const redeemed = ptsRedeemed[game] || 0;
-    gameNetPts[game] = spent - redeemed;
-  }
-
-  // Sort games by absolute net descending
-  const sortedGames = Object.entries(gameNetPts).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
   let lines: string[] = [];
   lines.push(`📊 *Daily Snapshot — ${formatDate(dateStr)}*`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-  // Net cash today
-  const todaySign = todayNet >= 0 ? "+" : "";
-  lines.push(`💵 *Net Today:*   ${todaySign}$${todayNet.toLocaleString()}`);
-  lines.push(`   CI $${todayCiAmt.toLocaleString()} · CO $${todayCoAmt.toLocaleString()}`);
+  for (const group of allGroups) {
+    // ── Net today for this group ──
+    const todayCi = ci.filter(r => r.date === dateStr && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const todayCo = co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const todayNet = todayCi - todayCo;
 
-  // Net cash this month
-  const monthSign = monthNet >= 0 ? "+" : "";
-  lines.push(`📅 *Net Month:*   ${monthSign}$${monthNet.toLocaleString()}`);
-  lines.push(`   CI $${monthCiAmt.toLocaleString()} · CO $${monthCoAmt.toLocaleString()}`);
+    // ── Net month for this group ──
+    const monthCi = ci.filter(r => r.date.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const monthCo = co.filter(r => r.created_at.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const monthNet = monthCi - monthCo;
 
-  lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`🎯 *Net Points by Game* _(Spent − Redeemed)_`);
+    lines.push(`📍 *${group}*`);
+    lines.push(`💵 Net Today:  ${todayNet >= 0 ? "+" : ""}$${todayNet.toLocaleString()}   _(CI $${todayCi.toLocaleString()} · CO $${todayCo.toLocaleString()})_`);
+    lines.push(`📅 Net Month:  ${monthNet >= 0 ? "+" : ""}$${monthNet.toLocaleString()}   _(CI $${monthCi.toLocaleString()} · CO $${monthCo.toLocaleString()})_`);
 
-  if (sortedGames.length > 0) {
-    lines.push(`\`\`\``);
-    lines.push(`${"Game".padEnd(16)}${"Net Pts".padStart(10)}`);
-    lines.push(`─`.repeat(26));
-    for (const [game, net] of sortedGames) {
-      const sign = net >= 0 ? "+" : "";
-      lines.push(`${game.padEnd(16)}${(sign + net.toLocaleString()).padStart(10)}`);
+    // ── Net points per game for this group (spent - redeemed) ──
+    const ptsSpent: Record<string, number> = {};
+    ciAll.filter(r => r.group === group).forEach(r => {
+      ptsSpent[r.game] = (ptsSpent[r.game] || 0) + r.points;
+    });
+
+    const ptsRedeemed: Record<string, number> = {};
+    co.filter(r => r.group === group).forEach(r => {
+      const net = r.points - r.playback;
+      ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + net;
+    });
+
+    const allGames = Array.from(new Set([
+      ...Object.keys(ptsSpent),
+      ...Object.keys(ptsRedeemed),
+    ])).filter(Boolean);
+
+    const gameNetPts: Record<string, number> = {};
+    for (const game of allGames) {
+      gameNetPts[game] = (ptsSpent[game] || 0) - (ptsRedeemed[game] || 0);
     }
-    lines.push(`\`\`\``);
-  } else {
-    lines.push(`_No data yet_`);
+
+    const sortedGames = Object.entries(gameNetPts).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+    if (sortedGames.length > 0) {
+      lines.push(`\`\`\``);
+      lines.push(`${"Game".padEnd(16)}${"Net Pts".padStart(10)}`);
+      lines.push(`─`.repeat(26));
+      for (const [game, net] of sortedGames) {
+        lines.push(`${game.padEnd(16)}${((net >= 0 ? "+" : "") + net.toLocaleString()).padStart(10)}`);
+      }
+      lines.push(`\`\`\``);
+    } else {
+      lines.push(`_No points data yet_`);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   }
 
-  lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`🕐 ${updatedTime}`);
+  if (allGroups.length === 0) {
+    lines.push(`_No data yet today_`);
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  }
 
+  lines.push(`🕐 ${updatedTime}`);
   return lines.join("\n");
 }
 
