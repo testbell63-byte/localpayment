@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import { updateSnapshot } from "./reporting.js";
+import { updateSnapshot, notifyDelete } from "./reporting.js";
 import fs from "fs";
 import path from "path";
 
