@@ -9,371 +9,230 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      --bg:        #D4D9DD;
-      --bg-dark:   #3B4346;
-      --bg-dark2:  #353D40;
-      --bg-light:  #f7f7f7;
-      --border:    #272d30;
-      --border2:   #c0c5c8;
-      --red:       #ed391b;
-      --red2:      #ce1a00;
-      --text:      #474f51;
-      --text-dark: #c6c8c8;
-      --text-head: #ffffff;
-      --green:     #2e7d32;
-      --green-l:   #4caf50;
-      --loss:      #c62828;
-      --muted:     #7a8a8e;
-      --white:     #ffffff;
-      --shadow:    rgba(0,0,0,0.18);
+      --bg:       #D4D9DD;
+      --bg-dark:  #3B4346;
+      --bg-dark2: #353D40;
+      --bg-light: #f7f7f7;
+      --border:   #272d30;
+      --border2:  #c0c5c8;
+      --red:      #ed391b;
+      --red2:     #ce1a00;
+      --text:     #474f51;
+      --text-d:   #c6c8c8;
+      --text-h:   #ffffff;
+      --green:    #2e7d32;
+      --loss:     #c62828;
+      --muted:    #7a8a8e;
+      --white:    #ffffff;
+      --shadow:   rgba(0,0,0,0.14);
     }
+    *,*:before,*:after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'Yanone Kaffeesatz',sans-serif;font-size:14pt;font-weight:300;line-height:1.75em;min-height:100vh}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:var(--bg-dark);border-radius:3px}
 
-    *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* HEADER */
+    #header{background:var(--bg-dark);border-bottom:2px solid var(--red);position:sticky;top:0;z-index:200}
+    #header .hc{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:62px}
+    #header h1{color:var(--text-h);font-size:1.7em;font-weight:400;letter-spacing:0.1em;text-transform:uppercase}
+    #header h1 strong{color:var(--red);font-weight:700}
+    .live-badge{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--text-d);background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);padding:4px 12px;border-radius:2px;display:flex;align-items:center;gap:7px}
+    .live-dot{width:6px;height:6px;border-radius:50%;background:#4caf50;animation:blink 2s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Yanone Kaffeesatz', sans-serif;
-      font-size: 14pt;
-      font-weight: 300;
-      line-height: 1.75em;
-      min-height: 100vh;
-    }
+    /* NAV */
+    #nav{background:var(--bg-dark2);border-bottom:1px solid var(--border);overflow-x:auto}
+    #nav .nc{max-width:1200px;margin:0 auto;padding:0 24px;display:flex}
+    .tab-btn{color:var(--text-d);font-family:'Yanone Kaffeesatz',sans-serif;font-size:0.95em;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;padding:13px 22px;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap}
+    .tab-btn:hover{color:var(--text-h)}
+    .tab-btn.active{color:var(--text-h);border-bottom-color:var(--red)}
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--bg-dark); border-radius: 3px; }
+    /* MAIN */
+    #main{max-width:1200px;margin:0 auto;padding:28px 24px}
+    .view-section{display:none}.view-section.active{display:block}
 
-    /* ── HEADER ── */
-    #header {
-      background: var(--bg-dark);
-      border-bottom: solid 1px var(--border);
-      position: sticky; top: 0; z-index: 200;
-    }
-    #header .container {
-      max-width: 1200px; margin: 0 auto;
-      padding: 0 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      height: 60px;
-    }
-    #header h1 {
-      color: var(--text-head);
-      font-size: 1.8em; font-weight: 400; letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    #header h1 span { color: var(--red); }
-    .live-badge {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.6rem;
-      color: var(--text-dark);
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
-      padding: 4px 12px; border-radius: 3px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .live-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #4caf50;
-      animation: blink 2s infinite;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    /* FILTER BAR */
+    .filter-bar{background:var(--white);border:1px solid var(--border2);border-top:3px solid var(--bg-dark);border-radius:2px;padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:24px;box-shadow:0 2px 6px var(--shadow)}
+    .filter-bar label{display:block;font-size:0.62rem;font-family:'DM Mono',monospace;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+    .filter-bar input,.filter-bar select{background:var(--bg-light);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:2px;font-family:'DM Mono',monospace;font-size:0.8rem;outline:none;transition:border-color 0.2s}
+    .filter-bar input:focus,.filter-bar select:focus{border-color:var(--bg-dark)}
 
-    /* ── NAV ── */
-    #nav {
-      background: var(--bg-dark2);
-      border-bottom: solid 1px var(--border);
-      overflow-x: auto;
-    }
-    #nav .container {
-      max-width: 1200px; margin: 0 auto; padding: 0 20px;
-      display: flex; gap: 0;
-    }
-    .tab-btn {
-      color: var(--text-dark);
-      font-family: 'Yanone Kaffeesatz', sans-serif;
-      font-size: 1em; font-weight: 400;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 14px 22px;
-      border: none; background: none; cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s; white-space: nowrap;
-    }
-    .tab-btn:hover { color: var(--white); }
-    .tab-btn.active { color: var(--white); border-bottom-color: var(--red); }
+    /* BUTTONS */
+    .btn{padding:7px 18px;border-radius:2px;border:none;cursor:pointer;font-family:'Yanone Kaffeesatz',sans-serif;font-size:1em;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;transition:all 0.15s}
+    .btn-red{background:linear-gradient(to bottom,var(--red),var(--red2));color:var(--white)}
+    .btn-red:hover{background:linear-gradient(to bottom,#fd492b,var(--red))}
+    .btn-ghost{background:var(--bg-light);color:var(--muted);border:1px solid var(--border2)}
+    .btn-ghost:hover{color:var(--text);border-color:var(--bg-dark)}
+    .btn-outline-green{background:transparent;color:var(--green);border:1px solid var(--green)}
+    .btn-outline-green:hover{background:var(--green);color:var(--white)}
+    .btn-today{background:transparent;color:var(--red);border:1px solid var(--red);font-size:0.85em}
+    .btn-today:hover{background:var(--red);color:var(--white)}
 
-    /* ── MAIN ── */
-    #main { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
-    .view-section { display: none; }
-    .view-section.active { display: block; }
+    /* STAT CARDS */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+    .stat-card{background:var(--white);border:1px solid var(--border2);border-radius:2px;padding:18px 18px 14px;box-shadow:0 2px 6px var(--shadow);position:relative;overflow:hidden}
+    .stat-card .card-icon{position:absolute;right:-6px;bottom:-6px;opacity:0.07}
+    .stat-card .label{font-size:0.62rem;font-family:'DM Mono',monospace;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;position:relative;z-index:1}
+    .stat-card .value{font-size:2em;font-weight:400;line-height:1;color:var(--text);position:relative;z-index:1}
+    .stat-card .sub{font-size:0.68rem;font-family:'DM Mono',monospace;color:var(--muted);margin-top:5px;position:relative;z-index:1}
+    .stat-card .accent-bar{position:absolute;top:0;left:0;width:100%;height:3px}
 
-    /* ── FILTER BAR ── */
-    .filter-bar {
-      background: var(--white);
-      border: 1px solid var(--border2);
-      border-top: 3px solid var(--bg-dark);
-      border-radius: 2px;
-      padding: 16px 20px;
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
-      margin-bottom: 24px;
-      box-shadow: 0 2px 6px var(--shadow);
-    }
-    .filter-bar label {
-      display: block;
-      font-size: 0.7rem; font-family: 'DM Mono', monospace;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 3px;
-    }
-    .filter-bar input, .filter-bar select {
-      background: var(--bg-light);
-      border: 1px solid var(--border2);
-      color: var(--text);
-      padding: 6px 12px; border-radius: 2px;
-      font-family: 'DM Mono', monospace; font-size: 0.8rem;
-      outline: none; transition: border-color 0.2s;
-    }
-    .filter-bar input:focus, .filter-bar select:focus { border-color: var(--bg-dark); }
+    /* value colours */
+    .val-green{color:var(--green)!important}
+    .val-red{color:var(--loss)!important}
+    .val-mono{font-family:'DM Mono',monospace;font-size:0.88em}
 
-    /* ── BUTTONS ── */
-    .btn {
-      padding: 7px 18px; border-radius: 2px; border: none; cursor: pointer;
-      font-family: 'Yanone Kaffeesatz', sans-serif;
-      font-size: 1em; font-weight: 400; letter-spacing: 0.06em;
-      text-transform: uppercase; transition: all 0.15s;
-    }
-    .btn-red {
-      background: linear-gradient(to bottom, var(--red), var(--red2));
-      color: var(--white);
-    }
-    .btn-red:hover { background: linear-gradient(to bottom, #fd492b, var(--red)); }
-    .btn-dark { background: var(--bg-dark); color: var(--text-dark); }
-    .btn-dark:hover { background: var(--border); color: var(--white); }
-    .btn-ghost {
-      background: var(--bg-light); color: var(--muted);
-      border: 1px solid var(--border2);
-    }
-    .btn-ghost:hover { color: var(--text); border-color: var(--bg-dark); }
-    .btn-green-outline {
-      background: transparent; color: var(--green);
-      border: 1px solid var(--green);
-    }
-    .btn-green-outline:hover { background: var(--green); color: var(--white); }
-    .btn-today {
-      background: transparent; color: var(--red);
-      border: 1px solid var(--red); font-size: 0.85em;
-    }
-    .btn-today:hover { background: var(--red); color: var(--white); }
+    /* PANEL */
+    .panel{background:var(--white);border:1px solid var(--border2);border-top:3px solid var(--bg-dark);border-radius:2px;box-shadow:0 2px 6px var(--shadow);margin-bottom:24px;overflow:hidden}
+    .panel-hdr{background:var(--bg-dark2);padding:10px 18px;display:flex;justify-content:space-between;align-items:center}
+    .panel-hdr span{color:var(--text-d);font-size:0.8em;font-weight:400;letter-spacing:0.1em;text-transform:uppercase}
+    .list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid #eaeaea;font-size:0.88em}
+    .list-item:last-child{border-bottom:none}
+    .list-item:hover{background:var(--bg)}
+    .list-scroll{max-height:280px;overflow-y:auto}
 
-    /* ── STAT CARDS ── */
-    .stat-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
-      gap: 14px; margin-bottom: 24px;
-    }
-    .stat-card {
-      background: var(--white);
-      border: 1px solid var(--border2);
-      border-top: 3px solid var(--bg-dark);
-      border-radius: 2px; padding: 16px 18px;
-      box-shadow: 0 2px 6px var(--shadow);
-    }
-    .stat-card .label {
-      font-size: 0.65rem; font-family: 'DM Mono', monospace;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 6px;
-    }
-    .stat-card .value {
-      font-size: 1.9em; font-weight: 400; line-height: 1;
-      color: var(--text);
-    }
-    .stat-card .sub {
-      font-size: 0.7rem; font-family: 'DM Mono', monospace;
-      color: var(--muted); margin-top: 4px;
-    }
-    .val-green { color: var(--green) !important; }
-    .val-red   { color: var(--loss) !important; }
-    .val-mono  { font-family: 'DM Mono', monospace; font-size: 0.9em; }
+    /* TABLES */
+    .tbl-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:0.82em}
+    thead tr{background:var(--bg-dark2)}
+    th{padding:10px 14px;text-align:left;font-family:'DM Mono',monospace;font-size:0.6rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-d);white-space:nowrap}
+    td{padding:9px 14px;border-bottom:1px solid #eaeaea;white-space:nowrap}
+    tr:last-child td{border-bottom:none}
+    tbody tr:hover td{background:var(--bg)}
 
-    /* ── PANELS (white boxes) ── */
-    .panel {
-      background: var(--white);
-      border: 1px solid var(--border2);
-      border-top: 3px solid var(--bg-dark);
-      border-radius: 2px;
-      box-shadow: 0 2px 6px var(--shadow);
-      margin-bottom: 24px; overflow: hidden;
-    }
-    .panel-header {
-      background: var(--bg-dark2);
-      padding: 10px 18px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .panel-header span {
-      color: var(--text-dark);
-      font-size: 0.85em; font-weight: 400; letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .panel-body { padding: 18px; }
-    .panel-body-np { /* no padding */ }
+    /* BADGES */
+    .badge{padding:2px 8px;border-radius:2px;font-family:'DM Mono',monospace;font-size:0.6rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase}
+    .badge-in{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7}
+    .badge-out{background:#ffebee;color:var(--loss);border:1px solid #ef9a9a}
+    .profit-badge{background:#e8f5e9;color:var(--green);padding:2px 8px;border-radius:2px;font-size:0.7rem;font-weight:700}
+    .loss-badge{background:#ffebee;color:var(--loss);padding:2px 8px;border-radius:2px;font-size:0.7rem;font-weight:700}
 
-    /* ── LIST ITEMS ── */
-    .list-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 9px 18px; border-bottom: 1px solid #eaeaea;
-      font-size: 0.9em;
-    }
-    .list-item:last-child { border-bottom: none; }
-    .list-item:hover { background: var(--bg); }
-    .list-scroll { max-height: 280px; overflow-y: auto; }
+    /* GAME CARDS */
+    .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+    .game-card{background:var(--white);border:1px solid var(--border2);border-top:3px solid var(--red);border-radius:2px;padding:12px 10px;text-align:center;box-shadow:0 1px 4px var(--shadow)}
+    .game-card .gname{font-size:0.6rem;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
+    .game-card .gval{font-size:1.2em;font-weight:400;color:var(--bg-dark)}
+    .game-card .gsub{font-size:0.62rem;font-family:'DM Mono',monospace;color:var(--muted)}
 
-    /* ── TABLES ── */
-    .tbl-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-    thead tr { background: var(--bg-dark2); }
-    th {
-      padding: 10px 14px; text-align: left;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.62rem; font-weight: 500;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--text-dark); white-space: nowrap;
-    }
-    td { padding: 9px 14px; border-bottom: 1px solid #eaeaea; white-space: nowrap; }
-    tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: var(--bg); }
+    /* CHARTS */
+    .chart-panel{background:var(--white);border:1px solid var(--border2);border-top:3px solid var(--red);border-radius:2px;padding:20px;box-shadow:0 2px 6px var(--shadow);margin-bottom:24px}
+    .chart-label{font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-family:'DM Mono',monospace}
 
-    /* ── BADGES ── */
-    .badge {
-      padding: 2px 8px; border-radius: 2px;
-      font-family: 'DM Mono', monospace; font-size: 0.6rem;
-      font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
-    }
-    .badge-in  { background: #e8f5e9; color: var(--green); border: 1px solid #a5d6a7; }
-    .badge-out { background: #ffebee; color: var(--loss); border: 1px solid #ef9a9a; }
-    .profit-badge { background: #e8f5e9; color: var(--green); padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
-    .loss-badge   { background: #ffebee; color: var(--loss);  padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
+    /* PAGINATION */
+    .pagination{display:flex;justify-content:center;align-items:center;gap:14px;padding:12px;border-top:1px solid #eaeaea}
+    .pagination span{font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted)}
 
-    /* ── GAME CARDS ── */
-    .game-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(110px,1fr)); gap: 10px; }
-    .game-card {
-      background: var(--bg-light);
-      border: 1px solid var(--border2);
-      border-top: 3px solid var(--red);
-      border-radius: 2px; padding: 12px 10px; text-align: center;
-    }
-    .game-card .gname { font-size: 0.65rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
-    .game-card .gval  { font-size: 1.3em; font-weight: 400; color: var(--bg-dark); }
-    .game-card .gsub  { font-size: 0.65rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+    /* DETAIL */
+    .detail-panel{background:var(--bg-light);border:1px solid var(--border2);border-left:4px solid var(--red);border-radius:2px;padding:16px 20px;margin-bottom:24px}
 
-    /* ── CHART PANELS ── */
-    .chart-panel {
-      background: var(--white);
-      border: 1px solid var(--border2);
-      border-top: 3px solid var(--red);
-      border-radius: 2px; padding: 20px;
-      box-shadow: 0 2px 6px var(--shadow);
-      margin-bottom: 24px;
-    }
-    .chart-label {
-      font-size: 0.75em; letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 14px;
-      font-family: 'DM Mono', monospace;
-    }
-
-    /* ── PAGINATION ── */
-    .pagination {
-      display: flex; justify-content: center; align-items: center; gap: 14px;
-      padding: 12px; border-top: 1px solid #eaeaea;
-    }
-    .pagination span { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted); }
-
-    /* ── DETAIL PANEL ── */
-    .detail-panel {
-      background: var(--bg-light);
-      border: 1px solid var(--border2);
-      border-left: 4px solid var(--red);
-      border-radius: 2px; padding: 16px 20px; margin-bottom: 24px;
-    }
-
-    /* ── GRID HELPERS ── */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 24px; }
-    .section-label {
-      font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--muted); font-family: 'DM Mono', monospace;
-      margin-bottom: 10px; padding-bottom: 6px;
-      border-bottom: 1px solid var(--border2);
-    }
-    @media (max-width: 900px) {
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      #main { padding: 16px; }
-      #header .container, #nav .container { padding: 0 14px; }
-    }
+    /* GRID */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+    .sec-label{font-size:0.7em;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)}
+    @media(max-width:900px){.grid-2{grid-template-columns:1fr}#main{padding:16px}#header .hc,#nav .nc{padding:0 14px}}
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div id="header">
-  <div class="container">
-    <h1>💰 <span>Payment</span> Tracker</h1>
-    <div class="live-badge">
-      <span class="live-dot"></span>
-      <span id="lastUpdatedTime">Loading...</span>
-    </div>
+  <div class="hc">
+    <h1>Payment <strong>Tracker</strong></h1>
+    <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">Loading...</span></div>
   </div>
 </div>
 
-<!-- NAV -->
 <div id="nav">
-  <div class="container">
-    <button class="tab-btn active" onclick="switchView('overview',this)">📊 Overview</button>
-    <button class="tab-btn" onclick="switchView('cashin',this)">💵 Cash-In</button>
-    <button class="tab-btn" onclick="switchView('cashout',this)">💸 Cashout</button>
-    <button class="tab-btn" onclick="switchView('games',this)">🎮 Games</button>
-    <button class="tab-btn" onclick="switchView('charts',this)">📈 Charts</button>
-    <button class="tab-btn" onclick="switchView('holding',this)">📅 Daily Holding</button>
+  <div class="nc">
+    <button class="tab-btn active" onclick="switchView('overview',this)">Overview</button>
+    <button class="tab-btn" onclick="switchView('cashin',this)">Cash-In</button>
+    <button class="tab-btn" onclick="switchView('cashout',this)">Cashout</button>
+    <button class="tab-btn" onclick="switchView('games',this)">Game Distribution</button>
+    <button class="tab-btn" onclick="switchView('charts',this)">Charts</button>
+    <button class="tab-btn" onclick="switchView('holding',this)">Daily Holding</button>
   </div>
 </div>
 
 <div id="main">
 
-  <!-- ==================== OVERVIEW ==================== -->
+  <!-- OVERVIEW -->
   <div id="view-overview" class="view-section active">
-
     <div class="filter-bar">
       <div><label>Group</label><select id="ovGroup" class="group-select"><option value="">All Groups</option></select></div>
-      <div><label>Start</label><input type="date" id="ovStart"></div>
-      <div><label>End</label><input type="date" id="ovEnd"></div>
+      <div><label>Start Date</label><input type="date" id="ovStart"></div>
+      <div><label>End Date</label><input type="date" id="ovEnd"></div>
       <div><label>Month</label><select id="ovMonth"><option value="">All Months</option></select></div>
       <button class="btn btn-today" onclick="setToday('ovStart','ovEnd',renderOverview)">Today</button>
       <button class="btn btn-red" onclick="renderOverview()">Apply</button>
       <button class="btn btn-ghost" onclick="resetOv()">Reset</button>
-      <button class="btn btn-green-outline" onclick="exportOverviewExcel()" style="margin-left:auto">📥 Export All</button>
+      <button class="btn btn-outline-green" onclick="exportOverviewExcel()" style="margin-left:auto">Export All</button>
     </div>
 
     <div class="stat-grid">
-      <div class="stat-card"><div class="label">Total Cash-In</div><div class="value val-green" id="ovCI">$0</div><div class="sub" id="ovCISub">0 sessions</div></div>
-      <div class="stat-card"><div class="label">Points Spent</div><div class="value" id="ovPtsSpent">0</div><div class="sub">cash-in pts</div></div>
-      <div class="stat-card"><div class="label">Total Cashout</div><div class="value val-red" id="ovCO">$0</div><div class="sub" id="ovCOSub">0 transactions</div></div>
-      <div class="stat-card"><div class="label">Pts Redeemed</div><div class="value" id="ovPtsRed">0</div><div class="sub">net redeemed</div></div>
-      <div class="stat-card"><div class="label">Net Holding</div><div class="value" id="ovNet">$0</div><div class="sub">CI minus CO</div></div>
-      <div class="stat-card"><div class="label">Net Pts Spent</div><div class="value" id="ovNetPts">0</div><div class="sub">spent minus redeemed</div></div>
+      <!-- Cash-In: trending up arrow -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--green),#81c784)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 6 23 6 23 12" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Total Cash-In</div>
+        <div class="value val-green" id="ovCI">$0</div>
+        <div class="sub" id="ovCISub">0 sessions</div>
+      </div>
+      <!-- Points spent: circle/target -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,#546b76,#78909c)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#546b76" stroke-width="1.5"/><circle cx="12" cy="12" r="6" stroke="#546b76" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#546b76"/></svg>
+        <div class="label">Points Spent</div>
+        <div class="value" id="ovPtsSpent">0</div>
+        <div class="sub">cash-in points</div>
+      </div>
+      <!-- Cashout: trending down -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--loss),#ef9a9a)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" stroke="#c62828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 18 23 18 23 12" stroke="#c62828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Total Cashout</div>
+        <div class="value val-red" id="ovCO">$0</div>
+        <div class="sub" id="ovCOSub">0 transactions</div>
+      </div>
+      <!-- Points redeemed: refresh/cycle -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,#b45309,#f59e0b)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Points Redeemed</div>
+        <div class="value" id="ovPtsRed">0</div>
+        <div class="sub">net redeemed</div>
+      </div>
+      <!-- Net holding: scale/balance -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--bg-dark),#546b76)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><line x1="12" y1="3" x2="12" y2="21" stroke="#3B4346" stroke-width="1.5" stroke-linecap="round"/><path d="M5 7l7-4 7 4" stroke="#3B4346" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17c0 1.7 2.7 3 5 3s5-1.3 5-3L9 10H5L2 17z" stroke="#3B4346" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 17c0 1.7 2.7 3 5 3s5-1.3 5-3l-3-7h-4l-3 7z" stroke="#3B4346" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Net Holding</div>
+        <div class="value" id="ovNet">$0</div>
+        <div class="sub">cash-in minus cashout</div>
+      </div>
+      <!-- Net pts: bar chart -->
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,#4a5568,#718096)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="4" height="9" rx="1" stroke="#4a5568" stroke-width="1.5"/><rect x="10" y="7" width="4" height="14" rx="1" stroke="#4a5568" stroke-width="1.5"/><rect x="17" y="3" width="4" height="18" rx="1" stroke="#4a5568" stroke-width="1.5"/></svg>
+        <div class="label">Net Points Spent</div>
+        <div class="value" id="ovNetPts">0</div>
+        <div class="sub">spent minus redeemed</div>
+      </div>
     </div>
 
     <div class="grid-2">
       <div class="panel">
-        <div class="panel-header"><span>📅 Monthly Cash-In</span></div>
+        <div class="panel-hdr"><span>Monthly Cash-In</span></div>
         <div class="list-scroll" id="ovMCI"><div class="list-item"><span style="color:var(--muted)">Loading...</span></div></div>
       </div>
       <div class="panel">
-        <div class="panel-header"><span>📅 Monthly Cashout</span></div>
+        <div class="panel-hdr"><span>Monthly Cashout</span></div>
         <div class="list-scroll" id="ovMCO"><div class="list-item"><span style="color:var(--muted)">Loading...</span></div></div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-header">
+      <div class="panel-hdr">
         <span>Recent Transactions — Newest First</span>
-        <button class="btn btn-green-outline" onclick="exportRecent()" style="font-size:0.75em;padding:4px 10px">📥 Export</button>
+        <button class="btn btn-outline-green" onclick="exportRecent()" style="font-size:0.75em;padding:4px 12px">Export</button>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -388,152 +247,124 @@
     </div>
   </div>
 
-  <!-- ==================== CASH-IN ==================== -->
+  <!-- CASH-IN -->
   <div id="view-cashin" class="view-section">
     <div class="filter-bar">
       <div><label>Group</label><select id="ciGroup" class="group-select"><option value="">All Groups</option></select></div>
-      <div><label>Start</label><input type="date" id="ciStart"></div>
-      <div><label>End</label><input type="date" id="ciEnd"></div>
+      <div><label>Start Date</label><input type="date" id="ciStart"></div>
+      <div><label>End Date</label><input type="date" id="ciEnd"></div>
       <button class="btn btn-today" onclick="setToday('ciStart','ciEnd',renderCashIn)">Today</button>
       <button class="btn btn-red" onclick="renderCashIn()">Apply</button>
       <button class="btn btn-ghost" onclick="resetCI()">Reset</button>
-      <button class="btn btn-green-outline" onclick="exportCashInExcel()" style="margin-left:auto">📥 Export</button>
+      <button class="btn btn-outline-green" onclick="exportCashInExcel()" style="margin-left:auto">Export</button>
     </div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="label">Total Cash-In</div><div class="value val-green" id="ciAmt">$0</div></div>
-      <div class="stat-card"><div class="label">Total Points</div><div class="value" id="ciPts">0</div></div>
-      <div class="stat-card"><div class="label">Sessions</div><div class="value" id="ciCount">0</div><div class="sub" id="ciRowSub"></div></div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--green),#81c784)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 6 23 6 23 12" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Total Cash-In</div><div class="value val-green" id="ciAmt">$0</div>
+      </div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,#546b76,#78909c)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#546b76" stroke-width="1.5"/><circle cx="12" cy="12" r="6" stroke="#546b76" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#546b76"/></svg>
+        <div class="label">Total Points</div><div class="value" id="ciPts">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--bg-dark),#546b76)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="4" height="9" rx="1" stroke="#3B4346" stroke-width="1.5"/><rect x="10" y="7" width="4" height="14" rx="1" stroke="#3B4346" stroke-width="1.5"/><rect x="17" y="3" width="4" height="18" rx="1" stroke="#3B4346" stroke-width="1.5"/></svg>
+        <div class="label">Sessions</div><div class="value" id="ciCount">0</div><div class="sub" id="ciRowSub"></div>
+      </div>
     </div>
     <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><span>📅 Daily Cash-In</span></div>
-        <div class="list-scroll" id="ciDaily"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header"><span>📊 Monthly Cash-In</span></div>
-        <div class="list-scroll" id="ciMonthly"></div>
-      </div>
+      <div class="panel"><div class="panel-hdr"><span>Daily Cash-In</span></div><div class="list-scroll" id="ciDaily"></div></div>
+      <div class="panel"><div class="panel-hdr"><span>Monthly Cash-In</span></div><div class="list-scroll" id="ciMonthly"></div></div>
     </div>
-    <div class="section-label">Points by Game</div>
+    <div class="sec-label">Points by Game</div>
     <div class="game-grid" id="ciGames" style="margin-bottom:24px"></div>
     <div class="panel">
-      <div class="panel-header">
+      <div class="panel-hdr">
         <span>Cash-In Transactions — Newest First</span>
-        <button class="btn btn-green-outline" onclick="exportCITable()" style="font-size:0.75em;padding:4px 10px">📥 Export Table</button>
+        <button class="btn btn-outline-green" onclick="exportCITable()" style="font-size:0.75em;padding:4px 12px">Export Table</button>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th><th>Notes</th></tr></thead>
-          <tbody id="ciTable"></tbody>
-        </table>
-      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th><th>Notes</th></tr></thead><tbody id="ciTable"></tbody></table></div>
     </div>
   </div>
 
-  <!-- ==================== CASHOUT ==================== -->
+  <!-- CASHOUT -->
   <div id="view-cashout" class="view-section">
     <div class="filter-bar">
       <div><label>Group</label><select id="coGroup" class="group-select"><option value="">All Groups</option></select></div>
-      <div><label>Start</label><input type="date" id="coStart"></div>
-      <div><label>End</label><input type="date" id="coEnd"></div>
+      <div><label>Start Date</label><input type="date" id="coStart"></div>
+      <div><label>End Date</label><input type="date" id="coEnd"></div>
       <button class="btn btn-today" onclick="setToday('coStart','coEnd',renderCashout)">Today</button>
       <button class="btn btn-red" onclick="renderCashout()">Apply</button>
       <button class="btn btn-ghost" onclick="resetCO()">Reset</button>
-      <button class="btn btn-green-outline" onclick="exportCashoutExcel()" style="margin-left:auto">📥 Export</button>
+      <button class="btn btn-outline-green" onclick="exportCashoutExcel()" style="margin-left:auto">Export</button>
     </div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="label">Total Cashout</div><div class="value val-red" id="coAmt">$0</div></div>
-      <div class="stat-card"><div class="label">Net Pts Redeemed</div><div class="value" id="coPts">0</div></div>
-      <div class="stat-card"><div class="label">Transactions</div><div class="value" id="coCount">0</div></div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--loss),#ef9a9a)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" stroke="#c62828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 18 23 18 23 12" stroke="#c62828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Total Cashout</div><div class="value val-red" id="coAmt">$0</div>
+      </div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,#b45309,#f59e0b)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="label">Net Pts Redeemed</div><div class="value" id="coPts">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="accent-bar" style="background:linear-gradient(90deg,var(--bg-dark),#546b76)"></div>
+        <svg class="card-icon" width="90" height="90" viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="4" height="9" rx="1" stroke="#3B4346" stroke-width="1.5"/><rect x="10" y="7" width="4" height="14" rx="1" stroke="#3B4346" stroke-width="1.5"/><rect x="17" y="3" width="4" height="18" rx="1" stroke="#3B4346" stroke-width="1.5"/></svg>
+        <div class="label">Transactions</div><div class="value" id="coCount">0</div>
+      </div>
     </div>
     <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><span>📅 Daily Cashout</span></div>
-        <div class="list-scroll" id="coDaily"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-header"><span>📊 Monthly Cashout</span></div>
-        <div class="list-scroll" id="coMonthly"></div>
-      </div>
+      <div class="panel"><div class="panel-hdr"><span>Daily Cashout</span></div><div class="list-scroll" id="coDaily"></div></div>
+      <div class="panel"><div class="panel-hdr"><span>Monthly Cashout</span></div><div class="list-scroll" id="coMonthly"></div></div>
     </div>
-    <div class="section-label">Points Redeemed by Game (Net)</div>
+    <div class="sec-label">Points Redeemed by Game (Net)</div>
     <div class="game-grid" id="coGames" style="margin-bottom:24px"></div>
     <div class="panel">
-      <div class="panel-header">
+      <div class="panel-hdr">
         <span>Cashout Transactions — Newest First</span>
-        <button class="btn btn-green-outline" onclick="exportCOTable()" style="font-size:0.75em;padding:4px 10px">📥 Export Table</button>
+        <button class="btn btn-outline-green" onclick="exportCOTable()" style="font-size:0.75em;padding:4px 12px">Export Table</button>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Pts Redeemed</th><th>Playback</th><th>Net Pts</th><th>Tip</th><th>Cashout</th></tr></thead>
-          <tbody id="coTable"></tbody>
-        </table>
-      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Pts Redeemed</th><th>Playback</th><th>Net Pts</th><th>Tip</th><th>Cashout</th></tr></thead><tbody id="coTable"></tbody></table></div>
     </div>
   </div>
 
-  <!-- ==================== GAMES ==================== -->
+  <!-- GAMES -->
   <div id="view-games" class="view-section">
     <div class="filter-bar">
       <div><label>Group</label><select id="gdGroup" class="group-select"><option value="">All Groups</option></select></div>
-      <div><label>Start</label><input type="date" id="gdStart"></div>
-      <div><label>End</label><input type="date" id="gdEnd"></div>
+      <div><label>Start Date</label><input type="date" id="gdStart"></div>
+      <div><label>End Date</label><input type="date" id="gdEnd"></div>
       <button class="btn btn-red" onclick="renderGames()">Apply</button>
       <button class="btn btn-ghost" onclick="resetGD()">Reset</button>
-      <button class="btn btn-green-outline" onclick="exportGameExcel()" style="margin-left:auto">📥 Export</button>
+      <button class="btn btn-outline-green" onclick="exportGameExcel()" style="margin-left:auto">Export</button>
     </div>
     <div class="grid-2">
-      <div>
-        <div class="section-label">Cash-In by Game</div>
-        <div class="panel">
-          <div class="tbl-wrap">
-            <table><thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="gdCITable"></tbody></table>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="section-label">Cashout by Game (Net Pts)</div>
-        <div class="panel">
-          <div class="tbl-wrap">
-            <table><thead><tr><th>Game</th><th>Net Pts Redeemed</th></tr></thead><tbody id="gdCOTable"></tbody></table>
-          </div>
-        </div>
-      </div>
+      <div><div class="sec-label">Cash-In by Game</div><div class="panel"><div class="tbl-wrap"><table><thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="gdCITable"></tbody></table></div></div></div>
+      <div><div class="sec-label">Cashout by Game (Net Points)</div><div class="panel"><div class="tbl-wrap"><table><thead><tr><th>Game</th><th>Net Pts Redeemed</th></tr></thead><tbody id="gdCOTable"></tbody></table></div></div></div>
     </div>
   </div>
 
-  <!-- ==================== CHARTS ==================== -->
+  <!-- CHARTS -->
   <div id="view-charts" class="view-section">
     <div class="filter-bar">
       <div><label>Group</label><select id="chGroup" class="group-select"><option value="">All Groups</option></select></div>
-      <div><label>Period</label>
-        <select id="chDays">
-          <option value="7">Last 7 days</option>
-          <option value="30" selected>Last 30 days</option>
-          <option value="60">Last 60 days</option>
-          <option value="90">Last 90 days</option>
-        </select>
-      </div>
+      <div><label>Period</label><select id="chDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option></select></div>
       <button class="btn btn-red" onclick="renderCharts()">Apply</button>
       <button class="btn btn-ghost" onclick="resetCH()">Reset</button>
     </div>
-    <div class="chart-panel">
-      <div class="chart-label">Daily Cash-In vs Cashout</div>
-      <canvas id="chartBar" height="80"></canvas>
-    </div>
+    <div class="chart-panel"><div class="chart-label">Daily Cash-In vs Cashout</div><canvas id="chartBar" height="80"></canvas></div>
     <div class="grid-2">
-      <div class="chart-panel">
-        <div class="chart-label">Cash-In by Game</div>
-        <canvas id="chartPie" height="200"></canvas>
-      </div>
-      <div class="chart-panel">
-        <div class="chart-label">Net Holding Trend</div>
-        <canvas id="chartLine" height="200"></canvas>
-      </div>
+      <div class="chart-panel"><div class="chart-label">Cash-In by Game</div><canvas id="chartPie" height="200"></canvas></div>
+      <div class="chart-panel"><div class="chart-label">Net Holding Trend</div><canvas id="chartLine" height="200"></canvas></div>
     </div>
   </div>
 
-  <!-- ==================== DAILY HOLDING ==================== -->
+  <!-- DAILY HOLDING -->
   <div id="view-holding" class="view-section">
     <div class="filter-bar">
       <div><label>Group</label><select id="dhGroup" class="group-select"><option value="">All Groups</option></select></div>
@@ -541,94 +372,59 @@
       <button class="btn btn-today" onclick="setDhToday()">Today</button>
       <button class="btn btn-red" onclick="renderHolding()">Apply</button>
       <button class="btn btn-ghost" onclick="resetDH()">Reset</button>
-      <button class="btn btn-green-outline" onclick="exportHoldingExcel()" style="margin-left:auto">📥 Export</button>
+      <button class="btn btn-outline-green" onclick="exportHoldingExcel()" style="margin-left:auto">Export</button>
     </div>
-
     <div id="dhDetail" style="display:none" class="detail-panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:14px">
-        <div style="font-size:1.1em;font-weight:400;letter-spacing:0.06em;text-transform:uppercase;color:var(--bg-dark)" id="dhSelDate">—</div>
+        <div style="font-size:1.05em;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:var(--bg-dark)" id="dhSelDate">—</div>
         <div style="display:flex;gap:24px;flex-wrap:wrap">
-          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cash-In</div><div class="val-green" style="font-size:1.5em" id="dhCI">$0</div></div>
-          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cashout</div><div class="val-red" style="font-size:1.5em" id="dhCO">$0</div></div>
-          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Net</div><div style="font-size:1.5em" id="dhNet">$0</div></div>
-          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Status</div><div style="margin-top:4px" id="dhStatus">—</div></div>
+          <div><div style="font-size:0.62rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cash-In</div><div class="val-green" style="font-size:1.5em" id="dhCI">$0</div></div>
+          <div><div style="font-size:0.62rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cashout</div><div class="val-red" style="font-size:1.5em" id="dhCO">$0</div></div>
+          <div><div style="font-size:0.62rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Net</div><div style="font-size:1.5em" id="dhNet">$0</div></div>
+          <div><div style="font-size:0.62rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Status</div><div style="margin-top:4px" id="dhStatus">—</div></div>
         </div>
       </div>
-      <div class="section-label" style="margin-bottom:10px">Game Breakdown</div>
-      <div class="tbl-wrap">
-        <table style="font-size:0.82em">
-          <thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead>
-          <tbody id="dhGameTable"></tbody>
-        </table>
-      </div>
+      <div class="sec-label" style="margin-bottom:10px">Game Breakdown</div>
+      <div class="tbl-wrap"><table style="font-size:0.82em"><thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="dhGameTable"></tbody></table></div>
     </div>
-
     <div class="panel">
-      <div class="panel-header"><span>Daily Holding History — Newest First</span></div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead>
-          <tbody id="dhTable"></tbody>
-        </table>
-      </div>
+      <div class="panel-hdr"><span>Daily Holding History — Newest First</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead><tbody id="dhTable"></tbody></table></div>
     </div>
   </div>
 
-</div><!-- end main -->
+</div>
 
 <script>
-let allTx=[], allCO=[], recentPage=0;
-const PER=25;
+let allTx=[],allCO=[],recentPage=0;const PER=25;
 let cBar=null,cPie=null,cLine=null;
 
-// ── time helpers ──────────────────────────────────────────────────────────────
-function toAmPm(t){
-  if(!t)return'--';
-  if(/\d{1,2}:\d{2}\s*(AM|PM)/i.test(t))return t.trim();
-  const m=t.match(/^(\d{1,2}):(\d{2})/);
-  if(m){let h=parseInt(m[1]),min=m[2],s=h>=12?'PM':'AM';if(h===0)h=12;else if(h>12)h-=12;return`${h}:${min} ${s}`;}
-  return t;
-}
+function toAmPm(t){if(!t)return'--';if(/\d{1,2}:\d{2}\s*(AM|PM)/i.test(t))return t.trim();const m=t.match(/^(\d{1,2}):(\d{2})/);if(m){let h=parseInt(m[1]),min=m[2],s=h>=12?'PM':'AM';if(h===0)h=12;else if(h>12)h-=12;return`${h}:${min} ${s}`;}return t;}
 function isoAmPm(iso){if(!iso)return'--';return toAmPm(iso.substring(11,16));}
-function ciSortKey(t){
-  const d=t.date||'',ts=t.time||'';
-  const ap=ts.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if(ap){let h=parseInt(ap[1]),min=ap[2],s=ap[3].toUpperCase();if(s==='PM'&&h!==12)h+=12;if(s==='AM'&&h===12)h=0;return`${d} ${h.toString().padStart(2,'0')}:${min}`;}
-  return`${d} ${ts}`;
-}
+function ciSortKey(t){const d=t.date||'',ts=t.time||'';const ap=ts.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(ap){let h=parseInt(ap[1]),min=ap[2],s=ap[3].toUpperCase();if(s==='PM'&&h!==12)h+=12;if(s==='AM'&&h===12)h=0;return`${d} ${h.toString().padStart(2,'0')}:${min}`;}return`${d} ${ts}`;}
 function todayStr(){return new Date().toISOString().split('T')[0];}
 function setToday(s,e,fn){const t=todayStr();document.getElementById(s).value=t;document.getElementById(e).value=t;fn();}
 function setDhToday(){document.getElementById('dhDate').value=todayStr();renderHolding();}
 
-// ── fetch ─────────────────────────────────────────────────────────────────────
 async function fetchData(){
   try{
     const[r1,r2]=await Promise.all([fetch('/api/transactions'),fetch('/api/cashout-transactions')]);
     const d1=await r1.json(),d2=await r2.json();
     allTx=d1.transactions||[];allCO=d2.cashoutTransactions||[];
     populateGroups();populateMonths();renderAll();
-    document.getElementById('lastUpdatedTime').textContent='Updated '+toAmPm(new Date().toTimeString().substring(0,5));
+    document.getElementById('lastUpdated').textContent='Updated '+toAmPm(new Date().toTimeString().substring(0,5));
   }catch(e){console.error(e);}
 }
 
 function populateGroups(){
   const g=new Set();allTx.forEach(t=>g.add(t.group));allCO.forEach(c=>g.add(c.group));
   const sorted=[...g].filter(Boolean).sort();
-  document.querySelectorAll('.group-select').forEach(sel=>{
-    const v=sel.value;sel.innerHTML='<option value="">All Groups</option>';
-    sorted.forEach(x=>sel.innerHTML+=`<option value="${x}">${x}</option>`);sel.value=v;
-  });
+  document.querySelectorAll('.group-select').forEach(sel=>{const v=sel.value;sel.innerHTML='<option value="">All Groups</option>';sorted.forEach(x=>sel.innerHTML+=`<option value="${x}">${x}</option>`);sel.value=v;});
 }
 function populateMonths(){
-  const m=new Set();
-  allTx.forEach(t=>{if(t.date)m.add(t.date.substring(0,7));});
-  allCO.forEach(c=>{if(c.created_at)m.add(c.created_at.substring(0,7));});
-  const sel=document.getElementById('ovMonth');
-  sel.innerHTML='<option value="">All Months</option>';
-  [...m].sort().reverse().forEach(x=>{
-    const[y,mo]=x.split('-');
-    sel.innerHTML+=`<option value="${x}">${new Date(y,mo-1).toLocaleString('default',{month:'long',year:'numeric'})}</option>`;
-  });
+  const m=new Set();allTx.forEach(t=>{if(t.date)m.add(t.date.substring(0,7));});allCO.forEach(c=>{if(c.created_at)m.add(c.created_at.substring(0,7));});
+  const sel=document.getElementById('ovMonth');sel.innerHTML='<option value="">All Months</option>';
+  [...m].sort().reverse().forEach(x=>{const[y,mo]=x.split('-');sel.innerHTML+=`<option value="${x}">${new Date(y,mo-1).toLocaleString('default',{month:'long',year:'numeric'})}</option>`;});
 }
 function switchView(id,btn){
   document.querySelectorAll('.view-section').forEach(s=>s.classList.remove('active'));
@@ -648,13 +444,12 @@ function flt(data,start,end,group,month,df){
 }
 function renderAll(){renderOverview();renderCashIn();renderCashout();renderGames();renderHolding();}
 
-// ── OVERVIEW ──────────────────────────────────────────────────────────────────
 function renderOverview(){
   recentPage=0;
   const start=document.getElementById('ovStart').value,end=document.getElementById('ovEnd').value;
   const group=document.getElementById('ovGroup').value,month=document.getElementById('ovMonth').value;
   const ciAll=flt(allTx,start,end,group,month,'date');
-  const ci=ciAll.filter(r=>r.amount!==0&&r.amount>0); // sessions (positive only for amount stats)
+  const ci=ciAll.filter(r=>r.amount>0);
   const co=flt(allCO,start,end,group,month,'created_at');
   const tci=ci.reduce((s,t)=>s+t.amount,0);
   const tpi=ciAll.reduce((s,t)=>s+t.points,0);
@@ -667,25 +462,18 @@ function renderOverview(){
   document.getElementById('ovCO').textContent=`$${tco.toLocaleString()}`;
   document.getElementById('ovCOSub').textContent=`${co.length} transactions`;
   document.getElementById('ovPtsRed').textContent=tpr.toLocaleString();
-  const netEl=document.getElementById('ovNet');
-  netEl.textContent=`$${net.toLocaleString()}`;
-  netEl.className='value '+(net>=0?'val-green':'val-red');
+  const ne=document.getElementById('ovNet');ne.textContent=`$${net.toLocaleString()}`;ne.className='value '+(net>=0?'val-green':'val-red');
   document.getElementById('ovNetPts').textContent=(tpi-tpr).toLocaleString();
   const mci={},mco={};
   ci.forEach(t=>{const m=t.date.substring(0,7);mci[m]=(mci[m]||0)+t.amount;});
   co.forEach(c=>{const m=c.created_at.substring(0,7);mco[m]=(mco[m]||0)+c.amount;});
-  const renderM=(obj,el,cls)=>{
-    const s=Object.keys(obj).sort().reverse();
-    document.getElementById(el).innerHTML=s.length?s.map(m=>`<div class="list-item"><span>${m}</span><span class="val-mono ${cls}">$${obj[m].toLocaleString()}</span></div>`).join(''):'<div class="list-item"><span style="color:var(--muted)">No data</span></div>';
-  };
-  renderM(mci,'ovMCI','val-green');renderM(mco,'ovMCO','val-red');
+  const rM=(obj,el,cls)=>{const s=Object.keys(obj).sort().reverse();document.getElementById(el).innerHTML=s.length?s.map(m=>`<div class="list-item"><span>${m}</span><span class="val-mono ${cls}">$${obj[m].toLocaleString()}</span></div>`).join(''):'<div class="list-item"><span style="color:var(--muted)">No data</span></div>';};
+  rM(mci,'ovMCI','val-green');rM(mco,'ovMCO','val-red');
   renderRecent(ciAll,co);
 }
+
 function renderRecent(ciAll,co){
-  const combined=[
-    ...ciAll.map(t=>({...t,_type:'Cash-In',_sk:ciSortKey(t)})),
-    ...co.map(c=>({...c,_type:'Cashout',_sk:c.created_at||''}))
-  ].sort((a,b)=>b._sk.localeCompare(a._sk));
+  const combined=[...ciAll.map(t=>({...t,_type:'Cash-In',_sk:ciSortKey(t)})),...co.map(c=>({...c,_type:'Cashout',_sk:c.created_at||''}))].sort((a,b)=>b._sk.localeCompare(a._sk));
   const s=recentPage*PER,e=s+PER,page=combined.slice(s,e);
   document.getElementById('ovTable').innerHTML=page.map(r=>{
     const dt=r._type==='Cash-In'?toAmPm(r.time):isoAmPm(r.created_at);
@@ -699,7 +487,6 @@ function renderRecent(ciAll,co){
 }
 function loadMore(){recentPage++;renderRecent(window._rCI,window._rCO);}
 
-// ── CASH-IN ───────────────────────────────────────────────────────────────────
 function renderCashIn(){
   const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=document.getElementById('ciGroup').value;
   const ciAll=flt(allTx,start,end,group,null,'date').sort((a,b)=>ciSortKey(b).localeCompare(ciSortKey(a)));
@@ -708,8 +495,7 @@ function renderCashIn(){
   document.getElementById('ciPts').textContent=ciAll.reduce((s,t)=>s+t.points,0).toLocaleString();
   document.getElementById('ciCount').textContent=ci.length;
   document.getElementById('ciRowSub').textContent=`${ciAll.length} game rows total`;
-  const da={},ma={};
-  ci.forEach(t=>{da[t.date]=(da[t.date]||0)+t.amount;const m=t.date.substring(0,7);ma[m]=(ma[m]||0)+t.amount;});
+  const da={},ma={};ci.forEach(t=>{da[t.date]=(da[t.date]||0)+t.amount;const m=t.date.substring(0,7);ma[m]=(ma[m]||0)+t.amount;});
   const rl=(obj,el,cls)=>{const s=Object.keys(obj).sort().reverse();document.getElementById(el).innerHTML=s.map(k=>`<div class="list-item"><span>${k}</span><span class="val-mono ${cls}">$${obj[k].toLocaleString()}</span></div>`).join('');};
   rl(da,'ciDaily','val-green');rl(ma,'ciMonthly','val-green');
   const gp={};ciAll.forEach(t=>{gp[t.game]=(gp[t.game]||0)+t.points;});
@@ -718,15 +504,13 @@ function renderCashIn(){
   document.getElementById('ciTable').innerHTML=ciAll.map(t=>`<tr><td class="val-mono">${t.date}</td><td class="val-mono">${toAmPm(t.time)}</td><td>${t.employee}</td><td>${t.group}</td><td>${t.game}</td><td class="val-green val-mono">$${t.amount.toLocaleString()}</td><td class="val-mono">${t.points.toLocaleString()}</td><td style="color:var(--muted);font-size:0.8em">${t.notes||''}</td></tr>`).join('');
 }
 
-// ── CASHOUT ───────────────────────────────────────────────────────────────────
 function renderCashout(){
   const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=document.getElementById('coGroup').value;
   const co=flt(allCO,start,end,group,null,'created_at').sort((a,b)=>b.created_at.localeCompare(a.created_at));
   document.getElementById('coAmt').textContent=`$${co.reduce((s,c)=>s+c.amount,0).toLocaleString()}`;
   document.getElementById('coPts').textContent=co.reduce((s,c)=>s+(c.points-(parseFloat(c.playback_id)||0)),0).toLocaleString();
   document.getElementById('coCount').textContent=co.length;
-  const da={},ma={};
-  co.forEach(c=>{const d=c.created_at.substring(0,10);da[d]=(da[d]||0)+c.amount;const m=d.substring(0,7);ma[m]=(ma[m]||0)+c.amount;});
+  const da={},ma={};co.forEach(c=>{const d=c.created_at.substring(0,10);da[d]=(da[d]||0)+c.amount;const m=d.substring(0,7);ma[m]=(ma[m]||0)+c.amount;});
   const rl=(obj,el,cls)=>{const s=Object.keys(obj).sort().reverse();document.getElementById(el).innerHTML=s.map(k=>`<div class="list-item"><span>${k}</span><span class="val-mono ${cls}">$${obj[k].toLocaleString()}</span></div>`).join('');};
   rl(da,'coDaily','val-red');rl(ma,'coMonthly','val-red');
   const gp={};co.forEach(c=>{const n=c.points-(parseFloat(c.playback_id)||0);gp[c.game]=(gp[c.game]||0)+n;});
@@ -735,46 +519,38 @@ function renderCashout(){
   document.getElementById('coTable').innerHTML=co.map(c=>{const n=c.points-(parseFloat(c.playback_id)||0);return`<tr><td class="val-mono">${c.created_at.substring(0,10)}</td><td class="val-mono">${isoAmPm(c.created_at)}</td><td>${c.employee}</td><td>${c.group}</td><td>${c.game}</td><td class="val-mono">${c.points.toLocaleString()}</td><td class="val-mono">${c.playback_id||'0'}</td><td class="val-mono" style="color:#b45309">${n.toLocaleString()}</td><td class="val-mono">$${c.tip}</td><td class="val-red val-mono">$${c.amount.toLocaleString()}</td></tr>`;}).join('');
 }
 
-// ── GAMES ─────────────────────────────────────────────────────────────────────
 function renderGames(){
   const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=document.getElementById('gdGroup').value;
-  const ciAll=flt(allTx,start,end,group,null,'date');
-  const co=flt(allCO,start,end,group,null,'created_at');
+  const ciAll=flt(allTx,start,end,group,null,'date');const co=flt(allCO,start,end,group,null,'created_at');
   const ciG={};ciAll.forEach(t=>{if(!ciG[t.game])ciG[t.game]={amount:0,points:0};ciG[t.game].amount+=t.amount;ciG[t.game].points+=t.points;});
   document.getElementById('gdCITable').innerHTML=Object.entries(ciG).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
   const coG={};co.forEach(c=>{const n=c.points-(parseFloat(c.playback_id)||0);coG[c.game]=(coG[c.game]||0)+n;});
   document.getElementById('gdCOTable').innerHTML=Object.entries(coG).sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<tr><td>${g}</td><td class="val-red val-mono">${n.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">No data</td></tr>';
 }
 
-// ── CHARTS ────────────────────────────────────────────────────────────────────
 function renderCharts(){
-  const group=document.getElementById('chGroup').value;
-  const days=parseInt(document.getElementById('chDays').value);
+  const group=document.getElementById('chGroup').value;const days=parseInt(document.getElementById('chDays').value);
   const today=new Date();const dates=[];
   for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().split('T')[0]);}
-  const ci=group?allTx.filter(t=>t.group===group):allTx;
-  const co=group?allCO.filter(c=>c.group===group):allCO;
+  const ci=group?allTx.filter(t=>t.group===group):allTx;const co=group?allCO.filter(c=>c.group===group):allCO;
   const ciS=ci.filter(r=>r.amount>0);
-  const ciByDay={},coByDay={};
-  dates.forEach(d=>{ciByDay[d]=0;coByDay[d]=0;});
+  const ciByDay={},coByDay={};dates.forEach(d=>{ciByDay[d]=0;coByDay[d]=0;});
   ciS.forEach(t=>{if(ciByDay[t.date]!==undefined)ciByDay[t.date]+=t.amount;});
   co.forEach(c=>{const d=c.created_at.substring(0,10);if(coByDay[d]!==undefined)coByDay[d]+=c.amount;});
   const netByDay=dates.map(d=>ciByDay[d]-coByDay[d]);
-  const gridColor='rgba(71,79,81,0.12)';
-  const axisColor='#7a8a8e';
-  const defaults={plugins:{legend:{labels:{color:axisColor,font:{family:'DM Mono',size:10}}}},scales:{x:{ticks:{color:axisColor,font:{family:'DM Mono',size:9}},grid:{color:gridColor}},y:{ticks:{color:axisColor,font:{family:'DM Mono',size:9}},grid:{color:gridColor}}}};
+  const gc='rgba(71,79,81,0.1)',ac='#7a8a8e';
+  const def={plugins:{legend:{labels:{color:ac,font:{family:'DM Mono',size:10}}}},scales:{x:{ticks:{color:ac,font:{family:'DM Mono',size:9}},grid:{color:gc}},y:{ticks:{color:ac,font:{family:'DM Mono',size:9}},grid:{color:gc}}}};
   if(cBar)cBar.destroy();
-  cBar=new Chart(document.getElementById('chartBar'),{type:'bar',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Cash-In',data:dates.map(d=>ciByDay[d]),backgroundColor:'rgba(46,125,50,0.6)',borderColor:'#2e7d32',borderWidth:1},{label:'Cashout',data:dates.map(d=>coByDay[d]),backgroundColor:'rgba(198,40,40,0.5)',borderColor:'#c62828',borderWidth:1}]},options:{...defaults,responsive:true}});
+  cBar=new Chart(document.getElementById('chartBar'),{type:'bar',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Cash-In',data:dates.map(d=>ciByDay[d]),backgroundColor:'rgba(46,125,50,0.55)',borderColor:'#2e7d32',borderWidth:1},{label:'Cashout',data:dates.map(d=>coByDay[d]),backgroundColor:'rgba(198,40,40,0.45)',borderColor:'#c62828',borderWidth:1}]},options:{...def,responsive:true}});
   const gameAmt={};ciS.forEach(t=>{gameAmt[t.game]=(gameAmt[t.game]||0)+t.amount;});
   const ge=Object.entries(gameAmt).sort((a,b)=>b[1]-a[1]);
-  const pal=['#3B4346','#ed391b','#546b76','#8a3a2e','#4a5568','#ce1a00','#2d3748','#9b2c2c','#5a6a6e','#742a2a'];
+  const pal=['#3B4346','#ed391b','#546b76','#8a3a2e','#4a5568','#ce1a00','#2d3748','#9b2c2c','#607d8b','#742a2a'];
   if(cPie)cPie.destroy();
-  cPie=new Chart(document.getElementById('chartPie'),{type:'doughnut',data:{labels:ge.map(([g])=>g),datasets:[{data:ge.map(([,v])=>v),backgroundColor:pal,borderColor:'#f7f7f7',borderWidth:2}]},options:{responsive:true,plugins:{legend:{labels:{color:axisColor,font:{family:'DM Mono',size:10}}}}}});
+  cPie=new Chart(document.getElementById('chartPie'),{type:'doughnut',data:{labels:ge.map(([g])=>g),datasets:[{data:ge.map(([,v])=>v),backgroundColor:pal,borderColor:'#f7f7f7',borderWidth:2}]},options:{responsive:true,plugins:{legend:{labels:{color:ac,font:{family:'DM Mono',size:10}}}}}});
   if(cLine)cLine.destroy();
-  cLine=new Chart(document.getElementById('chartLine'),{type:'line',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Net Holding',data:netByDay,borderColor:'#3B4346',backgroundColor:'rgba(59,67,70,0.08)',pointBackgroundColor:netByDay.map(v=>v>=0?'#2e7d32':'#c62828'),pointRadius:3,tension:0.3,fill:true}]},options:{...defaults,responsive:true}});
+  cLine=new Chart(document.getElementById('chartLine'),{type:'line',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Net Holding',data:netByDay,borderColor:'#3B4346',backgroundColor:'rgba(59,67,70,0.07)',pointBackgroundColor:netByDay.map(v=>v>=0?'#2e7d32':'#c62828'),pointRadius:3,tension:0.3,fill:true}]},options:{...def,responsive:true}});
 }
 
-// ── DAILY HOLDING ─────────────────────────────────────────────────────────────
 function renderHolding(){
   const group=document.getElementById('dhGroup').value,sel=document.getElementById('dhDate').value;
   const ci=(group?allTx.filter(t=>t.group===group):allTx).filter(r=>r.amount>0);
@@ -784,17 +560,13 @@ function renderHolding(){
   ci.forEach(t=>{daily[t.date]=daily[t.date]||{ci:0,co:0};daily[t.date].ci+=t.amount;});
   co.forEach(c=>{const d=c.created_at.substring(0,10);daily[d]=daily[d]||{ci:0,co:0};daily[d].co+=c.amount;});
   const sorted=Object.keys(daily).sort().reverse();
-  document.getElementById('dhTable').innerHTML=sorted.map(d=>{
-    const n=daily[d].ci-daily[d].co;
-    return`<tr style="cursor:pointer" onclick="selectDate('${d}')"><td class="val-mono">${d}</td><td class="val-green val-mono">$${daily[d].ci.toLocaleString()}</td><td class="val-red val-mono">$${daily[d].co.toLocaleString()}</td><td class="${n>=0?'val-green':'val-red'} val-mono">$${n.toLocaleString()}</td><td><span class="${n>=0?'profit-badge':'loss-badge'}">${n>=0?'PROFIT':'LOSS'}</span></td></tr>`;
-  }).join('');
+  document.getElementById('dhTable').innerHTML=sorted.map(d=>{const n=daily[d].ci-daily[d].co;return`<tr style="cursor:pointer" onclick="selectDate('${d}')"><td class="val-mono">${d}</td><td class="val-green val-mono">$${daily[d].ci.toLocaleString()}</td><td class="val-red val-mono">$${daily[d].co.toLocaleString()}</td><td class="${n>=0?'val-green':'val-red'} val-mono">$${n.toLocaleString()}</td><td><span class="${n>=0?'profit-badge':'loss-badge'}">${n>=0?'PROFIT':'LOSS'}</span></td></tr>`;}).join('');
   if(sel&&daily[sel])selectDate(sel,ciAll,co);
   else document.getElementById('dhDetail').style.display='none';
   window._dhCI=ciAll;window._dhCO=co;
 }
 function selectDate(d,ciAll,co){
-  const _ciAll=ciAll||window._dhCI,_co=co||window._dhCO;
-  if(!_ciAll)return;
+  const _ciAll=ciAll||window._dhCI,_co=co||window._dhCO;if(!_ciAll)return;
   document.getElementById('dhDate').value=d;
   const dayCi=_ciAll.filter(r=>r.amount>0&&r.date===d);
   const dayCiAll=_ciAll.filter(r=>r.date===d);
@@ -808,11 +580,10 @@ function selectDate(d,ciAll,co){
   const ne=document.getElementById('dhNet');ne.textContent=`$${net.toLocaleString()}`;ne.className=net>=0?'val-green':'val-red';ne.style.fontSize='1.5em';
   document.getElementById('dhStatus').innerHTML=net>=0?'<span class="profit-badge">PROFIT</span>':'<span class="loss-badge">LOSS</span>';
   const gp={};dayCiAll.forEach(r=>{if(!gp[r.game])gp[r.game]={amount:0,points:0};gp[r.game].amount+=r.amount;gp[r.game].points+=r.points;});
-  document.getElementById('dhGameTable').innerHTML=Object.entries(gp).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No cash-in data</td></tr>';
+  document.getElementById('dhGameTable').innerHTML=Object.entries(gp).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
   document.getElementById('dhDetail').style.display='block';
 }
 
-// ── resets ────────────────────────────────────────────────────────────────────
 function resetOv(){['ovStart','ovEnd','ovGroup','ovMonth'].forEach(id=>document.getElementById(id).value='');renderOverview();}
 function resetCI(){['ciStart','ciEnd','ciGroup'].forEach(id=>document.getElementById(id).value='');renderCashIn();}
 function resetCO(){['coStart','coEnd','coGroup'].forEach(id=>document.getElementById(id).value='');renderCashout();}
@@ -820,15 +591,11 @@ function resetGD(){['gdStart','gdEnd','gdGroup'].forEach(id=>document.getElement
 function resetCH(){document.getElementById('chGroup').value='';document.getElementById('chDays').value='30';renderCharts();}
 function resetDH(){['dhDate','dhGroup'].forEach(id=>document.getElementById(id).value='');renderHolding();}
 
-// ── exports ───────────────────────────────────────────────────────────────────
 function xls(data,name,sheet){const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,name);}
 function exportOverviewExcel(){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allTx),'Cash-In');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allCO),'Cashout');XLSX.writeFile(wb,'Payment_Tracker_Full.xlsx');}
 function exportRecent(){
   const ci=window._rCI||[],co=window._rCO||[];
-  const combined=[
-    ...ci.map(t=>({Type:'Cash-In',Date:t.date,Time:toAmPm(t.time),Employee:t.employee,Group:t.group,Game:t.game,Amount:t.amount,'Pts Spent':t.points,'Pts Redeemed':'-',Playback:'-','Net Redeemed':'-',Tip:'-',Notes:t.notes||''})),
-    ...co.map(c=>({Type:'Cashout',Date:c.created_at.substring(0,10),Time:isoAmPm(c.created_at),Employee:c.employee,Group:c.group,Game:c.game,Amount:c.amount,'Pts Spent':'-','Pts Redeemed':c.points,Playback:c.playback_id||0,'Net Redeemed':c.points-(parseFloat(c.playback_id)||0),Tip:c.tip,Notes:''}))
-  ].sort((a,b)=>(b.Date+b.Time).localeCompare(a.Date+a.Time));
+  const combined=[...ci.map(t=>({Type:'Cash-In',Date:t.date,Time:toAmPm(t.time),Employee:t.employee,Group:t.group,Game:t.game,Amount:t.amount,'Pts Spent':t.points,'Pts Redeemed':'-',Playback:'-','Net Redeemed':'-',Tip:'-',Notes:t.notes||''})),...co.map(c=>({Type:'Cashout',Date:c.created_at.substring(0,10),Time:isoAmPm(c.created_at),Employee:c.employee,Group:c.group,Game:c.game,Amount:c.amount,'Pts Spent':'-','Pts Redeemed':c.points,Playback:c.playback_id||0,'Net Redeemed':c.points-(parseFloat(c.playback_id)||0),Tip:c.tip,Notes:''}))].sort((a,b)=>(b.Date+b.Time).localeCompare(a.Date+a.Time));
   xls(combined,'Recent_Transactions.xlsx','Recent');
 }
 function exportCITable(){if(!window.lastCI?.length){alert('No data');return;}xls(window.lastCI.map(t=>({Date:t.date,Time:toAmPm(t.time),Employee:t.employee,Group:t.group,Game:t.game,Amount:t.amount,Points:t.points,Notes:t.notes||''})),'CashIn_Table.xlsx','Cash-In');}
@@ -844,14 +611,11 @@ function exportGameExcel(){
   XLSX.writeFile(wb,'Game_Distribution.xlsx');
 }
 function exportHoldingExcel(){
-  const d={};
-  allTx.filter(r=>r.amount>0).forEach(t=>{d[t.date]=d[t.date]||{Date:t.date,CashIn:0,Cashout:0};d[t.date].CashIn+=t.amount;});
-  allCO.forEach(c=>{const dt=c.created_at.substring(0,10);d[dt]=d[dt]||{Date:dt,CashIn:0,Cashout:0};d[dt].Cashout+=c.amount;});
+  const d={};allTx.filter(r=>r.amount>0).forEach(t=>{d[t.date]=d[t.date]||{Date:t.date,CashIn:0,Cashout:0};d[t.date].CashIn+=t.amount;});allCO.forEach(c=>{const dt=c.created_at.substring(0,10);d[dt]=d[dt]||{Date:dt,CashIn:0,Cashout:0};d[dt].Cashout+=c.amount;});
   xls(Object.values(d).map(x=>({...x,Net:x.CashIn-x.Cashout,Status:(x.CashIn-x.Cashout)>=0?'PROFIT':'LOSS'})),'Daily_Holding.xlsx','Holding');
 }
 
-fetchData();
-setInterval(fetchData,30000);
+fetchData();setInterval(fetchData,30000);
 </script>
 </body>
 </html>
