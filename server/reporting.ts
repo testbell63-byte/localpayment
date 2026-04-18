@@ -102,71 +102,83 @@ function tableDivider() {
   return "─".repeat(34);
 }
 
-// ─── Build snapshot text ──────────────────────────────────────────────────────
+// ─── Build snapshot text (simplified) ────────────────────────────────────────
 function buildSnapshot(dateStr: string, updatedTime: string): string {
-  const ciAll = getCashInRecordsAll().filter(r => r.date === dateStr);
-  const ci = getCashInRecords().filter(r => r.date === dateStr);
-  const co = getCashoutRecords().filter(r => r.created_at.startsWith(dateStr));
+  const ciAll  = getCashInRecordsAll();
+  const ci     = getCashInRecords();
+  const co     = getCashoutRecords();
 
-  // All unique groups from both
-  const allGroups = Array.from(new Set([
-    ...ciAll.map(r => r.group),
-    ...co.map(r => r.group),
+  // ── Today ──
+  const todayCiAmt = ci.filter(r => r.date === dateStr).reduce((s, r) => s + r.amount, 0);
+  const todayCoAmt = co.filter(r => r.created_at.startsWith(dateStr)).reduce((s, r) => s + r.amount, 0);
+  const todayNet   = todayCiAmt - todayCoAmt;
+
+  // ── This month ──
+  const monthStr   = dateStr.substring(0, 7);
+  const monthCiAmt = ci.filter(r => r.date.startsWith(monthStr)).reduce((s, r) => s + r.amount, 0);
+  const monthCoAmt = co.filter(r => r.created_at.startsWith(monthStr)).reduce((s, r) => s + r.amount, 0);
+  const monthNet   = monthCiAmt - monthCoAmt;
+
+  // ── Net points per game (spent - redeemed) ──
+  // Points spent: all cash-in rows (including $0 multi-game rows)
+  const ptsSpent: Record<string, number> = {};
+  ciAll.forEach(r => { ptsSpent[r.game] = (ptsSpent[r.game] || 0) + r.points; });
+
+  // Points redeemed: cashout rows
+  const ptsRedeemed: Record<string, number> = {};
+  co.forEach(r => {
+    const net = r.points - r.playback; // net redeemed = points minus playback
+    ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + net;
+  });
+
+  // All games across both
+  const allGames = Array.from(new Set([
+    ...Object.keys(ptsSpent),
+    ...Object.keys(ptsRedeemed),
   ])).filter(Boolean).sort();
 
-  const totalCiAmt = ci.reduce((s, r) => s + r.amount, 0);
-  const totalCoAmt = co.reduce((s, r) => s + r.amount, 0);
-  const totalNet = totalCiAmt - totalCoAmt;
+  const gameNetPts: Record<string, number> = {};
+  for (const game of allGames) {
+    const spent    = ptsSpent[game]    || 0;
+    const redeemed = ptsRedeemed[game] || 0;
+    gameNetPts[game] = spent - redeemed;
+  }
 
-  // Count unique "sessions" for cash-in (rows with amount > 0)
-  const totalCiTx = ci.length;
-  const totalCoTx = co.length;
+  // Sort games by absolute net descending
+  const sortedGames = Object.entries(gameNetPts).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
   let lines: string[] = [];
   lines.push(`📊 *Daily Snapshot — ${formatDate(dateStr)}*`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-  for (const group of allGroups) {
-    const groupCi = ci.filter(r => r.group === group);
-    const groupCiAll = ciAll.filter(r => r.group === group);
-    const groupCo = co.filter(r => r.group === group);
+  // Net cash today
+  const todaySign = todayNet >= 0 ? "+" : "";
+  lines.push(`💵 *Net Today:*   ${todaySign}$${todayNet.toLocaleString()}`);
+  lines.push(`   CI $${todayCiAmt.toLocaleString()} · CO $${todayCoAmt.toLocaleString()}`);
 
-    const gCiAmt = groupCi.reduce((s, r) => s + r.amount, 0);
-    const gCoAmt = groupCo.reduce((s, r) => s + r.amount, 0);
-    const gNet = gCiAmt - gCoAmt;
-    const gCiTx = groupCi.length;
-    const gCoTx = groupCo.length;
+  // Net cash this month
+  const monthSign = monthNet >= 0 ? "+" : "";
+  lines.push(`📅 *Net Month:*   ${monthSign}$${monthNet.toLocaleString()}`);
+  lines.push(`   CI $${monthCiAmt.toLocaleString()} · CO $${monthCoAmt.toLocaleString()}`);
 
-    lines.push(`📍 *${group}*`);
-    lines.push(
-      `💵 Cash-In:  $${gCiAmt.toLocaleString()} (${gCiTx} tx)   ` +
-      `💸 Cashout: $${gCoAmt.toLocaleString()} (${gCoTx} tx)`
-    );
-    lines.push(`📈 Net: $${gNet.toLocaleString()}`);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`🎯 *Net Points by Game* _(Spent − Redeemed)_`);
 
-    // Game breakdown for this group (cash-in, all rows for points)
-    const gameMap: Record<string, { amount: number; points: number }> = {};
-    for (const r of groupCiAll) {
-      if (!gameMap[r.game]) gameMap[r.game] = { amount: 0, points: 0 };
-      gameMap[r.game].amount += r.amount;
-      gameMap[r.game].points += r.points;
+  if (sortedGames.length > 0) {
+    lines.push(`\`\`\``);
+    lines.push(`${"Game".padEnd(16)}${"Net Pts".padStart(10)}`);
+    lines.push(`─`.repeat(26));
+    for (const [game, net] of sortedGames) {
+      const sign = net >= 0 ? "+" : "";
+      lines.push(`${game.padEnd(16)}${(sign + net.toLocaleString()).padStart(10)}`);
     }
-
-    const games = Object.entries(gameMap).sort((a, b) => b[1].amount - a[1].amount);
-    if (games.length > 0) {
-      lines.push(`\`\`\``);
-      lines.push(tableHeader());
-      lines.push(tableDivider());
-      for (const [game, data] of games) {
-        lines.push(tableRow(game, `$${data.amount.toLocaleString()}`, data.points.toLocaleString()));
-      }
-      lines.push(`\`\`\``);
-    }
-
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`\`\`\``);
+  } else {
+    lines.push(`_No data yet_`);
   }
 
-  lines.push(`🕐 Last updated: ${updatedTime}`);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`🕐 ${updatedTime}`);
 
   return lines.join("\n");
 }
@@ -398,4 +410,18 @@ export function registerReportCommands(bot: TelegramBot) {
   });
 
   console.log("✅ Report commands registered (/today, /month)");
+}
+
+// ─── Notify report group of a deletion & refresh snapshot ────────────────────
+export async function notifyDelete(bot: TelegramBot, type: "cashin" | "cashout", detail: string) {
+  const { date, time } = nowCST();
+  const label = type === "cashin" ? "💵 Cash-In" : "💸 Cashout";
+  try {
+    await bot.sendMessage(
+      REPORT_GROUP_ID,
+      `🗑️ *Record Deleted*\n${label} · ${detail}\n📅 ${date} · ${time}`,
+      { parse_mode: "Markdown" }
+    );
+  } catch (_) {}
+  await updateSnapshot(bot).catch(() => {});
 }
