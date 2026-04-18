@@ -26,7 +26,7 @@ function getCashInRecords() {
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: p[3] || "",
+    group: (p[3] || "").replace(/"/g, ""),
     employee: p[4] || "",
     amount: parseFloat(p[5]) || 0,
     game: p[6] || "",
@@ -40,7 +40,7 @@ function getCashInRecordsAll() {
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: p[3] || "",
+    group: (p[3] || "").replace(/"/g, ""),
     employee: p[4] || "",
     amount: parseFloat(p[5]) || 0,
     game: p[6] || "",
