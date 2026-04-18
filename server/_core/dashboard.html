@@ -2,636 +2,856 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Payment Tracker</title>
-  <!-- Playfair Display – free, elegant, luxury serif font -->
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Yanone+Kaffeesatz:wght@200;300;400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    /* Apply Playfair Display globally */
-    body, button, input, select, table, .tab-btn, .font-semibold, h1, h2, h3, h4, .text-sm, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl {
-      font-family: 'Playfair Display', 'Times New Roman', serif;
+    :root {
+      --bg:        #D4D9DD;
+      --bg-dark:   #3B4346;
+      --bg-dark2:  #353D40;
+      --bg-light:  #f7f7f7;
+      --border:    #272d30;
+      --border2:   #c0c5c8;
+      --red:       #ed391b;
+      --red2:      #ce1a00;
+      --text:      #474f51;
+      --text-dark: #c6c8c8;
+      --text-head: #ffffff;
+      --green:     #2e7d32;
+      --green-l:   #4caf50;
+      --loss:      #c62828;
+      --muted:     #7a8a8e;
+      --white:     #ffffff;
+      --shadow:    rgba(0,0,0,0.18);
     }
-    /* Keep numbers and data readable */
-    .font-mono, .tabular-nums {
-      font-family: 'Playfair Display', monospace;
+
+    *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Yanone Kaffeesatz', sans-serif;
+      font-size: 14pt;
+      font-weight: 300;
+      line-height: 1.75em;
+      min-height: 100vh;
     }
-    .custom-scroll::-webkit-scrollbar { width: 6px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
-    .tab-btn { cursor: pointer; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.2s; }
-    .tab-btn.active { background: #3b82f6; color: white; }
-    .tab-btn:not(.active) { background: #e5e7eb; color: #374151; }
-    .tab-btn:not(.active):hover { background: #d1d5db; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-dark); border-radius: 3px; }
+
+    /* ── HEADER ── */
+    #header {
+      background: var(--bg-dark);
+      border-bottom: solid 1px var(--border);
+      position: sticky; top: 0; z-index: 200;
+    }
+    #header .container {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    #header h1 {
+      color: var(--text-head);
+      font-size: 1.8em; font-weight: 400; letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    #header h1 span { color: var(--red); }
+    .live-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-dark);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 4px 12px; border-radius: 3px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4caf50;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── NAV ── */
+    #nav {
+      background: var(--bg-dark2);
+      border-bottom: solid 1px var(--border);
+      overflow-x: auto;
+    }
+    #nav .container {
+      max-width: 1200px; margin: 0 auto; padding: 0 20px;
+      display: flex; gap: 0;
+    }
+    .tab-btn {
+      color: var(--text-dark);
+      font-family: 'Yanone Kaffeesatz', sans-serif;
+      font-size: 1em; font-weight: 400;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 14px 22px;
+      border: none; background: none; cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--white); }
+    .tab-btn.active { color: var(--white); border-bottom-color: var(--red); }
+
+    /* ── MAIN ── */
+    #main { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
     .view-section { display: none; }
     .view-section.active { display: block; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      background: var(--white);
+      border: 1px solid var(--border2);
+      border-top: 3px solid var(--bg-dark);
+      border-radius: 2px;
+      padding: 16px 20px;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 6px var(--shadow);
+    }
+    .filter-bar label {
+      display: block;
+      font-size: 0.7rem; font-family: 'DM Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 3px;
+    }
+    .filter-bar input, .filter-bar select {
+      background: var(--bg-light);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      padding: 6px 12px; border-radius: 2px;
+      font-family: 'DM Mono', monospace; font-size: 0.8rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: var(--bg-dark); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 7px 18px; border-radius: 2px; border: none; cursor: pointer;
+      font-family: 'Yanone Kaffeesatz', sans-serif;
+      font-size: 1em; font-weight: 400; letter-spacing: 0.06em;
+      text-transform: uppercase; transition: all 0.15s;
+    }
+    .btn-red {
+      background: linear-gradient(to bottom, var(--red), var(--red2));
+      color: var(--white);
+    }
+    .btn-red:hover { background: linear-gradient(to bottom, #fd492b, var(--red)); }
+    .btn-dark { background: var(--bg-dark); color: var(--text-dark); }
+    .btn-dark:hover { background: var(--border); color: var(--white); }
+    .btn-ghost {
+      background: var(--bg-light); color: var(--muted);
+      border: 1px solid var(--border2);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--bg-dark); }
+    .btn-green-outline {
+      background: transparent; color: var(--green);
+      border: 1px solid var(--green);
+    }
+    .btn-green-outline:hover { background: var(--green); color: var(--white); }
+    .btn-today {
+      background: transparent; color: var(--red);
+      border: 1px solid var(--red); font-size: 0.85em;
+    }
+    .btn-today:hover { background: var(--red); color: var(--white); }
+
+    /* ── STAT CARDS ── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+      gap: 14px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--white);
+      border: 1px solid var(--border2);
+      border-top: 3px solid var(--bg-dark);
+      border-radius: 2px; padding: 16px 18px;
+      box-shadow: 0 2px 6px var(--shadow);
+    }
+    .stat-card .label {
+      font-size: 0.65rem; font-family: 'DM Mono', monospace;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .stat-card .value {
+      font-size: 1.9em; font-weight: 400; line-height: 1;
+      color: var(--text);
+    }
+    .stat-card .sub {
+      font-size: 0.7rem; font-family: 'DM Mono', monospace;
+      color: var(--muted); margin-top: 4px;
+    }
+    .val-green { color: var(--green) !important; }
+    .val-red   { color: var(--loss) !important; }
+    .val-mono  { font-family: 'DM Mono', monospace; font-size: 0.9em; }
+
+    /* ── PANELS (white boxes) ── */
+    .panel {
+      background: var(--white);
+      border: 1px solid var(--border2);
+      border-top: 3px solid var(--bg-dark);
+      border-radius: 2px;
+      box-shadow: 0 2px 6px var(--shadow);
+      margin-bottom: 24px; overflow: hidden;
+    }
+    .panel-header {
+      background: var(--bg-dark2);
+      padding: 10px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .panel-header span {
+      color: var(--text-dark);
+      font-size: 0.85em; font-weight: 400; letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .panel-body { padding: 18px; }
+    .panel-body-np { /* no padding */ }
+
+    /* ── LIST ITEMS ── */
+    .list-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 18px; border-bottom: 1px solid #eaeaea;
+      font-size: 0.9em;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item:hover { background: var(--bg); }
+    .list-scroll { max-height: 280px; overflow-y: auto; }
+
+    /* ── TABLES ── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    thead tr { background: var(--bg-dark2); }
+    th {
+      padding: 10px 14px; text-align: left;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-dark); white-space: nowrap;
+    }
+    td { padding: 9px 14px; border-bottom: 1px solid #eaeaea; white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--bg); }
+
+    /* ── BADGES ── */
+    .badge {
+      padding: 2px 8px; border-radius: 2px;
+      font-family: 'DM Mono', monospace; font-size: 0.6rem;
+      font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge-in  { background: #e8f5e9; color: var(--green); border: 1px solid #a5d6a7; }
+    .badge-out { background: #ffebee; color: var(--loss); border: 1px solid #ef9a9a; }
+    .profit-badge { background: #e8f5e9; color: var(--green); padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
+    .loss-badge   { background: #ffebee; color: var(--loss);  padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
+
+    /* ── GAME CARDS ── */
+    .game-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(110px,1fr)); gap: 10px; }
+    .game-card {
+      background: var(--bg-light);
+      border: 1px solid var(--border2);
+      border-top: 3px solid var(--red);
+      border-radius: 2px; padding: 12px 10px; text-align: center;
+    }
+    .game-card .gname { font-size: 0.65rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .game-card .gval  { font-size: 1.3em; font-weight: 400; color: var(--bg-dark); }
+    .game-card .gsub  { font-size: 0.65rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+
+    /* ── CHART PANELS ── */
+    .chart-panel {
+      background: var(--white);
+      border: 1px solid var(--border2);
+      border-top: 3px solid var(--red);
+      border-radius: 2px; padding: 20px;
+      box-shadow: 0 2px 6px var(--shadow);
+      margin-bottom: 24px;
+    }
+    .chart-label {
+      font-size: 0.75em; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex; justify-content: center; align-items: center; gap: 14px;
+      padding: 12px; border-top: 1px solid #eaeaea;
+    }
+    .pagination span { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+
+    /* ── DETAIL PANEL ── */
+    .detail-panel {
+      background: var(--bg-light);
+      border: 1px solid var(--border2);
+      border-left: 4px solid var(--red);
+      border-radius: 2px; padding: 16px 20px; margin-bottom: 24px;
+    }
+
+    /* ── GRID HELPERS ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+    .section-label {
+      font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); font-family: 'DM Mono', monospace;
+      margin-bottom: 10px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border2);
+    }
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      #main { padding: 16px; }
+      #header .container, #nav .container { padding: 0 14px; }
+    }
   </style>
 </head>
-<body class="bg-gray-50 p-4 md:p-6">
-  <div class="max-w-7xl mx-auto">
-    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">💰 Payment Tracker</h1>
+<body>
 
-    <!-- Navigation Tabs -->
-    <div class="flex flex-wrap gap-2 md:gap-3 mb-8">
-      <button class="tab-btn active" data-view="overview" onclick="switchView('overview', this)">📊 Overview</button>
-      <button class="tab-btn" data-view="cashin" onclick="switchView('cashin', this)">💵 Cash-In</button>
-      <button class="tab-btn" data-view="cashout" onclick="switchView('cashout', this)">💸 Cashout</button>
-      <button class="tab-btn" data-view="gameDistribution" onclick="switchView('gameDistribution', this)">🎮 Game Distribution</button>
-      <button class="tab-btn" data-view="dailyHolding" onclick="switchView('dailyHolding', this)">📅 Daily Holding</button>
+<!-- HEADER -->
+<div id="header">
+  <div class="container">
+    <h1>💰 <span>Payment</span> Tracker</h1>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      <span id="lastUpdatedTime">Loading...</span>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div id="nav">
+  <div class="container">
+    <button class="tab-btn active" onclick="switchView('overview',this)">📊 Overview</button>
+    <button class="tab-btn" onclick="switchView('cashin',this)">💵 Cash-In</button>
+    <button class="tab-btn" onclick="switchView('cashout',this)">💸 Cashout</button>
+    <button class="tab-btn" onclick="switchView('games',this)">🎮 Games</button>
+    <button class="tab-btn" onclick="switchView('charts',this)">📈 Charts</button>
+    <button class="tab-btn" onclick="switchView('holding',this)">📅 Daily Holding</button>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- ==================== OVERVIEW ==================== -->
+  <div id="view-overview" class="view-section active">
+
+    <div class="filter-bar">
+      <div><label>Group</label><select id="ovGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Start</label><input type="date" id="ovStart"></div>
+      <div><label>End</label><input type="date" id="ovEnd"></div>
+      <div><label>Month</label><select id="ovMonth"><option value="">All Months</option></select></div>
+      <button class="btn btn-today" onclick="setToday('ovStart','ovEnd',renderOverview)">Today</button>
+      <button class="btn btn-red" onclick="renderOverview()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetOv()">Reset</button>
+      <button class="btn btn-green-outline" onclick="exportOverviewExcel()" style="margin-left:auto">📥 Export All</button>
     </div>
 
-    <!-- ==================== OVERVIEW ==================== -->
-    <div id="view-overview" class="view-section active">
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end gap-4">
-          <div class="flex flex-wrap gap-4 items-end">
-            <h2 class="text-xl font-semibold">⚙️ Overview Filters</h2>
-            <div><label class="block text-sm font-medium">Group</label><select id="ovFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm font-medium">Start Date</label><input type="date" id="ovFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium">End Date</label><input type="date" id="ovFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm font-medium">Month</label><select id="ovFilterMonth" class="px-3 py-2 border rounded-lg"><option value="">All Months</option></select></div>
-            <button onclick="applyOverviewFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetOverviewFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
-          </div>
-          <button onclick="exportOverviewExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export All Data</button>
-        </div>
-      </div>
-
-      <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-8 rounded-3xl shadow text-white mb-6">
-        <h2 class="text-2xl font-semibold mb-6">📈 Summary</h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
-          <div><p class="text-blue-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ovTotalCashIn">$0.00</p></div>
-          <div><p class="text-blue-100 text-sm">Points Spent (Cash-In)</p><p class="text-3xl font-bold" id="ovTotalPointsUsed">0</p></div>
-          <div><p class="text-blue-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="ovTotalCashout">$0.00</p></div>
-          <div><p class="text-blue-100 text-sm">Points Redeemed (Cashout)</p><p class="text-3xl font-bold" id="ovTotalPointsRedeemed">0</p></div>
-          <div><p class="text-blue-100 text-sm">Net Points Spent</p><p class="text-3xl font-bold" id="ovNetPointsSpent">0</p></div>
-        </div>
-      </div>
-
-      <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-3xl shadow text-white mb-6">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div><p class="text-emerald-100 text-sm">Net (Cash-In - Cashout)</p><p class="text-4xl font-bold" id="ovNet">$0.00</p></div>
-          <div><p class="text-emerald-100 text-sm">Cash-In Transactions</p><p class="text-4xl font-bold" id="ovCiCount">0</p></div>
-          <div><p class="text-emerald-100 text-sm">Cashout Transactions</p><p class="text-4xl font-bold" id="ovCoCount">0</p></div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📅 Monthly Cash-In</h3><div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="ovMonthlyCashIn">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-xl font-semibold mb-4">📅 Monthly Cashout</h3><div class="space-y-3 max-h-64 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="ovMonthlyCashout">Loading...</div></div>
-      </div>
-
-      <div class="bg-white rounded-3xl shadow overflow-hidden mb-6">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold"><span>Recent Transactions (Newest First · 24h Time)</span><button onclick="exportRecentTransactions()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Recent</button></div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Type</th><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Net Point Spent</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th></tr></thead><tbody id="ovRecentTable"></tbody></table></div>
-        <div class="flex justify-center items-center px-8 py-4 border-t gap-4"><button onclick="loadMoreTransactions()" class="bg-blue-600 text-white px-6 py-2 rounded-lg" id="loadMoreBtn">📄 Load Earlier</button><span id="transactionPageInfo" class="text-gray-600">Showing 1-25</span></div>
-      </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Total Cash-In</div><div class="value val-green" id="ovCI">$0</div><div class="sub" id="ovCISub">0 sessions</div></div>
+      <div class="stat-card"><div class="label">Points Spent</div><div class="value" id="ovPtsSpent">0</div><div class="sub">cash-in pts</div></div>
+      <div class="stat-card"><div class="label">Total Cashout</div><div class="value val-red" id="ovCO">$0</div><div class="sub" id="ovCOSub">0 transactions</div></div>
+      <div class="stat-card"><div class="label">Pts Redeemed</div><div class="value" id="ovPtsRed">0</div><div class="sub">net redeemed</div></div>
+      <div class="stat-card"><div class="label">Net Holding</div><div class="value" id="ovNet">$0</div><div class="sub">CI minus CO</div></div>
+      <div class="stat-card"><div class="label">Net Pts Spent</div><div class="value" id="ovNetPts">0</div><div class="sub">spent minus redeemed</div></div>
     </div>
 
-    <!-- ==================== CASH-IN VIEW ==================== -->
-    <div id="view-cashin" class="view-section">
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end gap-4">
-          <div class="flex flex-wrap gap-4 items-end">
-            <h2 class="text-xl font-semibold">⚙️ Cash-In Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="ciFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="ciFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="ciFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyCashInFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetCashInFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
-          </div>
-          <button onclick="exportCashInExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Cash-In</button>
-        </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><span>📅 Monthly Cash-In</span></div>
+        <div class="list-scroll" id="ovMCI"><div class="list-item"><span style="color:var(--muted)">Loading...</span></div></div>
       </div>
-
-      <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-8 rounded-3xl shadow text-white mb-6">
-        <h2 class="text-2xl font-semibold mb-6">💵 Cash-In Summary</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div><p class="text-green-100 text-sm">Total Cash-In</p><p class="text-3xl font-bold" id="ciTotalAmount">$0.00</p></div>
-          <div><p class="text-green-100 text-sm">Total Points Used</p><p class="text-3xl font-bold" id="ciTotalPoints">0</p></div>
-          <div><p class="text-green-100 text-sm">Transaction Count</p><p class="text-3xl font-bold" id="ciCount">0</p></div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashIn">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cash-In</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashIn">Loading...</div></div>
-      </div>
-
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h3 class="text-xl font-semibold mb-4">🎮 Points Used by Game</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="ciGameBreakdown">Loading...</div>
-      </div>
-
-      <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
-          <span>Cash-In Transactions (Newest First · 24h Time)</span>
-          <button onclick="exportCashInTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
-        </div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="ciTable"></tbody></table></div>
+      <div class="panel">
+        <div class="panel-header"><span>📅 Monthly Cashout</span></div>
+        <div class="list-scroll" id="ovMCO"><div class="list-item"><span style="color:var(--muted)">Loading...</span></div></div>
       </div>
     </div>
 
-    <!-- ==================== CASHOUT VIEW ==================== -->
-    <div id="view-cashout" class="view-section">
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end gap-4">
-          <div class="flex flex-wrap gap-4 items-end">
-            <h2 class="text-xl font-semibold">⚙️ Cashout Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="coFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="coFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="coFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyCashoutFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetCashoutFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
-          </div>
-          <button onclick="exportCashoutExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Cashout</button>
-        </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span>Recent Transactions — Newest First</span>
+        <button class="btn btn-green-outline" onclick="exportRecent()" style="font-size:0.75em;padding:4px 10px">📥 Export</button>
       </div>
-
-      <div class="bg-gradient-to-r from-red-500 to-rose-600 p-8 rounded-3xl shadow text-white mb-6">
-        <h2 class="text-2xl font-semibold mb-6">💸 Cashout Summary</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div><p class="text-red-100 text-sm">Total Cashout</p><p class="text-3xl font-bold" id="coTotalAmount">$0.00</p></div>
-          <div><p class="text-red-100 text-sm">Total Points Redeemed (Net)</p><p class="text-3xl font-bold" id="coTotalPoints">0</p></div>
-          <div><p class="text-red-100 text-sm">Transaction Count</p><p class="text-3xl font-bold" id="coCount">0</p></div>
-        </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Pts Spent</th><th>Pts Redeemed</th><th>Playback</th><th>Net Redeemed</th><th>Tip</th><th>Notes</th></tr></thead>
+          <tbody id="ovTable"></tbody>
+        </table>
       </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📅 Daily Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="dailyCashout">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">📊 Monthly Cashout</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="monthlyCashout">Loading...</div></div>
+      <div class="pagination">
+        <button class="btn btn-ghost" id="loadMoreBtn" onclick="loadMore()" style="font-size:0.8em">Load Earlier</button>
+        <span id="pageInfo"></span>
       </div>
-
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <h3 class="text-xl font-semibold mb-4">🎮 Points Redeemed by Game (Net)</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="coGameBreakdown">Loading...</div>
-      </div>
-
-      <div class="bg-white rounded-3xl shadow overflow-hidden">
-        <div class="flex justify-between items-center px-8 py-5 border-b font-semibold">
-          <span>Cashout Transactions (Newest First · 24h Time)</span>
-          <button onclick="exportCashoutTransactionsTable()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📥 Export Table</button>
-        </div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Time (24h)</th><th>Employee</th><th>Group</th><th>Game</th><th>Point Redeemed</th><th>Playback</th><th>Net Point Redeemed</th><th>Tip</th><th>Cashout</th></tr></thead><tbody id="coTable"></tbody></table></div>
-      </div>
-    </div>
-
-    <!-- ==================== GAME DISTRIBUTION ==================== -->
-    <div id="view-gameDistribution" class="view-section">
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end gap-4">
-          <div class="flex flex-wrap gap-4 items-end">
-            <h2 class="text-xl font-semibold">⚙️ Game Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="gdFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Start Date</label><input type="date" id="gdFilterStart" class="px-3 py-2 border rounded-lg"></div>
-            <div><label class="block text-sm">End Date</label><input type="date" id="gdFilterEnd" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyGameFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetGameFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
-          </div>
-          <button onclick="exportGameExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Game Data</button>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cash-In Points by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="gdCashInGames">Loading...</div></div>
-        <div class="bg-white p-6 rounded-3xl shadow"><h3 class="text-2xl font-semibold mb-4">🎮 Cashout Points Redeemed by Game</h3><div class="space-y-3 max-h-96 overflow-y-auto custom-scroll border-2 rounded-2xl p-4" id="gdCashoutGames">Loading...</div></div>
-      </div>
-    </div>
-
-    <!-- ==================== DAILY HOLDING ==================== -->
-    <div id="view-dailyHolding" class="view-section">
-      <div class="bg-white p-6 rounded-3xl shadow mb-6">
-        <div class="flex flex-wrap justify-between items-end gap-4">
-          <div class="flex flex-wrap gap-4 items-end">
-            <h2 class="text-xl font-semibold">⚙️ Holding Filters</h2>
-            <div><label class="block text-sm">Group</label><select id="dhFilterGroup" class="px-3 py-2 border rounded-lg group-select"><option value="">All Groups</option></select></div>
-            <div><label class="block text-sm">Select Date</label><input type="date" id="dhFilterDate" class="px-3 py-2 border rounded-lg"></div>
-            <button onclick="applyHoldingFilter()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Apply</button>
-            <button onclick="resetHoldingFilter()" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg">Reset</button>
-          </div>
-          <button onclick="exportHoldingExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg">📥 Export Holding</button>
-        </div>
-      </div>
-      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-3xl shadow text-white mb-6"><h2 class="text-2xl font-semibold mb-6" id="dhSelectedDate">📅 Select a date</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-6"><div><p class="text-indigo-100 text-sm">Cash-In</p><p class="text-3xl font-bold" id="dhCashIn">$0.00</p></div><div><p class="text-indigo-100 text-sm">Cashout</p><p class="text-3xl font-bold" id="dhCashout">$0.00</p></div><div><p class="text-indigo-100 text-sm">Net Holding</p><p class="text-3xl font-bold" id="dhNet">$0.00</p></div><div><p class="text-indigo-100 text-sm">Status</p><p class="text-3xl font-bold" id="dhStatus">-</p></div></div></div>
-      <div class="bg-white rounded-3xl shadow overflow-hidden"><div class="px-8 py-5 border-b font-semibold">Daily Holding History (Newest First)</div><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead><tbody id="dhTable"></tbody></table></div></div>
     </div>
   </div>
 
-  <script>
-    let allTransactions = [];
-    let allCashouts = [];
-    let recentTransactionPage = 0;
-    const TRANSACTIONS_PER_PAGE = 25;
+  <!-- ==================== CASH-IN ==================== -->
+  <div id="view-cashin" class="view-section">
+    <div class="filter-bar">
+      <div><label>Group</label><select id="ciGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Start</label><input type="date" id="ciStart"></div>
+      <div><label>End</label><input type="date" id="ciEnd"></div>
+      <button class="btn btn-today" onclick="setToday('ciStart','ciEnd',renderCashIn)">Today</button>
+      <button class="btn btn-red" onclick="renderCashIn()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetCI()">Reset</button>
+      <button class="btn btn-green-outline" onclick="exportCashInExcel()" style="margin-left:auto">📥 Export</button>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="label">Total Cash-In</div><div class="value val-green" id="ciAmt">$0</div></div>
+      <div class="stat-card"><div class="label">Total Points</div><div class="value" id="ciPts">0</div></div>
+      <div class="stat-card"><div class="label">Sessions</div><div class="value" id="ciCount">0</div><div class="sub" id="ciRowSub"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><span>📅 Daily Cash-In</span></div>
+        <div class="list-scroll" id="ciDaily"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>📊 Monthly Cash-In</span></div>
+        <div class="list-scroll" id="ciMonthly"></div>
+      </div>
+    </div>
+    <div class="section-label">Points by Game</div>
+    <div class="game-grid" id="ciGames" style="margin-bottom:24px"></div>
+    <div class="panel">
+      <div class="panel-header">
+        <span>Cash-In Transactions — Newest First</span>
+        <button class="btn btn-green-outline" onclick="exportCITable()" style="font-size:0.75em;padding:4px 10px">📥 Export Table</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Amount</th><th>Points</th><th>Notes</th></tr></thead>
+          <tbody id="ciTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-    function convertTo24Hour(timeStr) {
-      if (!timeStr) return '--:--';
-      if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
-      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?$/i);
-      if (match) {
-        let hour = parseInt(match[1], 10);
-        const minute = match[2];
-        let modifier = (match[3] || '').toLowerCase();
-        if (modifier.includes('pm') && hour !== 12) hour += 12;
-        if (modifier.includes('am') && hour === 12) hour = 0;
-        return `${hour.toString().padStart(2, '0')}:${minute}`;
-      }
-      const fallback = timeStr.match(/(\d{1,2}):(\d{2})/);
-      if (fallback) {
-        let hour = parseInt(fallback[1], 10);
-        const minute = fallback[2];
-        if (hour < 24) return `${hour.toString().padStart(2, '0')}:${minute}`;
-      }
-      return timeStr;
-    }
+  <!-- ==================== CASHOUT ==================== -->
+  <div id="view-cashout" class="view-section">
+    <div class="filter-bar">
+      <div><label>Group</label><select id="coGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Start</label><input type="date" id="coStart"></div>
+      <div><label>End</label><input type="date" id="coEnd"></div>
+      <button class="btn btn-today" onclick="setToday('coStart','coEnd',renderCashout)">Today</button>
+      <button class="btn btn-red" onclick="renderCashout()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetCO()">Reset</button>
+      <button class="btn btn-green-outline" onclick="exportCashoutExcel()" style="margin-left:auto">📥 Export</button>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="label">Total Cashout</div><div class="value val-red" id="coAmt">$0</div></div>
+      <div class="stat-card"><div class="label">Net Pts Redeemed</div><div class="value" id="coPts">0</div></div>
+      <div class="stat-card"><div class="label">Transactions</div><div class="value" id="coCount">0</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><span>📅 Daily Cashout</span></div>
+        <div class="list-scroll" id="coDaily"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>📊 Monthly Cashout</span></div>
+        <div class="list-scroll" id="coMonthly"></div>
+      </div>
+    </div>
+    <div class="section-label">Points Redeemed by Game (Net)</div>
+    <div class="game-grid" id="coGames" style="margin-bottom:24px"></div>
+    <div class="panel">
+      <div class="panel-header">
+        <span>Cashout Transactions — Newest First</span>
+        <button class="btn btn-green-outline" onclick="exportCOTable()" style="font-size:0.75em;padding:4px 10px">📥 Export Table</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Group</th><th>Game</th><th>Pts Redeemed</th><th>Playback</th><th>Net Pts</th><th>Tip</th><th>Cashout</th></tr></thead>
+          <tbody id="coTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-    function getCashoutTime24(isoString) {
-      if (!isoString) return '--:--';
-      const timePart = isoString.substring(11, 16);
-      if (/^\d{2}:\d{2}$/.test(timePart)) return timePart;
-      return convertTo24Hour(timePart);
-    }
-
-    async function fetchData() {
-      try {
-        const [res1, res2] = await Promise.all([fetch('/api/transactions'), fetch('/api/cashout-transactions')]);
-        const data1 = await res1.json();
-        const data2 = await res2.json();
-        allTransactions = data1.transactions || [];
-        allCashouts = data2.cashoutTransactions || [];
-        populateGroupFilters();
-        populateMonthFilter();
-        renderAll();
-      } catch (e) { console.error("Fetch error:", e); }
-    }
-
-    function populateGroupFilters() {
-      const groups = new Set();
-      allTransactions.forEach(t => groups.add(t.group));
-      allCashouts.forEach(c => groups.add(c.group));
-      const sortedGroups = Array.from(groups).sort();
-      document.querySelectorAll('.group-select').forEach(select => {
-        const currentVal = select.value;
-        select.innerHTML = '<option value="">All Groups</option>';
-        sortedGroups.forEach(g => { if(g) select.innerHTML += `<option value="${g}">${g}</option>`; });
-        select.value = currentVal;
-      });
-    }
-
-    function populateMonthFilter() {
-      const months = new Set();
-      allTransactions.forEach(t => { if(t.date) months.add(t.date.substring(0, 7)); });
-      allCashouts.forEach(c => { if(c.created_at) months.add(c.created_at.substring(0, 7)); });
-      const sortedMonths = Array.from(months).sort().reverse();
-      const select = document.getElementById('ovFilterMonth');
-      if(select) {
-        select.innerHTML = '<option value="">All Months</option>';
-        sortedMonths.forEach(m => {
-          const [y, mon] = m.split('-');
-          const name = new Date(y, mon-1).toLocaleString('default', { month: 'long', year: 'numeric' });
-          select.innerHTML += `<option value="${m}">${name}</option>`;
-        });
-      }
-    }
-
-    function switchView(viewId, btn) {
-      document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-      document.getElementById(`view-${viewId}`).classList.add('active');
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderAll();
-    }
-
-    function filterData(data, start, end, group, month, dateField) {
-      return data.filter(item => {
-        const d = item[dateField] ? item[dateField].substring(0, 10) : "";
-        if (start && d < start) return false;
-        if (end && d > end) return false;
-        if (group && item.group !== group) return false;
-        if (month && (!d || !d.startsWith(month))) return false;
-        return true;
-      });
-    }
-
-    function renderAll() {
-      renderOverview();
-      renderCashIn();
-      renderCashout();
-      renderGameDistribution();
-      renderDailyHolding();
-    }
-
-    // --- OVERVIEW ---
-    function renderOverview() {
-      recentTransactionPage = 0;
-      const start = document.getElementById('ovFilterStart').value;
-      const end = document.getElementById('ovFilterEnd').value;
-      const group = document.getElementById('ovFilterGroup').value;
-      const month = document.getElementById('ovFilterMonth').value;
-
-      const ci = filterData(allTransactions, start, end, group, month, 'date');
-      const co = filterData(allCashouts, start, end, group, month, 'created_at');
-
-      const totalCi = ci.reduce((s, t) => s + t.amount, 0);
-      const totalPointsUsed = ci.reduce((s, t) => s + t.points, 0);
-      const totalCo = co.reduce((s, t) => s + t.amount, 0);
-      const totalPointsRedeemed = co.reduce((s, t) => s + (t.points - (parseFloat(t.playback_id) || 0)), 0);
-      const netPointsDifference = totalPointsUsed - totalPointsRedeemed;
-
-      document.getElementById('ovTotalCashIn').innerText = `$${totalCi.toLocaleString()}`;
-      document.getElementById('ovTotalPointsUsed').innerText = totalPointsUsed;
-      document.getElementById('ovTotalCashout').innerText = `$${totalCo.toLocaleString()}`;
-      document.getElementById('ovTotalPointsRedeemed').innerText = totalPointsRedeemed;
-      document.getElementById('ovNet').innerText = `$${(totalCi - totalCo).toLocaleString()}`;
-      document.getElementById('ovCiCount').innerText = ci.length;
-      document.getElementById('ovCoCount').innerText = co.length;
-      document.getElementById('ovNetPointsSpent').innerText = netPointsDifference;
-
-      const mCi = {}, mCo = {};
-      ci.forEach(t => { const m = t.date.substring(0, 7); mCi[m] = (mCi[m] || 0) + t.amount; });
-      co.forEach(t => { const m = t.created_at.substring(0, 7); mCo[m] = (mCo[m] || 0) + t.amount; });
-      
-      const renderM = (obj, el) => {
-        const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.length ? sorted.map(m => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${m}</span><span class="font-bold">$${obj[m].toLocaleString()}</span></div>`).join('') : 'No data';
-      };
-      renderM(mCi, 'ovMonthlyCashIn');
-      renderM(mCo, 'ovMonthlyCashout');
-
-      renderRecentTransactions(ci, co);
-    }
-
-    function renderRecentTransactions(ci, co) {
-      const combined = [
-        ...ci.map(t => ({ ...t, type: 'Cash-In', sortDate: t.date + ' ' + t.time, pointSpent: t.points, rawTime: t.time })),
-        ...co.map(c => ({ ...c, type: 'Cashout', sortDate: c.created_at, date: c.created_at.substring(0, 10), rawTime: c.created_at, pointSpent: null }))
-      ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
-
-      const start = recentTransactionPage * TRANSACTIONS_PER_PAGE;
-      const end = start + TRANSACTIONS_PER_PAGE;
-      const page = combined.slice(start, end);
-
-      document.getElementById('ovRecentTable').innerHTML = page.map(r => {
-        let displayTime = (r.type === 'Cash-In') ? convertTo24Hour(r.rawTime) : getCashoutTime24(r.rawTime);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${r.type==='Cash-In'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="px-4 py-3">${r.date}</td><td class="px-4 py-3 font-mono">${displayTime}</td><td class="px-4 py-3">${r.employee}</td><td class="px-4 py-3">${r.group}</td><td class="px-4 py-3">${r.game}</td><td class="px-4 py-3 font-bold">$${r.amount.toLocaleString()}</td><td class="px-4 py-3">${r.pointSpent !== null ? r.pointSpent : '-'}</td><td class="px-4 py-3">${r.type === 'Cashout' ? r.points : '-'}</td><td class="px-4 py-3">${r.playback_id || '-'}</td><td class="px-4 py-3">${r.type === 'Cashout' ? (r.points - (parseFloat(r.playback_id)||0)) : '-'}</td><td class="px-4 py-3">${r.tip ? '$'+r.tip : '-'}</td></tr>`;
-      }).join('');
-
-      const total = combined.length;
-      document.getElementById('transactionPageInfo').innerText = `Showing ${start+1}-${Math.min(end,total)} of ${total}`;
-      document.getElementById('loadMoreBtn').style.display = end >= total ? 'none' : 'block';
-    }
-
-    function loadMoreTransactions() {
-      recentTransactionPage++;
-      const start = document.getElementById('ovFilterStart').value;
-      const end = document.getElementById('ovFilterEnd').value;
-      const group = document.getElementById('ovFilterGroup').value;
-      const month = document.getElementById('ovFilterMonth').value;
-      const ci = filterData(allTransactions, start, end, group, month, 'date');
-      const co = filterData(allCashouts, start, end, group, month, 'created_at');
-      renderRecentTransactions(ci, co);
-    }
-
-    // --- CASH-IN ---
-    function renderCashIn() {
-      const start = document.getElementById('ciFilterStart').value;
-      const end = document.getElementById('ciFilterEnd').value;
-      const group = document.getElementById('ciFilterGroup').value;
-      let ci = filterData(allTransactions, start, end, group, null, 'date').sort((a,b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
-
-      const totalAmount = ci.reduce((s, t) => s + t.amount, 0);
-      const totalPoints = ci.reduce((s, t) => s + t.points, 0);
-      document.getElementById('ciTotalAmount').innerText = `$${totalAmount.toLocaleString()}`;
-      document.getElementById('ciTotalPoints').innerText = totalPoints;
-      document.getElementById('ciCount').innerText = ci.length;
-
-      const dailyAmount = {}, monthlyAmount = {};
-      ci.forEach(t => {
-        dailyAmount[t.date] = (dailyAmount[t.date] || 0) + t.amount;
-        const m = t.date.substring(0, 7);
-        monthlyAmount[m] = (monthlyAmount[m] || 0) + t.amount;
-      });
-      const renderList = (obj, el) => {
-        const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${k}</span><span class="font-bold text-green-600">$${obj[k].toLocaleString()}</span></div>`).join('');
-      };
-      renderList(dailyAmount, 'dailyCashIn');
-      renderList(monthlyAmount, 'monthlyCashIn');
-
-      const gamePoints = {};
-      ci.forEach(t => { gamePoints[t.game] = (gamePoints[t.game] || 0) + t.points; });
-      document.getElementById('ciGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
-        <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-          <p class="text-xs text-gray-500 uppercase font-bold">${g}</p>
-          <p class="text-lg font-bold text-green-600">${gamePoints[g].toLocaleString()}</p>
+  <!-- ==================== GAMES ==================== -->
+  <div id="view-games" class="view-section">
+    <div class="filter-bar">
+      <div><label>Group</label><select id="gdGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Start</label><input type="date" id="gdStart"></div>
+      <div><label>End</label><input type="date" id="gdEnd"></div>
+      <button class="btn btn-red" onclick="renderGames()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetGD()">Reset</button>
+      <button class="btn btn-green-outline" onclick="exportGameExcel()" style="margin-left:auto">📥 Export</button>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="section-label">Cash-In by Game</div>
+        <div class="panel">
+          <div class="tbl-wrap">
+            <table><thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead><tbody id="gdCITable"></tbody></table>
+          </div>
         </div>
-      `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
-
-      window.lastFilteredCashIn = ci;
-
-      document.getElementById('ciTable').innerHTML = ci.map(t => {
-        const time24 = convertTo24Hour(t.time);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${t.date}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${t.employee}</td><td class="px-4 py-3">${t.group}</td><td class="px-4 py-3">${t.game}</td><td class="px-4 py-3 font-bold text-green-600">$${t.amount.toLocaleString()}</td><td class="px-4 py-3">${t.points.toLocaleString()}</td></tr>`;
-      }).join('');
-    }
-
-    // --- CASHOUT ---
-    function renderCashout() {
-      const start = document.getElementById('coFilterStart').value;
-      const end = document.getElementById('coFilterEnd').value;
-      const group = document.getElementById('coFilterGroup').value;
-      let co = filterData(allCashouts, start, end, group, null, 'created_at').sort((a,b) => b.created_at.localeCompare(a.created_at));
-
-      const totalAmount = co.reduce((s, c) => s + c.amount, 0);
-      const totalPoints = co.reduce((s, c) => s + (c.points - (parseFloat(c.playback_id) || 0)), 0);
-      document.getElementById('coTotalAmount').innerText = `$${totalAmount.toLocaleString()}`;
-      document.getElementById('coTotalPoints').innerText = totalPoints;
-      document.getElementById('coCount').innerText = co.length;
-
-      const dailyAmount = {}, monthlyAmount = {};
-      co.forEach(c => {
-        const d = c.created_at.substring(0, 10);
-        dailyAmount[d] = (dailyAmount[d] || 0) + c.amount;
-        const m = d.substring(0, 7);
-        monthlyAmount[m] = (monthlyAmount[m] || 0) + c.amount;
-      });
-      const renderList = (obj, el) => {
-        const sorted = Object.keys(obj).sort().reverse();
-        document.getElementById(el).innerHTML = sorted.map(k => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${k}</span><span class="font-bold text-red-600">$${obj[k].toLocaleString()}</span></div>`).join('');
-      };
-      renderList(dailyAmount, 'dailyCashout');
-      renderList(monthlyAmount, 'monthlyCashout');
-
-      const gamePoints = {};
-      co.forEach(c => {
-        const net = c.points - (parseFloat(c.playback_id) || 0);
-        gamePoints[c.game] = (gamePoints[c.game] || 0) + net;
-      });
-      document.getElementById('coGameBreakdown').innerHTML = Object.keys(gamePoints).map(g => `
-        <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-          <p class="text-xs text-gray-500 uppercase font-bold">${g}</p>
-          <p class="text-lg font-bold text-red-600">${gamePoints[g].toLocaleString()}</p>
+      </div>
+      <div>
+        <div class="section-label">Cashout by Game (Net Pts)</div>
+        <div class="panel">
+          <div class="tbl-wrap">
+            <table><thead><tr><th>Game</th><th>Net Pts Redeemed</th></tr></thead><tbody id="gdCOTable"></tbody></table>
+          </div>
         </div>
-      `).join('') || '<div class="col-span-full text-gray-500">No data</div>';
+      </div>
+    </div>
+  </div>
 
-      window.lastFilteredCashout = co;
+  <!-- ==================== CHARTS ==================== -->
+  <div id="view-charts" class="view-section">
+    <div class="filter-bar">
+      <div><label>Group</label><select id="chGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Period</label>
+        <select id="chDays">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+      <button class="btn btn-red" onclick="renderCharts()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetCH()">Reset</button>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-label">Daily Cash-In vs Cashout</div>
+      <canvas id="chartBar" height="80"></canvas>
+    </div>
+    <div class="grid-2">
+      <div class="chart-panel">
+        <div class="chart-label">Cash-In by Game</div>
+        <canvas id="chartPie" height="200"></canvas>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-label">Net Holding Trend</div>
+        <canvas id="chartLine" height="200"></canvas>
+      </div>
+    </div>
+  </div>
 
-      document.getElementById('coTable').innerHTML = co.map(c => {
-        const net = c.points - (parseFloat(c.playback_id) || 0);
-        const time24 = getCashoutTime24(c.created_at);
-        return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-3">${c.created_at.substring(0,10)}</td><td class="px-4 py-3 font-mono">${time24}</td><td class="px-4 py-3">${c.employee}</td><td class="px-4 py-3">${c.group}</td><td class="px-4 py-3">${c.game}</td><td class="px-4 py-3">${c.points.toLocaleString()}</td><td class="px-4 py-3">${c.playback_id || '0'}</td><td class="px-4 py-3 font-bold text-orange-600">${net.toLocaleString()}</td><td class="px-4 py-3">$${c.tip}</td><td class="px-4 py-3 font-bold text-red-600">$${c.amount.toLocaleString()}</td></tr>`;
-      }).join('');
-    }
+  <!-- ==================== DAILY HOLDING ==================== -->
+  <div id="view-holding" class="view-section">
+    <div class="filter-bar">
+      <div><label>Group</label><select id="dhGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Date</label><input type="date" id="dhDate"></div>
+      <button class="btn btn-today" onclick="setDhToday()">Today</button>
+      <button class="btn btn-red" onclick="renderHolding()">Apply</button>
+      <button class="btn btn-ghost" onclick="resetDH()">Reset</button>
+      <button class="btn btn-green-outline" onclick="exportHoldingExcel()" style="margin-left:auto">📥 Export</button>
+    </div>
 
-    // --- Export functions for tables ---
-    function exportCashInTransactionsTable() {
-      if (!window.lastFilteredCashIn || window.lastFilteredCashIn.length === 0) {
-        alert("No data to export.");
-        return;
-      }
-      const data = window.lastFilteredCashIn.map(t => ({
-        Date: t.date,
-        "Time (24h)": convertTo24Hour(t.time),
-        Employee: t.employee,
-        Group: t.group,
-        Game: t.game,
-        Amount: t.amount,
-        Points: t.points
-      }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cash-In Transactions");
-      XLSX.writeFile(wb, `CashIn_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
-    }
+    <div id="dhDetail" style="display:none" class="detail-panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+        <div style="font-size:1.1em;font-weight:400;letter-spacing:0.06em;text-transform:uppercase;color:var(--bg-dark)" id="dhSelDate">—</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cash-In</div><div class="val-green" style="font-size:1.5em" id="dhCI">$0</div></div>
+          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Cashout</div><div class="val-red" style="font-size:1.5em" id="dhCO">$0</div></div>
+          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Net</div><div style="font-size:1.5em" id="dhNet">$0</div></div>
+          <div><div style="font-size:0.65rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Status</div><div style="margin-top:4px" id="dhStatus">—</div></div>
+        </div>
+      </div>
+      <div class="section-label" style="margin-bottom:10px">Game Breakdown</div>
+      <div class="tbl-wrap">
+        <table style="font-size:0.82em">
+          <thead><tr><th>Game</th><th>Amount</th><th>Points</th></tr></thead>
+          <tbody id="dhGameTable"></tbody>
+        </table>
+      </div>
+    </div>
 
-    function exportCashoutTransactionsTable() {
-      if (!window.lastFilteredCashout || window.lastFilteredCashout.length === 0) {
-        alert("No data to export.");
-        return;
-      }
-      const data = window.lastFilteredCashout.map(c => ({
-        Date: c.created_at.substring(0,10),
-        "Time (24h)": getCashoutTime24(c.created_at),
-        Employee: c.employee,
-        Group: c.group,
-        Game: c.game,
-        "Point Redeemed": c.points,
-        Playback: c.playback_id || 0,
-        "Net Point Redeemed": c.points - (parseFloat(c.playback_id) || 0),
-        Tip: c.tip,
-        Cashout: c.amount
-      }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Cashout Transactions");
-      XLSX.writeFile(wb, `Cashout_Transactions_${new Date().toISOString().slice(0,19)}.xlsx`);
-    }
+    <div class="panel">
+      <div class="panel-header"><span>Daily Holding History — Newest First</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Cash-In</th><th>Cashout</th><th>Net Holding</th><th>Status</th></tr></thead>
+          <tbody id="dhTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-    // --- GAME DISTRIBUTION ---
-    function renderGameDistribution() {
-      const start = document.getElementById('gdFilterStart').value;
-      const end = document.getElementById('gdFilterEnd').value;
-      const group = document.getElementById('gdFilterGroup').value;
-      const ci = filterData(allTransactions, start, end, group, null, 'date');
-      const co = filterData(allCashouts, start, end, group, null, 'created_at');
+</div><!-- end main -->
 
-      const ciGames = {}, coGames = {};
-      ci.forEach(t => { ciGames[t.game] = (ciGames[t.game] || 0) + t.points; });
-      co.forEach(c => { const net = c.points - (parseFloat(c.playback_id) || 0); coGames[c.game] = (coGames[c.game] || 0) + net; });
+<script>
+let allTx=[], allCO=[], recentPage=0;
+const PER=25;
+let cBar=null,cPie=null,cLine=null;
 
-      const renderG = (obj, el, color) => {
-        const sorted = Object.keys(obj).sort((a,b) => obj[b] - obj[a]);
-        document.getElementById(el).innerHTML = sorted.map(g => `<div class="flex justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"><span>${g}</span><span class="font-bold ${color}">${obj[g].toLocaleString()}</span></div>`).join('');
-      };
-      renderG(ciGames, 'gdCashInGames', 'text-blue-600');
-      renderG(coGames, 'gdCashoutGames', 'text-red-600');
-    }
+// ── time helpers ──────────────────────────────────────────────────────────────
+function toAmPm(t){
+  if(!t)return'--';
+  if(/\d{1,2}:\d{2}\s*(AM|PM)/i.test(t))return t.trim();
+  const m=t.match(/^(\d{1,2}):(\d{2})/);
+  if(m){let h=parseInt(m[1]),min=m[2],s=h>=12?'PM':'AM';if(h===0)h=12;else if(h>12)h-=12;return`${h}:${min} ${s}`;}
+  return t;
+}
+function isoAmPm(iso){if(!iso)return'--';return toAmPm(iso.substring(11,16));}
+function ciSortKey(t){
+  const d=t.date||'',ts=t.time||'';
+  const ap=ts.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if(ap){let h=parseInt(ap[1]),min=ap[2],s=ap[3].toUpperCase();if(s==='PM'&&h!==12)h+=12;if(s==='AM'&&h===12)h=0;return`${d} ${h.toString().padStart(2,'0')}:${min}`;}
+  return`${d} ${ts}`;
+}
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function setToday(s,e,fn){const t=todayStr();document.getElementById(s).value=t;document.getElementById(e).value=t;fn();}
+function setDhToday(){document.getElementById('dhDate').value=todayStr();renderHolding();}
 
-    // --- DAILY HOLDING ---
-    function renderDailyHolding() {
-      const group = document.getElementById('dhFilterGroup').value;
-      const selDate = document.getElementById('dhFilterDate').value;
-      const ci = group ? allTransactions.filter(t => t.group === group) : allTransactions;
-      const co = group ? allCashouts.filter(c => c.group === group) : allCashouts;
-      const daily = {};
-      ci.forEach(t => { daily[t.date] = daily[t.date] || { ci: 0, co: 0 }; daily[t.date].ci += t.amount; });
-      co.forEach(c => { const d = c.created_at.substring(0,10); daily[d] = daily[d] || { ci: 0, co: 0 }; daily[d].co += c.amount; });
-      const sorted = Object.keys(daily).sort().reverse();
-      document.getElementById('dhTable').innerHTML = sorted.map(d => {
-        const net = daily[d].ci - daily[d].co;
-        return `<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="document.getElementById('dhFilterDate').value='${d}'; applyHoldingFilter();"><td class="px-4 py-3">${d}</td><td class="text-green-600 font-bold">$${daily[d].ci.toLocaleString()}</td><td class="text-red-600 font-bold">$${daily[d].co.toLocaleString()}</td><td class="font-bold ${net>=0?'text-emerald-600':'text-rose-600'}">$${net.toLocaleString()}</td><td><span class="px-2 py-1 rounded text-xs font-bold ${net>=0?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${net>=0?'PROFIT':'LOSS'}</span></td></tr>`;
-      }).join('');
-      if (selDate && daily[selDate]) {
-        const d = daily[selDate]; const net = d.ci - d.co;
-        document.getElementById('dhSelectedDate').innerText = `📅 ${selDate}`;
-        document.getElementById('dhCashIn').innerText = `$${d.ci.toLocaleString()}`;
-        document.getElementById('dhCashout').innerText = `$${d.co.toLocaleString()}`;
-        document.getElementById('dhNet').innerText = `$${net.toLocaleString()}`;
-        document.getElementById('dhStatus').innerText = net >= 0 ? '✅ Profit' : '❌ Loss';
-      } else {
-        document.getElementById('dhSelectedDate').innerText = selDate ? `📅 No data for ${selDate}` : '📅 Select a date';
-        document.getElementById('dhCashIn').innerText = '$0.00';
-        document.getElementById('dhCashout').innerText = '$0.00';
-        document.getElementById('dhNet').innerText = '$0.00';
-        document.getElementById('dhStatus').innerText = '-';
-      }
-    }
+// ── fetch ─────────────────────────────────────────────────────────────────────
+async function fetchData(){
+  try{
+    const[r1,r2]=await Promise.all([fetch('/api/transactions'),fetch('/api/cashout-transactions')]);
+    const d1=await r1.json(),d2=await r2.json();
+    allTx=d1.transactions||[];allCO=d2.cashoutTransactions||[];
+    populateGroups();populateMonths();renderAll();
+    document.getElementById('lastUpdatedTime').textContent='Updated '+toAmPm(new Date().toTimeString().substring(0,5));
+  }catch(e){console.error(e);}
+}
 
-    // --- FILTERS & EXPORTS ---
-    function applyOverviewFilter() { renderOverview(); }
-    function resetOverviewFilter() { document.getElementById('ovFilterStart').value=''; document.getElementById('ovFilterEnd').value=''; document.getElementById('ovFilterGroup').value=''; document.getElementById('ovFilterMonth').value=''; renderOverview(); }
-    function applyCashInFilter() { renderCashIn(); }
-    function resetCashInFilter() { document.getElementById('ciFilterStart').value=''; document.getElementById('ciFilterEnd').value=''; document.getElementById('ciFilterGroup').value=''; renderCashIn(); }
-    function applyCashoutFilter() { renderCashout(); }
-    function resetCashoutFilter() { document.getElementById('coFilterStart').value=''; document.getElementById('coFilterEnd').value=''; document.getElementById('coFilterGroup').value=''; renderCashout(); }
-    function applyGameFilter() { renderGameDistribution(); }
-    function resetGameFilter() { document.getElementById('gdFilterStart').value=''; document.getElementById('gdFilterEnd').value=''; document.getElementById('gdFilterGroup').value=''; renderGameDistribution(); }
-    function applyHoldingFilter() { renderDailyHolding(); }
-    function resetHoldingFilter() { document.getElementById('dhFilterDate').value=''; document.getElementById('dhFilterGroup').value=''; renderDailyHolding(); }
+function populateGroups(){
+  const g=new Set();allTx.forEach(t=>g.add(t.group));allCO.forEach(c=>g.add(c.group));
+  const sorted=[...g].filter(Boolean).sort();
+  document.querySelectorAll('.group-select').forEach(sel=>{
+    const v=sel.value;sel.innerHTML='<option value="">All Groups</option>';
+    sorted.forEach(x=>sel.innerHTML+=`<option value="${x}">${x}</option>`);sel.value=v;
+  });
+}
+function populateMonths(){
+  const m=new Set();
+  allTx.forEach(t=>{if(t.date)m.add(t.date.substring(0,7));});
+  allCO.forEach(c=>{if(c.created_at)m.add(c.created_at.substring(0,7));});
+  const sel=document.getElementById('ovMonth');
+  sel.innerHTML='<option value="">All Months</option>';
+  [...m].sort().reverse().forEach(x=>{
+    const[y,mo]=x.split('-');
+    sel.innerHTML+=`<option value="${x}">${new Date(y,mo-1).toLocaleString('default',{month:'long',year:'numeric'})}</option>`;
+  });
+}
+function switchView(id,btn){
+  document.querySelectorAll('.view-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(id==='charts')renderCharts();
+}
+function flt(data,start,end,group,month,df){
+  return data.filter(item=>{
+    const d=item[df]?item[df].substring(0,10):'';
+    if(start&&d<start)return false;if(end&&d>end)return false;
+    if(group&&item.group!==group)return false;
+    if(month&&!d.startsWith(month))return false;
+    return true;
+  });
+}
+function renderAll(){renderOverview();renderCashIn();renderCashout();renderGames();renderHolding();}
 
-    function exportToExcel(data, filename, sheetName) {
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      XLSX.writeFile(wb, filename);
-    }
-    function exportOverviewExcel() {
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allTransactions), "Cash-In");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allCashouts), "Cashout");
-      XLSX.writeFile(wb, "Payment_Tracker_Full_Export.xlsx");
-    }
-    function exportRecentTransactions() {
-      const start = document.getElementById('ovFilterStart').value, end = document.getElementById('ovFilterEnd').value, group = document.getElementById('ovFilterGroup').value, month = document.getElementById('ovFilterMonth').value;
-      const ci = filterData(allTransactions, start, end, group, month, 'date');
-      const co = filterData(allCashouts, start, end, group, month, 'created_at');
-      const combined = [
-        ...ci.map(t => ({ Type: 'Cash-In', Date: t.date, Time: t.time, Employee: t.employee, Group: t.group, Game: t.game, Amount: t.amount, 'Net Point Spent': t.points, 'Point Redeemed': '-', Playback: '-', 'Net Point Redeemed': '-', Tip: '-' })),
-        ...co.map(c => ({ Type: 'Cashout', Date: c.created_at.substring(0,10), Time: c.created_at.substring(11,16), Employee: c.employee, Group: c.group, Game: c.game, Amount: c.amount, 'Net Point Spent': '-', 'Point Redeemed': c.points, Playback: c.playback_id || 0, 'Net Point Redeemed': c.points - (parseFloat(c.playback_id)||0), Tip: c.tip }))
-      ].sort((a,b) => (b.Date+' '+b.Time).localeCompare(a.Date+' '+a.Time));
-      exportToExcel(combined, "Recent_Transactions_Export.xlsx", "Recent");
-    }
-    function exportCashInExcel() { exportToExcel(allTransactions, "CashIn_Export.xlsx", "Cash-In"); }
-    function exportCashoutExcel() { exportToExcel(allCashouts, "Cashout_Export.xlsx", "Cashout"); }
-    function exportGameExcel() {
-      const ci = allTransactions.map(t => ({ Game: t.game, Points: t.points, Date: t.date }));
-      const co = allCashouts.map(c => ({ Game: c.game, NetRedeem: c.points - (parseFloat(c.playback_id)||0), Date: c.created_at }));
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ci), "Cash-In Games");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(co), "Cashout Games");
-      XLSX.writeFile(wb, "Game_Distribution_Export.xlsx");
-    }
-    function exportHoldingExcel() {
-      const daily = {};
-      allTransactions.forEach(t => { daily[t.date] = daily[t.date] || { Date: t.date, CashIn: 0, Cashout: 0 }; daily[t.date].CashIn += t.amount; });
-      allCashouts.forEach(c => { const d = c.created_at.substring(0,10); daily[d] = daily[d] || { Date: d, CashIn: 0, Cashout: 0 }; daily[d].Cashout += c.amount; });
-      const data = Object.values(daily).map(d => ({ ...d, Net: d.CashIn - d.Cashout, Status: (d.CashIn - d.Cashout) >= 0 ? 'PROFIT' : 'LOSS' }));
-      exportToExcel(data, "Daily_Holding_Export.xlsx", "Holding");
-    }
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+function renderOverview(){
+  recentPage=0;
+  const start=document.getElementById('ovStart').value,end=document.getElementById('ovEnd').value;
+  const group=document.getElementById('ovGroup').value,month=document.getElementById('ovMonth').value;
+  const ciAll=flt(allTx,start,end,group,month,'date');
+  const ci=ciAll.filter(r=>r.amount!==0&&r.amount>0); // sessions (positive only for amount stats)
+  const co=flt(allCO,start,end,group,month,'created_at');
+  const tci=ci.reduce((s,t)=>s+t.amount,0);
+  const tpi=ciAll.reduce((s,t)=>s+t.points,0);
+  const tco=co.reduce((s,c)=>s+c.amount,0);
+  const tpr=co.reduce((s,c)=>s+(c.points-(parseFloat(c.playback_id)||0)),0);
+  const net=tci-tco;
+  document.getElementById('ovCI').textContent=`$${tci.toLocaleString()}`;
+  document.getElementById('ovCISub').textContent=`${ci.length} sessions`;
+  document.getElementById('ovPtsSpent').textContent=tpi.toLocaleString();
+  document.getElementById('ovCO').textContent=`$${tco.toLocaleString()}`;
+  document.getElementById('ovCOSub').textContent=`${co.length} transactions`;
+  document.getElementById('ovPtsRed').textContent=tpr.toLocaleString();
+  const netEl=document.getElementById('ovNet');
+  netEl.textContent=`$${net.toLocaleString()}`;
+  netEl.className='value '+(net>=0?'val-green':'val-red');
+  document.getElementById('ovNetPts').textContent=(tpi-tpr).toLocaleString();
+  const mci={},mco={};
+  ci.forEach(t=>{const m=t.date.substring(0,7);mci[m]=(mci[m]||0)+t.amount;});
+  co.forEach(c=>{const m=c.created_at.substring(0,7);mco[m]=(mco[m]||0)+c.amount;});
+  const renderM=(obj,el,cls)=>{
+    const s=Object.keys(obj).sort().reverse();
+    document.getElementById(el).innerHTML=s.length?s.map(m=>`<div class="list-item"><span>${m}</span><span class="val-mono ${cls}">$${obj[m].toLocaleString()}</span></div>`).join(''):'<div class="list-item"><span style="color:var(--muted)">No data</span></div>';
+  };
+  renderM(mci,'ovMCI','val-green');renderM(mco,'ovMCO','val-red');
+  renderRecent(ciAll,co);
+}
+function renderRecent(ciAll,co){
+  const combined=[
+    ...ciAll.map(t=>({...t,_type:'Cash-In',_sk:ciSortKey(t)})),
+    ...co.map(c=>({...c,_type:'Cashout',_sk:c.created_at||''}))
+  ].sort((a,b)=>b._sk.localeCompare(a._sk));
+  const s=recentPage*PER,e=s+PER,page=combined.slice(s,e);
+  document.getElementById('ovTable').innerHTML=page.map(r=>{
+    const dt=r._type==='Cash-In'?toAmPm(r.time):isoAmPm(r.created_at);
+    const date=r._type==='Cash-In'?r.date:(r.created_at||'').substring(0,10);
+    const badge=r._type==='Cash-In'?'<span class="badge badge-in">IN</span>':'<span class="badge badge-out">OUT</span>';
+    return`<tr><td>${badge}</td><td class="val-mono">${date}</td><td class="val-mono">${dt}</td><td>${r.employee}</td><td>${r.group}</td><td>${r.game}</td><td class="${r._type==='Cash-In'?'val-green':'val-red'} val-mono">$${r.amount.toLocaleString()}</td><td class="val-mono">${r._type==='Cash-In'?r.points:'-'}</td><td class="val-mono">${r._type==='Cashout'?r.points:'-'}</td><td class="val-mono">${r.playback_id||'-'}</td><td class="val-mono">${r._type==='Cashout'?(r.points-(parseFloat(r.playback_id)||0)):'-'}</td><td class="val-mono">${r.tip?'$'+r.tip:'-'}</td><td style="color:var(--muted);font-size:0.8em">${r.notes||'-'}</td></tr>`;
+  }).join('');
+  document.getElementById('pageInfo').textContent=`${s+1}–${Math.min(e,combined.length)} of ${combined.length}`;
+  document.getElementById('loadMoreBtn').style.display=e>=combined.length?'none':'inline-block';
+  window._rCI=ciAll;window._rCO=co;
+}
+function loadMore(){recentPage++;renderRecent(window._rCI,window._rCO);}
 
-    fetchData();
-    setInterval(fetchData, 30000);
-  </script>
+// ── CASH-IN ───────────────────────────────────────────────────────────────────
+function renderCashIn(){
+  const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=document.getElementById('ciGroup').value;
+  const ciAll=flt(allTx,start,end,group,null,'date').sort((a,b)=>ciSortKey(b).localeCompare(ciSortKey(a)));
+  const ci=ciAll.filter(r=>r.amount>0);
+  document.getElementById('ciAmt').textContent=`$${ci.reduce((s,t)=>s+t.amount,0).toLocaleString()}`;
+  document.getElementById('ciPts').textContent=ciAll.reduce((s,t)=>s+t.points,0).toLocaleString();
+  document.getElementById('ciCount').textContent=ci.length;
+  document.getElementById('ciRowSub').textContent=`${ciAll.length} game rows total`;
+  const da={},ma={};
+  ci.forEach(t=>{da[t.date]=(da[t.date]||0)+t.amount;const m=t.date.substring(0,7);ma[m]=(ma[m]||0)+t.amount;});
+  const rl=(obj,el,cls)=>{const s=Object.keys(obj).sort().reverse();document.getElementById(el).innerHTML=s.map(k=>`<div class="list-item"><span>${k}</span><span class="val-mono ${cls}">$${obj[k].toLocaleString()}</span></div>`).join('');};
+  rl(da,'ciDaily','val-green');rl(ma,'ciMonthly','val-green');
+  const gp={};ciAll.forEach(t=>{gp[t.game]=(gp[t.game]||0)+t.points;});
+  document.getElementById('ciGames').innerHTML=Object.entries(gp).sort((a,b)=>b[1]-a[1]).map(([g,p])=>`<div class="game-card"><div class="gname">${g}</div><div class="gval">${p.toLocaleString()}</div><div class="gsub">pts</div></div>`).join('')||'<div style="color:var(--muted)">No data</div>';
+  window.lastCI=ciAll;
+  document.getElementById('ciTable').innerHTML=ciAll.map(t=>`<tr><td class="val-mono">${t.date}</td><td class="val-mono">${toAmPm(t.time)}</td><td>${t.employee}</td><td>${t.group}</td><td>${t.game}</td><td class="val-green val-mono">$${t.amount.toLocaleString()}</td><td class="val-mono">${t.points.toLocaleString()}</td><td style="color:var(--muted);font-size:0.8em">${t.notes||''}</td></tr>`).join('');
+}
+
+// ── CASHOUT ───────────────────────────────────────────────────────────────────
+function renderCashout(){
+  const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=document.getElementById('coGroup').value;
+  const co=flt(allCO,start,end,group,null,'created_at').sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  document.getElementById('coAmt').textContent=`$${co.reduce((s,c)=>s+c.amount,0).toLocaleString()}`;
+  document.getElementById('coPts').textContent=co.reduce((s,c)=>s+(c.points-(parseFloat(c.playback_id)||0)),0).toLocaleString();
+  document.getElementById('coCount').textContent=co.length;
+  const da={},ma={};
+  co.forEach(c=>{const d=c.created_at.substring(0,10);da[d]=(da[d]||0)+c.amount;const m=d.substring(0,7);ma[m]=(ma[m]||0)+c.amount;});
+  const rl=(obj,el,cls)=>{const s=Object.keys(obj).sort().reverse();document.getElementById(el).innerHTML=s.map(k=>`<div class="list-item"><span>${k}</span><span class="val-mono ${cls}">$${obj[k].toLocaleString()}</span></div>`).join('');};
+  rl(da,'coDaily','val-red');rl(ma,'coMonthly','val-red');
+  const gp={};co.forEach(c=>{const n=c.points-(parseFloat(c.playback_id)||0);gp[c.game]=(gp[c.game]||0)+n;});
+  document.getElementById('coGames').innerHTML=Object.entries(gp).sort((a,b)=>b[1]-a[1]).map(([g,p])=>`<div class="game-card"><div class="gname">${g}</div><div class="gval val-red">${p.toLocaleString()}</div><div class="gsub">net pts</div></div>`).join('')||'<div style="color:var(--muted)">No data</div>';
+  window.lastCO=co;
+  document.getElementById('coTable').innerHTML=co.map(c=>{const n=c.points-(parseFloat(c.playback_id)||0);return`<tr><td class="val-mono">${c.created_at.substring(0,10)}</td><td class="val-mono">${isoAmPm(c.created_at)}</td><td>${c.employee}</td><td>${c.group}</td><td>${c.game}</td><td class="val-mono">${c.points.toLocaleString()}</td><td class="val-mono">${c.playback_id||'0'}</td><td class="val-mono" style="color:#b45309">${n.toLocaleString()}</td><td class="val-mono">$${c.tip}</td><td class="val-red val-mono">$${c.amount.toLocaleString()}</td></tr>`;}).join('');
+}
+
+// ── GAMES ─────────────────────────────────────────────────────────────────────
+function renderGames(){
+  const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=document.getElementById('gdGroup').value;
+  const ciAll=flt(allTx,start,end,group,null,'date');
+  const co=flt(allCO,start,end,group,null,'created_at');
+  const ciG={};ciAll.forEach(t=>{if(!ciG[t.game])ciG[t.game]={amount:0,points:0};ciG[t.game].amount+=t.amount;ciG[t.game].points+=t.points;});
+  document.getElementById('gdCITable').innerHTML=Object.entries(ciG).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
+  const coG={};co.forEach(c=>{const n=c.points-(parseFloat(c.playback_id)||0);coG[c.game]=(coG[c.game]||0)+n;});
+  document.getElementById('gdCOTable').innerHTML=Object.entries(coG).sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<tr><td>${g}</td><td class="val-red val-mono">${n.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="2" style="color:var(--muted)">No data</td></tr>';
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+function renderCharts(){
+  const group=document.getElementById('chGroup').value;
+  const days=parseInt(document.getElementById('chDays').value);
+  const today=new Date();const dates=[];
+  for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().split('T')[0]);}
+  const ci=group?allTx.filter(t=>t.group===group):allTx;
+  const co=group?allCO.filter(c=>c.group===group):allCO;
+  const ciS=ci.filter(r=>r.amount>0);
+  const ciByDay={},coByDay={};
+  dates.forEach(d=>{ciByDay[d]=0;coByDay[d]=0;});
+  ciS.forEach(t=>{if(ciByDay[t.date]!==undefined)ciByDay[t.date]+=t.amount;});
+  co.forEach(c=>{const d=c.created_at.substring(0,10);if(coByDay[d]!==undefined)coByDay[d]+=c.amount;});
+  const netByDay=dates.map(d=>ciByDay[d]-coByDay[d]);
+  const gridColor='rgba(71,79,81,0.12)';
+  const axisColor='#7a8a8e';
+  const defaults={plugins:{legend:{labels:{color:axisColor,font:{family:'DM Mono',size:10}}}},scales:{x:{ticks:{color:axisColor,font:{family:'DM Mono',size:9}},grid:{color:gridColor}},y:{ticks:{color:axisColor,font:{family:'DM Mono',size:9}},grid:{color:gridColor}}}};
+  if(cBar)cBar.destroy();
+  cBar=new Chart(document.getElementById('chartBar'),{type:'bar',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Cash-In',data:dates.map(d=>ciByDay[d]),backgroundColor:'rgba(46,125,50,0.6)',borderColor:'#2e7d32',borderWidth:1},{label:'Cashout',data:dates.map(d=>coByDay[d]),backgroundColor:'rgba(198,40,40,0.5)',borderColor:'#c62828',borderWidth:1}]},options:{...defaults,responsive:true}});
+  const gameAmt={};ciS.forEach(t=>{gameAmt[t.game]=(gameAmt[t.game]||0)+t.amount;});
+  const ge=Object.entries(gameAmt).sort((a,b)=>b[1]-a[1]);
+  const pal=['#3B4346','#ed391b','#546b76','#8a3a2e','#4a5568','#ce1a00','#2d3748','#9b2c2c','#5a6a6e','#742a2a'];
+  if(cPie)cPie.destroy();
+  cPie=new Chart(document.getElementById('chartPie'),{type:'doughnut',data:{labels:ge.map(([g])=>g),datasets:[{data:ge.map(([,v])=>v),backgroundColor:pal,borderColor:'#f7f7f7',borderWidth:2}]},options:{responsive:true,plugins:{legend:{labels:{color:axisColor,font:{family:'DM Mono',size:10}}}}}});
+  if(cLine)cLine.destroy();
+  cLine=new Chart(document.getElementById('chartLine'),{type:'line',data:{labels:dates.map(d=>d.substring(5)),datasets:[{label:'Net Holding',data:netByDay,borderColor:'#3B4346',backgroundColor:'rgba(59,67,70,0.08)',pointBackgroundColor:netByDay.map(v=>v>=0?'#2e7d32':'#c62828'),pointRadius:3,tension:0.3,fill:true}]},options:{...defaults,responsive:true}});
+}
+
+// ── DAILY HOLDING ─────────────────────────────────────────────────────────────
+function renderHolding(){
+  const group=document.getElementById('dhGroup').value,sel=document.getElementById('dhDate').value;
+  const ci=(group?allTx.filter(t=>t.group===group):allTx).filter(r=>r.amount>0);
+  const ciAll=group?allTx.filter(t=>t.group===group):allTx;
+  const co=group?allCO.filter(c=>c.group===group):allCO;
+  const daily={};
+  ci.forEach(t=>{daily[t.date]=daily[t.date]||{ci:0,co:0};daily[t.date].ci+=t.amount;});
+  co.forEach(c=>{const d=c.created_at.substring(0,10);daily[d]=daily[d]||{ci:0,co:0};daily[d].co+=c.amount;});
+  const sorted=Object.keys(daily).sort().reverse();
+  document.getElementById('dhTable').innerHTML=sorted.map(d=>{
+    const n=daily[d].ci-daily[d].co;
+    return`<tr style="cursor:pointer" onclick="selectDate('${d}')"><td class="val-mono">${d}</td><td class="val-green val-mono">$${daily[d].ci.toLocaleString()}</td><td class="val-red val-mono">$${daily[d].co.toLocaleString()}</td><td class="${n>=0?'val-green':'val-red'} val-mono">$${n.toLocaleString()}</td><td><span class="${n>=0?'profit-badge':'loss-badge'}">${n>=0?'PROFIT':'LOSS'}</span></td></tr>`;
+  }).join('');
+  if(sel&&daily[sel])selectDate(sel,ciAll,co);
+  else document.getElementById('dhDetail').style.display='none';
+  window._dhCI=ciAll;window._dhCO=co;
+}
+function selectDate(d,ciAll,co){
+  const _ciAll=ciAll||window._dhCI,_co=co||window._dhCO;
+  if(!_ciAll)return;
+  document.getElementById('dhDate').value=d;
+  const dayCi=_ciAll.filter(r=>r.amount>0&&r.date===d);
+  const dayCiAll=_ciAll.filter(r=>r.date===d);
+  const dayCo=_co.filter(c=>c.created_at.startsWith(d));
+  const ciAmt=dayCi.reduce((s,r)=>s+r.amount,0);
+  const coAmt=dayCo.reduce((s,r)=>s+r.amount,0);
+  const net=ciAmt-coAmt;
+  document.getElementById('dhSelDate').textContent=d;
+  document.getElementById('dhCI').textContent=`$${ciAmt.toLocaleString()}`;
+  document.getElementById('dhCO').textContent=`$${coAmt.toLocaleString()}`;
+  const ne=document.getElementById('dhNet');ne.textContent=`$${net.toLocaleString()}`;ne.className=net>=0?'val-green':'val-red';ne.style.fontSize='1.5em';
+  document.getElementById('dhStatus').innerHTML=net>=0?'<span class="profit-badge">PROFIT</span>':'<span class="loss-badge">LOSS</span>';
+  const gp={};dayCiAll.forEach(r=>{if(!gp[r.game])gp[r.game]={amount:0,points:0};gp[r.game].amount+=r.amount;gp[r.game].points+=r.points;});
+  document.getElementById('dhGameTable').innerHTML=Object.entries(gp).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No cash-in data</td></tr>';
+  document.getElementById('dhDetail').style.display='block';
+}
+
+// ── resets ────────────────────────────────────────────────────────────────────
+function resetOv(){['ovStart','ovEnd','ovGroup','ovMonth'].forEach(id=>document.getElementById(id).value='');renderOverview();}
+function resetCI(){['ciStart','ciEnd','ciGroup'].forEach(id=>document.getElementById(id).value='');renderCashIn();}
+function resetCO(){['coStart','coEnd','coGroup'].forEach(id=>document.getElementById(id).value='');renderCashout();}
+function resetGD(){['gdStart','gdEnd','gdGroup'].forEach(id=>document.getElementById(id).value='');renderGames();}
+function resetCH(){document.getElementById('chGroup').value='';document.getElementById('chDays').value='30';renderCharts();}
+function resetDH(){['dhDate','dhGroup'].forEach(id=>document.getElementById(id).value='');renderHolding();}
+
+// ── exports ───────────────────────────────────────────────────────────────────
+function xls(data,name,sheet){const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,name);}
+function exportOverviewExcel(){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allTx),'Cash-In');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allCO),'Cashout');XLSX.writeFile(wb,'Payment_Tracker_Full.xlsx');}
+function exportRecent(){
+  const ci=window._rCI||[],co=window._rCO||[];
+  const combined=[
+    ...ci.map(t=>({Type:'Cash-In',Date:t.date,Time:toAmPm(t.time),Employee:t.employee,Group:t.group,Game:t.game,Amount:t.amount,'Pts Spent':t.points,'Pts Redeemed':'-',Playback:'-','Net Redeemed':'-',Tip:'-',Notes:t.notes||''})),
+    ...co.map(c=>({Type:'Cashout',Date:c.created_at.substring(0,10),Time:isoAmPm(c.created_at),Employee:c.employee,Group:c.group,Game:c.game,Amount:c.amount,'Pts Spent':'-','Pts Redeemed':c.points,Playback:c.playback_id||0,'Net Redeemed':c.points-(parseFloat(c.playback_id)||0),Tip:c.tip,Notes:''}))
+  ].sort((a,b)=>(b.Date+b.Time).localeCompare(a.Date+a.Time));
+  xls(combined,'Recent_Transactions.xlsx','Recent');
+}
+function exportCITable(){if(!window.lastCI?.length){alert('No data');return;}xls(window.lastCI.map(t=>({Date:t.date,Time:toAmPm(t.time),Employee:t.employee,Group:t.group,Game:t.game,Amount:t.amount,Points:t.points,Notes:t.notes||''})),'CashIn_Table.xlsx','Cash-In');}
+function exportCOTable(){if(!window.lastCO?.length){alert('No data');return;}xls(window.lastCO.map(c=>({Date:c.created_at.substring(0,10),Time:isoAmPm(c.created_at),Employee:c.employee,Group:c.group,Game:c.game,'Pts Redeemed':c.points,Playback:c.playback_id||0,'Net Pts':c.points-(parseFloat(c.playback_id)||0),Tip:c.tip,Cashout:c.amount})),'Cashout_Table.xlsx','Cashout');}
+function exportCashInExcel(){xls(allTx,'CashIn_Export.xlsx','Cash-In');}
+function exportCashoutExcel(){xls(allCO,'Cashout_Export.xlsx','Cashout');}
+function exportGameExcel(){
+  const wb=XLSX.utils.book_new();
+  const ciG={};allTx.forEach(t=>{if(!ciG[t.game])ciG[t.game]={Game:t.game,Amount:0,Points:0};ciG[t.game].Amount+=t.amount;ciG[t.game].Points+=t.points;});
+  const coG={};allCO.forEach(c=>{const n=c.points-(parseFloat(c.playback_id)||0);coG[c.game]=(coG[c.game]||0)+n;});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(Object.values(ciG)),'CI Games');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(Object.entries(coG).map(([g,n])=>({Game:g,'Net Pts Redeemed':n}))),'CO Games');
+  XLSX.writeFile(wb,'Game_Distribution.xlsx');
+}
+function exportHoldingExcel(){
+  const d={};
+  allTx.filter(r=>r.amount>0).forEach(t=>{d[t.date]=d[t.date]||{Date:t.date,CashIn:0,Cashout:0};d[t.date].CashIn+=t.amount;});
+  allCO.forEach(c=>{const dt=c.created_at.substring(0,10);d[dt]=d[dt]||{Date:dt,CashIn:0,Cashout:0};d[dt].Cashout+=c.amount;});
+  xls(Object.values(d).map(x=>({...x,Net:x.CashIn-x.Cashout,Status:(x.CashIn-x.Cashout)>=0?'PROFIT':'LOSS'})),'Daily_Holding.xlsx','Holding');
+}
+
+fetchData();
+setInterval(fetchData,30000);
+</script>
 </body>
 </html>
