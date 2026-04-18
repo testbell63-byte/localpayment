@@ -955,6 +955,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     if (match) {
       removeCashoutRecord(match[0]);
       await bot.sendMessage(chatId, `🗑️ Deleted cashout: ${match[0]}`);
+      await notifyDelete(bot, "cashout", `🆔 ${match[0]}`);
       return;
     }
     if (!fs.existsSync(RECORDS_FILE)) return;
@@ -963,10 +964,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const last = lines[lines.length - 1];
     const parts = last.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     const cst = getCST();
+    const game = (parts[6] || "").replace(/"/g, "");
+    const employee = (parts[4] || "").replace(/"/g, "");
+    const amount = parseFloat(parts[5]) || 0;
     fs.appendFileSync(RECORDS_FILE,
-      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${parts[4] || ""}",-${parseFloat(parts[5]) || 0},"${parts[6] || ""}",-${parseFloat(parts[7]) || 0},DELETED\n`
+      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${employee}",-${amount},"${game}",-${parseFloat(parts[7]) || 0},DELETED\n`
     );
     await bot.sendMessage(chatId, "✅ Record deleted.");
+    await notifyDelete(bot, "cashin", `${employee} · ${game} · $${amount}`);
   });
 
   return bot;
