@@ -1,4 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
+import { updateSnapshot, notifyDelete } from "./reporting.js";
 import fs from "fs";
 import path from "path";
 
@@ -416,11 +417,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     if (data.startsWith("cashout_approve_") || data.startsWith("cashout_deny_")) {
       const isApprove = data.startsWith("cashout_approve_");
       const cashoutId = data.replace(isApprove ? "cashout_approve_" : "cashout_deny_", "");
-      const adminData = adminMessages.get(query.message?.message_id!);
 
       if (query.from?.id !== ADMIN_ID) {
         await bot.answerCallbackQuery(query.id, { text: "❌ Only the owner can approve cashouts!", show_alert: true });
         return;
+      }
+
+      // Try adminMessages first, fall back to pendingCashouts
+      let adminData = adminMessages.get(query.message?.message_id!);
+      if (!adminData) {
+        // Server restarted — find from pendingCashouts by cashoutId
+        const pending = pendingCashouts.get(cashoutId);
+        if (pending?.state) adminData = { cashoutId, state: pending.state, userChatId: pending.userChatId };
       }
 
       if (adminData?.cashoutId === cashoutId) {
@@ -439,10 +447,13 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
               `${coState.tip > 0 ? ` · 💵 $${coState.tip} tip` : ""} · 💰 $${coState.amount}\n` +
               `📅 ${cst.date} · ${cst.time}`;
             await bot.sendMessage(REPORT_GROUP_ID, reportMsg, { parse_mode: "Markdown" });
+            // Send photo proof to report group
             if (coState.mediaType === "photo" && coState.photoFileId) {
               await bot.sendPhoto(REPORT_GROUP_ID, coState.photoFileId, {
                 caption: `📸 ${coState.employeeName} · $${coState.amount}`,
               });
+            } else if (coState.mediaType === "text" && coState.mediaCaption) {
+              await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment: ${coState.mediaCaption}`);
             }
           } catch (_) {}
           await updateSnapshot(bot).catch(() => {});
@@ -634,6 +645,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
           }
         } catch (_) {}
+        await updateSnapshot(bot).catch(() => {});
 
         const fullSummary =
           `✅ *Payment Recorded*\n` +
@@ -995,8 +1007,18 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const text = msg.reply_to_message.text || msg.reply_to_message.caption || "";
     const match = text.match(/CO_\d+_[a-z0-9]+/);
     if (match) {
-      removeCashoutRecord(match[0]);
+      // ── Cashout delete: append negative row instead of removing ──
+      const content = fs.existsSync(CASHOUT_RECORDS_FILE) ? fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8") : "";
+      const lines = content.trim().split("\n");
+      const row = lines.find(l => l.includes(match[0]));
+      if (row) {
+        const parts = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        const cst = getCST();
+        const negRow = `"${match[0]}_DEL","${cst.isoTime}","${cst.isoTime}",${parts[3]||'""'},${parts[4]||'""'},-${parseFloat(parts[5]||"0")||0},${parts[6]||'""'},-${parseFloat(parts[7]||"0")||0},"0",0\n`;
+        fs.appendFileSync(CASHOUT_RECORDS_FILE, negRow);
+      }
       await bot.sendMessage(chatId, `🗑️ Deleted cashout: ${match[0]}`);
+      await notifyDelete(bot, "cashout", `🆔 ${match[0]}`);
       return;
     }
     if (!fs.existsSync(RECORDS_FILE)) return;
@@ -1005,10 +1027,14 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     const last = lines[lines.length - 1];
     const parts = last.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     const cst = getCST();
+    const game = (parts[6] || "").replace(/"/g, "");
+    const employee = (parts[4] || "").replace(/"/g, "");
+    const amount = parseFloat(parts[5]) || 0;
     fs.appendFileSync(RECORDS_FILE,
-      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${parts[4] || ""}",-${parseFloat(parts[5]) || 0},"${parts[6] || ""}",-${parseFloat(parts[7]) || 0},DELETED\n`
+      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${employee}",-${amount},"${game}",-${parseFloat(parts[7]) || 0},DELETED\n`
     );
     await bot.sendMessage(chatId, "✅ Record deleted.");
+    await notifyDelete(bot, "cashin", `${employee} · ${game} · $${amount}`);
   });
 
   return bot;
