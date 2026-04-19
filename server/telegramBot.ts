@@ -16,12 +16,12 @@ if (!fs.existsSync(CASHOUT_RECORDS_FILE)) {
 
 function getCST() {
   const now = new Date();
-  const cstTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const tz = "America/Chicago";
   return {
-    date: cstTime.toISOString().split("T")[0],
-    time: cstTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-    day: cstTime.toLocaleDateString("en-US", { weekday: "long" }),
-    isoTime: cstTime.toISOString(),
+    date:    now.toLocaleDateString("en-CA", { timeZone: tz }),
+    time:    now.toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }),
+    day:     now.toLocaleDateString("en-US", { timeZone: tz, weekday: "long" }),
+    isoTime: now.toISOString(),
   };
 }
 
@@ -168,8 +168,29 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
   const userState = new Map<number, any>();
   const menuMsgId = new Map<number, number>();
   const inputMsgId = new Map<number, number>();
-  const adminMessages = new Map<number, any>();
-  const pendingCashouts = new Map<string, any>();
+
+  // ── File-persisted maps (survive restarts) ────────────────────────────────
+  const PENDING_FILE = path.join(process.cwd(), "pending_cashouts.json");
+
+  function loadPending(): { adminMessages: Record<number, any>; pendingCashouts: Record<string, any> } {
+    try { return JSON.parse(fs.readFileSync(PENDING_FILE, "utf-8")); }
+    catch { return { adminMessages: {}, pendingCashouts: {} }; }
+  }
+
+  function savePending() {
+    try {
+      const data = {
+        adminMessages: Object.fromEntries(adminMessages),
+        pendingCashouts: Object.fromEntries(pendingCashouts),
+      };
+      fs.writeFileSync(PENDING_FILE, JSON.stringify(data));
+    } catch (e) { console.error("Failed to save pending:", e); }
+  }
+
+  const saved = loadPending();
+  const adminMessages = new Map<number, any>(Object.entries(saved.adminMessages).map(([k, v]) => [parseInt(k), v]));
+  const pendingCashouts = new Map<string, any>(Object.entries(saved.pendingCashouts));
+  console.log(`[Bot] Loaded ${adminMessages.size} admin messages, ${pendingCashouts.size} pending cashouts`);
 
   // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -455,6 +476,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           pendingCashouts.delete(cashoutId);
         }
         adminMessages.delete(query.message?.message_id!);
+        savePending();
       }
       return;
     }
@@ -479,6 +501,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       }).catch(() => {});
       adminMessages.delete(pending.adminMsgId);
       pendingCashouts.delete(cashoutId);
+      savePending();
       userState.delete(chatId);
       await bot.editMessageText("🚫 Cashout cancelled.", {
         chat_id: chatId, message_id: query.message?.message_id!,
@@ -879,6 +902,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             { chat_id: existingPending.adminChatId, message_id: existingPending.adminMsgId, parse_mode: "Markdown" }
           ).catch(() => {});
           adminMessages.delete(existingPending.adminMsgId);
+          savePending();
         }
 
         // ── 1. Admin approval message (group) ──
@@ -914,6 +938,7 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             state: { ...state },
             userChatId: chatId,
           });
+          savePending();
         }
 
         // ── 2. Employee control message (their chat) ──
@@ -944,9 +969,10 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           state: { ...state },
           adminMsgId: adminMsgObj?.message_id,
           adminChatId: originChatId,
-          userEditMsgId: mid || (userControlMsg as any)?.message_id,
+          userEditMsgId: mid ?? (userControlMsg as any)?.message_id,
           userChatId: chatId,
         });
+        savePending();
 
         userState.delete(chatId);
         menuMsgId.delete(chatId);
