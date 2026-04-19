@@ -423,6 +423,7 @@ async function fetchData(){
     const[r1,r2]=await Promise.all([fetch('/api/transactions'),fetch('/api/cashout-transactions')]);
     const d1=await r1.json(),d2=await r2.json();
     allTx=d1.transactions||[];allCO=d2.cashoutTransactions||[];
+    console.log('allTx amounts:', allTx.map(t=>t.amount));
     populateGroups();populateMonths();renderAll();
     document.getElementById('lastUpdated').textContent='Updated '+toAmPm(new Date().toTimeString().substring(0,5));
   }catch(e){console.error(e);}
@@ -530,7 +531,7 @@ function renderOverview(){
   const start=document.getElementById('ovStart').value,end=document.getElementById('ovEnd').value;
   const group=getSelectedGroups('ovGrpList'),month=document.getElementById('ovMonth').value;
   const ciAll=flt(allTx,start,end,group,month,'date');
-  const ci=ciAll.filter(r=>r.amount>0);
+  const ci=ciAll.filter(r=>r.amount!==0);
   const co=flt(allCO,start,end,group,month,'created_at');
   const tci=ci.reduce((s,t)=>s+t.amount,0);
   const tpi=ciAll.reduce((s,t)=>s+t.points,0);
@@ -571,7 +572,7 @@ function loadMore(){recentPage++;renderRecent(window._rCI,window._rCO);}
 function renderCashIn(){
   const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=getSelectedGroups('ciGrpList');
   const ciAll=flt(allTx,start,end,group,null,'date').sort((a,b)=>ciSortKey(b).localeCompare(ciSortKey(a)));
-  const ci=ciAll.filter(r=>r.amount>0);
+  const ci=ciAll.filter(r=>r.amount!==0);
   document.getElementById('ciAmt').textContent=`$${ci.reduce((s,t)=>s+t.amount,0).toLocaleString()}`;
   document.getElementById('ciPts').textContent=ciAll.reduce((s,t)=>s+t.points,0).toLocaleString();
   document.getElementById('ciCount').textContent=ci.length;
@@ -614,7 +615,7 @@ function renderCharts(){
   const today=new Date();const dates=[];
   for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().split('T')[0]);}
   const ci=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
-  const ciS=ci.filter(r=>r.amount>0);
+  const ciS=ci.filter(r=>r.amount!==0);
   const ciByDay={},coByDay={};dates.forEach(d=>{ciByDay[d]=0;coByDay[d]=0;});
   ciS.forEach(t=>{if(ciByDay[t.date]!==undefined)ciByDay[t.date]+=t.amount;});
   co.forEach(c=>{const d=c.created_at.substring(0,10);if(coByDay[d]!==undefined)coByDay[d]+=c.amount;});
@@ -634,7 +635,7 @@ function renderCharts(){
 
 function renderHolding(){
   const group=getSelectedGroups('dhGrpList'),sel=document.getElementById('dhDate').value;
-  const ci=(group.length>0?allTx.filter(t=>group.includes(t.group)):allTx).filter(r=>r.amount>0);
+  const ci=(group.length>0?allTx.filter(t=>group.includes(t.group)):allTx).filter(r=>r.amount!==0);
   const ciAll=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;
   const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
   const daily={};
@@ -649,7 +650,7 @@ function renderHolding(){
 function selectDate(d,ciAll,co){
   const _ciAll=ciAll||window._dhCI,_co=co||window._dhCO;if(!_ciAll)return;
   document.getElementById('dhDate').value=d;
-  const dayCi=_ciAll.filter(r=>r.amount>0&&r.date===d);
+  const dayCi=_ciAll.filter(r=>r.amount!==0&&r.date===d);
   const dayCiAll=_ciAll.filter(r=>r.date===d);
   const dayCo=_co.filter(c=>c.created_at.startsWith(d));
   const ciAmt=dayCi.reduce((s,r)=>s+r.amount,0);
@@ -693,7 +694,7 @@ function exportGameExcel(){
   XLSX.writeFile(wb,'Game_Distribution.xlsx');
 }
 function exportHoldingExcel(){
-  const d={};allTx.filter(r=>r.amount>0).forEach(t=>{d[t.date]=d[t.date]||{Date:t.date,CashIn:0,Cashout:0};d[t.date].CashIn+=t.amount;});allCO.forEach(c=>{const dt=c.created_at.substring(0,10);d[dt]=d[dt]||{Date:dt,CashIn:0,Cashout:0};d[dt].Cashout+=c.amount;});
+  const d={};allTx.filter(r=>r.amount!==0).forEach(t=>{d[t.date]=d[t.date]||{Date:t.date,CashIn:0,Cashout:0};d[t.date].CashIn+=t.amount;});allCO.forEach(c=>{const dt=c.created_at.substring(0,10);d[dt]=d[dt]||{Date:dt,CashIn:0,Cashout:0};d[dt].Cashout+=c.amount;});
   xls(Object.values(d).map(x=>({...x,Net:x.CashIn-x.Cashout,Status:(x.CashIn-x.Cashout)>=0?'PROFIT':'LOSS'})),'Daily_Holding.xlsx','Holding');
 }
 
