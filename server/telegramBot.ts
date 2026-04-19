@@ -255,8 +255,8 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
+          [{ text: "💵 Cash In", callback_data: "main_cashin" }],
           [{ text: "💸 Cash Out", callback_data: "main_cashout" }],
-          [{ text: "🗑️ Delete Last Entry", callback_data: "main_delete" }],
         ],
       },
     });
@@ -410,11 +410,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       const group = query.message?.chat.title || "Unknown Group";
       await bot.deleteMessage(chatId, query.message!.message_id).catch(() => {});
       await startCashout(chatId, name, group);
-      return;
-    }
-    if (data === "main_delete") {
-      await bot.deleteMessage(chatId, query.message!.message_id).catch(() => {});
-      await bot.sendMessage(chatId, "🗑️ Reply to any transaction message with /delete to remove it.");
       return;
     }
 
@@ -1007,40 +1002,25 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
 
   // ── /delete ───────────────────────────────────────────────────────────────
   bot.onText(/\/delete/, async (msg) => {
-    if (!msg.reply_to_message) { await bot.sendMessage(msg.chat.id, "❌ Reply to a transaction message with /delete."); return; }
+    if (!msg.reply_to_message) { await bot.sendMessage(msg.chat.id, "❌ Reply to a message with /delete."); return; }
     const chatId = msg.chat.id;
     const text = msg.reply_to_message.text || msg.reply_to_message.caption || "";
-
-    // ── Try to match CO_ ID directly in message text ──
-    const coIdMatch = text.match(/CO_\d+_[a-z0-9]+/);
-    if (coIdMatch) {
-      const cashoutId = coIdMatch[0];
-      await deleteCashoutById(chatId, cashoutId);
+    const match = text.match(/CO_\d+_[a-z0-9]+/);
+    if (match) {
+      // ── Cashout delete: append negative row instead of removing ──
+      const content = fs.existsSync(CASHOUT_RECORDS_FILE) ? fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8") : "";
+      const lines = content.trim().split("\n");
+      const row = lines.find(l => l.includes(match[0]));
+      if (row) {
+        const parts = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        const cst = getCST();
+        const negRow = `"${match[0]}_DEL","${cst.isoTime}","${cst.isoTime}",${parts[3]||'""'},${parts[4]||'""'},-${parseFloat(parts[5]||"0")||0},${parts[6]||'""'},-${parseFloat(parts[7]||"0")||0},"0",0\n`;
+        fs.appendFileSync(CASHOUT_RECORDS_FILE, negRow);
+      }
+      await bot.sendMessage(chatId, `🗑️ Deleted cashout: ${match[0]}`);
+      await notifyDelete(bot, "cashout", `🆔 ${match[0]}`);
       return;
     }
-
-    // ── Try to match cashout by looking up most recent matching row in CSV ──
-    // Works on approved/denied messages which don't show CO_ ID
-    if (fs.existsSync(CASHOUT_RECORDS_FILE)) {
-      const content = fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8");
-      const lines = content.trim().split("\n").filter(l => l.trim() && !l.startsWith("id,"));
-      // Find last cashout row that isn't already a deletion
-      const lastCO = [...lines].reverse().find(l => !l.includes("_DEL"));
-      if (lastCO && (
-        text.includes("Cashout") || text.includes("Approved") ||
-        text.includes("Denied") || text.includes("Cashout Request") ||
-        text.includes("Pending Approval")
-      )) {
-        const parts = lastCO.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        const cashoutId = (parts[0] || "").replace(/"/g, "");
-        if (cashoutId.startsWith("CO_")) {
-          await deleteCashoutById(chatId, cashoutId);
-          return;
-        }
-      }
-    }
-
-    // ── Fall back to cash-in delete (last row) ──
     if (!fs.existsSync(RECORDS_FILE)) return;
     const lines = fs.readFileSync(RECORDS_FILE, "utf-8").trim().split("\n");
     if (lines.length <= 1) return;
@@ -1053,27 +1033,9 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
     fs.appendFileSync(RECORDS_FILE,
       `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${employee}",-${amount},"${game}",-${parseFloat(parts[7]) || 0},DELETED\n`
     );
-    await bot.sendMessage(chatId, "✅ Cash-in record deleted.");
+    await bot.sendMessage(chatId, "✅ Record deleted.");
     await notifyDelete(bot, "cashin", `${employee} · ${game} · $${amount}`);
   });
-
-  async function deleteCashoutById(chatId: number, cashoutId: string) {
-    const content = fs.existsSync(CASHOUT_RECORDS_FILE) ? fs.readFileSync(CASHOUT_RECORDS_FILE, "utf-8") : "";
-    const lines = content.trim().split("\n");
-    const row = lines.find(l => l.includes(cashoutId) && !l.includes("_DEL"));
-    if (row) {
-      const parts = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-      const cst = getCST();
-      const amount = parseFloat(parts[5] || "0") || 0;
-      const points = parseFloat(parts[7] || "0") || 0;
-      const negRow = `"${cashoutId}_DEL","${cst.isoTime}","${cst.isoTime}",${parts[3]||'""'},${parts[4]||'""'},-${amount},${parts[6]||'""'},-${points},"0",0\n`;
-      fs.appendFileSync(CASHOUT_RECORDS_FILE, negRow);
-      await bot.sendMessage(chatId, `✅ Cashout deleted: ${cashoutId}`);
-      await notifyDelete(bot, "cashout", `🆔 ${cashoutId}`);
-    } else {
-      await bot.sendMessage(chatId, `❌ Could not find cashout record for ${cashoutId}`);
-    }
-  }
 
   return bot;
 }
