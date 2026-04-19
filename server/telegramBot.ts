@@ -1,5 +1,4 @@
 import TelegramBot from "node-telegram-bot-api";
-import { updateSnapshot, notifyDelete } from "./reporting.js";
 import fs from "fs";
 import path from "path";
 
@@ -406,46 +405,51 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
       if (adminData?.cashoutId === cashoutId) {
         const { state: coState } = adminData;
         const actorName = query.from?.first_name || "Owner";
-        const label = isApprove ? "✅ APPROVED" : "❌ DENIED";
+        const cst = getCST();
 
         if (isApprove) {
           saveCashoutRecord(coState);
-          const cst = getCST();
-          const reportMsg =
-            `✅ *Cashout Approved* · 👤 ${coState.employeeName} · ${coState.groupName}\n` +
-            `🎮 ${coState.game} · 🎯 ${coState.points} pts` +
-            `${coState.playback_points > 0 ? ` · 🎫 ${coState.playback_points} pb` : ""}` +
-            `${coState.tip > 0 ? ` · 💵 $${coState.tip} tip` : ""} · 💰 $${coState.amount}\n` +
-            `📅 ${cst.date} · ${cst.time} · 🆔 ${cashoutId}`;
           try {
+            const reportMsg =
+              `✅ *Cashout Approved*\n` +
+              `👤 ${coState.employeeName} · ${coState.groupName}\n` +
+              `🎮 ${coState.game} · 🎯 ${coState.points} pts` +
+              `${coState.playback_points > 0 ? ` · 🎫 ${coState.playback_points} pb` : ""}` +
+              `${coState.tip > 0 ? ` · 💵 $${coState.tip} tip` : ""} · 💰 $${coState.amount}\n` +
+              `📅 ${cst.date} · ${cst.time}`;
             await bot.sendMessage(REPORT_GROUP_ID, reportMsg, { parse_mode: "Markdown" });
             if (coState.mediaType === "photo" && coState.photoFileId) {
               await bot.sendPhoto(REPORT_GROUP_ID, coState.photoFileId, {
-                caption: `📸 Payment · ${coState.employeeName} · $${coState.amount}`,
+                caption: `📸 ${coState.employeeName} · $${coState.amount}`,
               });
-            } else if (coState.mediaType === "text" && coState.mediaCaption) {
-              await bot.sendMessage(REPORT_GROUP_ID, `📝 Payment: ${coState.mediaCaption}`);
             }
           } catch (_) {}
           await updateSnapshot(bot).catch(() => {});
         }
 
-        const summary =
-          `${label} by ${actorName}\n` +
-          `🎮 ${coState.game} · 🎯 ${coState.points} pts` +
-          `${coState.playback_points > 0 ? ` · 🎫 ${coState.playback_points} pb` : ""}` +
-          `${coState.tip > 0 ? ` · 💵 $${coState.tip}` : ""} · 💰 $${coState.amount}\n` +
-          `👤 ${coState.employeeName} · 🆔 ${cashoutId}`;
-        await bot.editMessageText(summary, {
+        // Edit the group approval message to show final result — no new message
+        const resultText = isApprove
+          ? `✅ *Approved* by ${actorName}\n` +
+            `👤 ${coState.employeeName} · ${coState.groupName}\n` +
+            `🎮 ${coState.game} · 🎯 ${coState.points} pts` +
+            `${coState.playback_points > 0 ? ` · 🎫 ${coState.playback_points} pb` : ""}` +
+            `${coState.tip > 0 ? ` · 💵 $${coState.tip} tip` : ""} · 💰 $${coState.amount}\n` +
+            `📅 ${cst.date} · ${cst.time}`
+          : `❌ *Denied* by ${actorName}\n` +
+            `👤 ${coState.employeeName} · 🎮 ${coState.game} · 💰 $${coState.amount}`;
+
+        await bot.editMessageText(resultText, {
           chat_id: chatId, message_id: query.message?.message_id!,
+          parse_mode: "Markdown",
         }).catch(() => {});
 
+        // Edit employee pending message to show result — no new message
         const pending = pendingCashouts.get(cashoutId);
         if (pending) {
           await bot.editMessageText(
             isApprove
-              ? `✅ Your cashout was *approved* · 🆔 ${cashoutId}`
-              : `❌ Your cashout was *denied* · 🆔 ${cashoutId}`,
+              ? `✅ *Cashout Approved*\n🎮 ${coState.game} · 💰 $${coState.amount}`
+              : `❌ *Cashout Denied*\n🎮 ${coState.game} · 💰 $${coState.amount}`,
             { chat_id: pending.userChatId, message_id: pending.userEditMsgId, parse_mode: "Markdown" }
           ).catch(() => {});
           pendingCashouts.delete(cashoutId);
@@ -607,7 +611,6 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
             await bot.forwardMessage(REPORT_GROUP_ID, state.originalChatId, state.originalMessageId);
           }
         } catch (_) {}
-        await updateSnapshot(bot).catch(() => {});
 
         const fullSummary =
           `✅ *Payment Recorded*\n` +
@@ -868,27 +871,26 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
         const cst = getCST();
         const originChatId: number = state.originChatId || chatId;
 
+        // If previously submitted, strike out the old admin approval message
+        const existingPending = pendingCashouts.get(state.cashoutId);
+        if (existingPending?.adminMsgId) {
+          await bot.editMessageText(
+            `⚠️ *Edited & resubmitted by employee*\n🆔 \`${state.cashoutId}\``,
+            { chat_id: existingPending.adminChatId, message_id: existingPending.adminMsgId, parse_mode: "Markdown" }
+          ).catch(() => {});
+          adminMessages.delete(existingPending.adminMsgId);
+        }
+
+        // ── 1. Admin approval message (group) ──
         const adminSummary =
-          `📊 *Cashout — Approval Needed*\n` +
-          `👤 ${state.employeeName} · ${state.groupName} · 📅 ${cst.date} ${cst.time}\n` +
+          `💸 *Cashout Request*\n` +
+          `👤 ${state.employeeName} · ${state.groupName}\n` +
           `🎮 ${state.game} · 🎯 ${state.points} pts` +
           `${state.playback_points > 0 ? ` · 🎫 ${state.playback_points} pb` : ""}` +
-          `${state.tip > 0 ? ` · 💵 $${state.tip} tip` : ""} · 💰 $${state.amount}\n` +
-          `🆔 \`${state.cashoutId}\``;
+          `${state.tip > 0 ? ` · 💵 $${state.tip} tip` : ""}\n` +
+          `💰 Amount: $${state.amount} · 📅 ${cst.date} ${cst.time}\n` +
+          `${state.mediaType === "photo" ? "📸 Payment: Photo attached" : state.mediaType === "text" ? `📝 Payment: ${state.mediaCaption}` : ""}`;
 
-        // If this cashout was previously submitted, cancel the old admin message
-const existingPending = pendingCashouts.get(state.cashoutId);
-if (existingPending?.adminMsgId) {
-  await bot.editMessageText(
-    `⚠️ *This request was edited by the employee and resubmitted.*\n🆔 \`${state.cashoutId}\``,
-    {
-      chat_id: existingPending.adminChatId,
-      message_id: existingPending.adminMsgId,
-      parse_mode: "Markdown",
-    }
-  ).catch(() => {});
-  adminMessages.delete(existingPending.adminMsgId);
-}
         const adminMsgObj = await bot.sendMessage(originChatId, adminSummary, {
           parse_mode: "Markdown",
           reply_markup: {
@@ -899,14 +901,11 @@ if (existingPending?.adminMsgId) {
           },
         }).catch((e: any) => { console.error("Failed to send approval msg:", e); return null; });
 
+        // Send photo proof after the approval message if needed
         if (state.mediaType === "photo" && state.photoFileId) {
           await bot.sendPhoto(originChatId, state.photoFileId, {
-            caption: `📸 Payment proof · ${state.employeeName} · $${state.amount} · 🆔 ${state.cashoutId}`,
+            caption: `📸 ${state.employeeName} · $${state.amount}`,
           }).catch(() => {});
-        } else if (state.mediaType === "text" && state.mediaCaption) {
-          await bot.sendMessage(originChatId,
-            `📝 Payment details · ${state.employeeName}\n${state.mediaCaption}`
-          ).catch(() => {});
         }
 
         if (adminMsgObj) {
@@ -917,33 +916,37 @@ if (existingPending?.adminMsgId) {
           });
         }
 
-        const userControlMsg = await bot.sendMessage(chatId,
-          `✅ *Submitted for approval*\n🆔 ${state.cashoutId}\n\nYou can edit or cancel until the owner acts:`, {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [[
+        // ── 2. Employee control message (their chat) ──
+        // Edit the review menu message to show pending + edit/cancel
+        const mid = menuMsgId.get(chatId);
+        const userControlMsg = mid
+          ? await bot.editMessageText(
+              `⏳ *Pending Approval*\n` +
+              `🎮 ${state.game} · 💰 $${state.amount}\n` +
+              `🆔 \`${state.cashoutId}\``,
+              {
+                chat_id: chatId, message_id: mid, parse_mode: "Markdown",
+                reply_markup: { inline_keyboard: [[
+                  { text: "✏️ Edit", callback_data: `user_edit_${state.cashoutId}` },
+                  { text: "🗑️ Cancel", callback_data: `user_cancel_${state.cashoutId}` },
+                ]]},
+              }
+            ).catch(() => null)
+          : await bot.sendMessage(chatId,
+              `⏳ *Pending Approval*\n🎮 ${state.game} · 💰 $${state.amount}\n🆔 \`${state.cashoutId}\``,
+              { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[
                 { text: "✏️ Edit", callback_data: `user_edit_${state.cashoutId}` },
                 { text: "🗑️ Cancel", callback_data: `user_cancel_${state.cashoutId}` },
-              ]],
-            },
-          }
-        ).catch(() => null);
+              ]]}}
+            ).catch(() => null);
 
         pendingCashouts.set(state.cashoutId, {
           state: { ...state },
           adminMsgId: adminMsgObj?.message_id,
           adminChatId: originChatId,
-          userEditMsgId: userControlMsg?.message_id,
+          userEditMsgId: mid || (userControlMsg as any)?.message_id,
           userChatId: chatId,
         });
-
-        const mid = menuMsgId.get(chatId);
-        if (mid) {
-          await bot.editMessageText(
-            `⏳ *Pending Approval*\n🆔 ${state.cashoutId}\nWaiting for owner to approve...`,
-            { chat_id: chatId, message_id: mid, parse_mode: "Markdown" }
-          ).catch(() => {});
-        }
 
         userState.delete(chatId);
         menuMsgId.delete(chatId);
@@ -968,7 +971,6 @@ if (existingPending?.adminMsgId) {
     if (match) {
       removeCashoutRecord(match[0]);
       await bot.sendMessage(chatId, `🗑️ Deleted cashout: ${match[0]}`);
-      await notifyDelete(bot, "cashout", `🆔 ${match[0]}`);
       return;
     }
     if (!fs.existsSync(RECORDS_FILE)) return;
@@ -977,14 +979,10 @@ if (existingPending?.adminMsgId) {
     const last = lines[lines.length - 1];
     const parts = last.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     const cst = getCST();
-    const game = (parts[6] || "").replace(/"/g, "");
-    const employee = (parts[4] || "").replace(/"/g, "");
-    const amount = parseFloat(parts[5]) || 0;
     fs.appendFileSync(RECORDS_FILE,
-      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${employee}",-${amount},"${game}",-${parseFloat(parts[7]) || 0},DELETED\n`
+      `${cst.date},${cst.time},${cst.day},"${parts[3] || ""}","${parts[4] || ""}",-${parseFloat(parts[5]) || 0},"${parts[6] || ""}",-${parseFloat(parts[7]) || 0},DELETED\n`
     );
     await bot.sendMessage(chatId, "✅ Record deleted.");
-    await notifyDelete(bot, "cashin", `${employee} · ${game} · $${amount}`);
   });
 
   return bot;
