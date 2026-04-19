@@ -422,7 +422,8 @@ async function fetchData(){
   try{
     const[r1,r2]=await Promise.all([fetch('/api/transactions'),fetch('/api/cashout-transactions')]);
     const d1=await r1.json(),d2=await r2.json();
-    allTx=d1.transactions||[];allCO=d2.cashoutTransactions||[];
+    allTx=(d1.transactions||[]).map(t=>({...t,amount:+t.amount,points:+t.points}));
+    allCO=(d2.cashoutTransactions||[]).map(c=>({...c,amount:+c.amount,points:+c.points,tip:+c.tip}));
     console.log('allTx amounts:', allTx.map(t=>t.amount));
     populateGroups();populateMonths();renderAll();
     document.getElementById('lastUpdated').textContent='Updated '+toAmPm(new Date().toTimeString().substring(0,5));
