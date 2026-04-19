@@ -52,7 +52,19 @@
     #main{max-width:1200px;margin:0 auto;padding:28px 24px}
     .view-section{display:none}.view-section.active{display:block}
 
-    /* FILTER BAR */
+    /* GROUP PICKER POPUP */
+    .grp-wrap{position:relative;display:inline-block}
+    .grp-btn{background:var(--bg-light);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:2px;font-family:'DM Mono',monospace;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;gap:8px;min-width:160px;justify-content:space-between;white-space:nowrap}
+    .grp-btn:hover{border-color:var(--bg-dark)}
+    .grp-btn .arrow{font-size:0.6rem;color:var(--muted)}
+    .grp-popup{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1px solid var(--border2);border-radius:2px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:200px;padding:8px 0}
+    .grp-popup.open{display:block}
+    .grp-popup label{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--text);transition:background 0.1s}
+    .grp-popup label:hover{background:var(--bg)}
+    .grp-popup input[type=checkbox]{width:15px;height:15px;accent-color:var(--red);cursor:pointer;flex-shrink:0}
+    .grp-popup .grp-actions{display:flex;gap:8px;padding:8px 16px;border-top:1px solid #eaeaea;margin-top:4px}
+    .grp-actions button{font-family:'DM Mono',monospace;font-size:0.7rem;padding:4px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--border2);background:var(--bg-light);color:var(--text)}
+    .grp-actions button:hover{border-color:var(--bg-dark)}
     .filter-bar{background:var(--white);border:1px solid var(--border2);border-top:3px solid var(--bg-dark);border-radius:2px;padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:24px;box-shadow:0 2px 6px var(--shadow)}
     .filter-bar label{display:block;font-size:0.62rem;font-family:'DM Mono',monospace;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
     .filter-bar input,.filter-bar select{background:var(--bg-light);border:1px solid var(--border2);color:var(--text);padding:6px 12px;border-radius:2px;font-family:'DM Mono',monospace;font-size:0.8rem;outline:none;transition:border-color 0.2s}
@@ -157,7 +169,7 @@
   <!-- OVERVIEW -->
   <div id="view-overview" class="view-section active">
     <div class="filter-bar">
-      <div><label>Group <span style="font-size:0.55rem;color:var(--muted)">(hold to multi-select)</span></label><select id="ovGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('ovGrpPopup',this)"><span id="ovGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="ovGrpPopup"><div id="ovGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('ovGrpList','ovGrpLabel')">All</button><button onclick="clearAllGrp('ovGrpList','ovGrpLabel')">None</button><button onclick="closeGrp('ovGrpPopup')">Done</button></div></div></div></div>
       <div><label>Start Date</label><input type="date" id="ovStart"></div>
       <div><label>End Date</label><input type="date" id="ovEnd"></div>
       <div><label>Month</label><select id="ovMonth"><option value="">All Months</option></select></div>
@@ -250,7 +262,7 @@
   <!-- CASH-IN -->
   <div id="view-cashin" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="ciGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('ciGrpPopup',this)"><span id="ciGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="ciGrpPopup"><div id="ciGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('ciGrpList','ciGrpLabel')">All</button><button onclick="clearAllGrp('ciGrpList','ciGrpLabel')">None</button><button onclick="closeGrp('ciGrpPopup')">Done</button></div></div></div></div>
       <div><label>Start Date</label><input type="date" id="ciStart"></div>
       <div><label>End Date</label><input type="date" id="ciEnd"></div>
       <button class="btn btn-today" onclick="setToday('ciStart','ciEnd',renderCashIn)">Today</button>
@@ -293,7 +305,7 @@
   <!-- CASHOUT -->
   <div id="view-cashout" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="coGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('coGrpPopup',this)"><span id="coGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="coGrpPopup"><div id="coGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('coGrpList','coGrpLabel')">All</button><button onclick="clearAllGrp('coGrpList','coGrpLabel')">None</button><button onclick="closeGrp('coGrpPopup')">Done</button></div></div></div></div>
       <div><label>Start Date</label><input type="date" id="coStart"></div>
       <div><label>End Date</label><input type="date" id="coEnd"></div>
       <button class="btn btn-today" onclick="setToday('coStart','coEnd',renderCashout)">Today</button>
@@ -336,7 +348,7 @@
   <!-- GAMES -->
   <div id="view-games" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="gdGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('gdGrpPopup',this)"><span id="gdGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="gdGrpPopup"><div id="gdGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('gdGrpList','gdGrpLabel')">All</button><button onclick="clearAllGrp('gdGrpList','gdGrpLabel')">None</button><button onclick="closeGrp('gdGrpPopup')">Done</button></div></div></div></div>
       <div><label>Start Date</label><input type="date" id="gdStart"></div>
       <div><label>End Date</label><input type="date" id="gdEnd"></div>
       <button class="btn btn-red" onclick="renderGames()">Apply</button>
@@ -352,7 +364,7 @@
   <!-- CHARTS -->
   <div id="view-charts" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="chGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('chGrpPopup',this)"><span id="chGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="chGrpPopup"><div id="chGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('chGrpList','chGrpLabel')">All</button><button onclick="clearAllGrp('chGrpList','chGrpLabel')">None</button><button onclick="closeGrp('chGrpPopup')">Done</button></div></div></div></div>
       <div><label>Period</label><select id="chDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option></select></div>
       <button class="btn btn-red" onclick="renderCharts()">Apply</button>
       <button class="btn btn-ghost" onclick="resetCH()">Reset</button>
@@ -367,7 +379,7 @@
   <!-- DAILY HOLDING -->
   <div id="view-holding" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="dhGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
+      <div><label>Group</label><div class="grp-wrap"><button type="button" class="grp-btn" onclick="toggleGrp('dhGrpPopup',this)"><span id="dhGrpLabel">All Groups</span><span class="arrow">▼</span></button><div class="grp-popup" id="dhGrpPopup"><div id="dhGrpList"></div><div class="grp-actions"><button onclick="selectAllGrp('dhGrpList','dhGrpLabel')">All</button><button onclick="clearAllGrp('dhGrpList','dhGrpLabel')">None</button><button onclick="closeGrp('dhGrpPopup')">Done</button></div></div></div></div>
       <div><label>Date</label><input type="date" id="dhDate"></div>
       <button class="btn btn-today" onclick="setDhToday()">Today</button>
       <button class="btn btn-red" onclick="renderHolding()">Apply</button>
@@ -416,15 +428,80 @@ async function fetchData(){
   }catch(e){console.error(e);}
 }
 
+// ── Group picker helpers ──────────────────────────────────────────────────────
+const GRP_CONFIGS = [
+  {listId:'ovGrpList', labelId:'ovGrpLabel'},
+  {listId:'ciGrpList', labelId:'ciGrpLabel'},
+  {listId:'coGrpList', labelId:'coGrpLabel'},
+  {listId:'gdGrpList', labelId:'gdGrpLabel'},
+  {listId:'chGrpList', labelId:'chGrpLabel'},
+  {listId:'dhGrpList', labelId:'dhGrpLabel'},
+];
+
 function populateGroups(){
   const g=new Set();allTx.forEach(t=>g.add(t.group));allCO.forEach(c=>g.add(c.group));
   const sorted=[...g].filter(Boolean).sort();
-  document.querySelectorAll('.group-select').forEach(sel=>{
-    const v=[...sel.selectedOptions].map(o=>o.value);
-    sel.innerHTML='';
-    sorted.forEach(x=>{const opt=document.createElement('option');opt.value=x;opt.textContent=x;if(v.includes(x))opt.selected=true;sel.appendChild(opt);});
+  GRP_CONFIGS.forEach(({listId,labelId})=>{
+    const list=document.getElementById(listId);
+    if(!list)return;
+    // preserve existing checked state
+    const checked=getSelectedGroups(listId);
+    list.innerHTML='';
+    sorted.forEach(x=>{
+      const id=listId+'_'+x.replace(/\s+/g,'_');
+      const div=document.createElement('label');
+      const cb=document.createElement('input');
+      cb.type='checkbox'; cb.value=x; cb.id=id;
+      cb.checked=checked.length===0||checked.includes(x); // all checked by default
+      cb.addEventListener('change',()=>updateGrpLabel(listId,labelId));
+      div.appendChild(cb);
+      div.appendChild(document.createTextNode(x));
+      list.appendChild(div);
+    });
+    updateGrpLabel(listId,labelId);
   });
 }
+
+function getSelectedGroups(listId){
+  const list=document.getElementById(listId);
+  if(!list)return[];
+  return [...list.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+}
+
+function updateGrpLabel(listId,labelId){
+  const sel=getSelectedGroups(listId);
+  const total=document.getElementById(listId)?.querySelectorAll('input[type=checkbox]').length||0;
+  const label=document.getElementById(labelId);
+  if(!label)return;
+  if(sel.length===0||sel.length===total) label.textContent='All Groups';
+  else if(sel.length===1) label.textContent=sel[0];
+  else label.textContent=`${sel.length} Groups`;
+}
+
+function toggleGrp(popupId,btn){
+  // close all other popups first
+  document.querySelectorAll('.grp-popup').forEach(p=>{if(p.id!==popupId)p.classList.remove('open');});
+  document.getElementById(popupId).classList.toggle('open');
+}
+
+function closeGrp(popupId){document.getElementById(popupId).classList.remove('open');}
+
+function selectAllGrp(listId,labelId){
+  document.getElementById(listId).querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=true);
+  updateGrpLabel(listId,labelId);
+}
+
+function clearAllGrp(listId,labelId){
+  document.getElementById(listId).querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
+  updateGrpLabel(listId,labelId);
+}
+
+// close popup when clicking outside
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.grp-wrap')){
+    document.querySelectorAll('.grp-popup').forEach(p=>p.classList.remove('open'));
+  }
+});
 function populateMonths(){
   const m=new Set();allTx.forEach(t=>{if(t.date)m.add(t.date.substring(0,7));});allCO.forEach(c=>{if(c.created_at)m.add(c.created_at.substring(0,7));});
   const sel=document.getElementById('ovMonth');sel.innerHTML='<option value="">All Months</option>';
@@ -451,7 +528,7 @@ function renderAll(){renderOverview();renderCashIn();renderCashout();renderGames
 function renderOverview(){
   recentPage=0;
   const start=document.getElementById('ovStart').value,end=document.getElementById('ovEnd').value;
-  const group=[...document.getElementById('ovGroup').selectedOptions].map(o=>o.value).filter(Boolean),month=document.getElementById('ovMonth').value;
+  const group=getSelectedGroups('ovGrpList'),month=document.getElementById('ovMonth').value;
   const ciAll=flt(allTx,start,end,group,month,'date');
   const ci=ciAll.filter(r=>r.amount>0);
   const co=flt(allCO,start,end,group,month,'created_at');
@@ -492,7 +569,7 @@ function renderRecent(ciAll,co){
 function loadMore(){recentPage++;renderRecent(window._rCI,window._rCO);}
 
 function renderCashIn(){
-  const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=[...document.getElementById('ciGroup').selectedOptions].map(o=>o.value).filter(Boolean);
+  const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=getSelectedGroups('ciGrpList');
   const ciAll=flt(allTx,start,end,group,null,'date').sort((a,b)=>ciSortKey(b).localeCompare(ciSortKey(a)));
   const ci=ciAll.filter(r=>r.amount>0);
   document.getElementById('ciAmt').textContent=`$${ci.reduce((s,t)=>s+t.amount,0).toLocaleString()}`;
@@ -509,7 +586,7 @@ function renderCashIn(){
 }
 
 function renderCashout(){
-  const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=[...document.getElementById('coGroup').selectedOptions].map(o=>o.value).filter(Boolean);
+  const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=getSelectedGroups('coGrpList');
   const co=flt(allCO,start,end,group,null,'created_at').sort((a,b)=>b.created_at.localeCompare(a.created_at));
   document.getElementById('coAmt').textContent=`$${co.reduce((s,c)=>s+c.amount,0).toLocaleString()}`;
   document.getElementById('coPts').textContent=co.reduce((s,c)=>s+(c.points-(parseFloat(c.playback_id)||0)),0).toLocaleString();
@@ -524,7 +601,7 @@ function renderCashout(){
 }
 
 function renderGames(){
-  const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=[...document.getElementById('gdGroup').selectedOptions].map(o=>o.value).filter(Boolean);
+  const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=getSelectedGroups('gdGrpList');
   const ciAll=flt(allTx,start,end,group,null,'date');const co=flt(allCO,start,end,group,null,'created_at');
   const ciG={};ciAll.forEach(t=>{if(!ciG[t.game])ciG[t.game]={amount:0,points:0};ciG[t.game].amount+=t.amount;ciG[t.game].points+=t.points;});
   document.getElementById('gdCITable').innerHTML=Object.entries(ciG).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
@@ -533,7 +610,7 @@ function renderGames(){
 }
 
 function renderCharts(){
-  const group=[...document.getElementById('chGroup').selectedOptions].map(o=>o.value).filter(Boolean);const days=parseInt(document.getElementById('chDays').value);
+  const group=getSelectedGroups('chGrpList');const days=parseInt(document.getElementById('chDays').value);
   const today=new Date();const dates=[];
   for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().split('T')[0]);}
   const ci=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
@@ -556,7 +633,7 @@ function renderCharts(){
 }
 
 function renderHolding(){
-  const group=[...document.getElementById('dhGroup').selectedOptions].map(o=>o.value).filter(Boolean),sel=document.getElementById('dhDate').value;
+  const group=getSelectedGroups('dhGrpList'),sel=document.getElementById('dhDate').value;
   const ci=(group.length>0?allTx.filter(t=>group.includes(t.group)):allTx).filter(r=>r.amount>0);
   const ciAll=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;
   const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
@@ -588,13 +665,13 @@ function selectDate(d,ciAll,co){
   document.getElementById('dhDetail').style.display='block';
 }
 
-function clearGroup(id){[...document.getElementById(id).options].forEach(o=>o.selected=false);}
-function resetOv(){['ovStart','ovEnd','ovMonth'].forEach(id=>document.getElementById(id).value='');clearGroup('ovGroup');renderOverview();}
-function resetCI(){['ciStart','ciEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('ciGroup');renderCashIn();}
-function resetCO(){['coStart','coEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('coGroup');renderCashout();}
-function resetGD(){['gdStart','gdEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('gdGroup');renderGames();}
-function resetCH(){clearGroup('chGroup');document.getElementById('chDays').value='30';renderCharts();}
-function resetDH(){document.getElementById('dhDate').value='';clearGroup('dhGroup');renderHolding();}
+function clearGroup(listId,labelId){selectAllGrp(listId,labelId);}
+function resetOv(){['ovStart','ovEnd','ovMonth'].forEach(id=>document.getElementById(id).value='');selectAllGrp('ovGrpList','ovGrpLabel');renderOverview();}
+function resetCI(){['ciStart','ciEnd'].forEach(id=>document.getElementById(id).value='');selectAllGrp('ciGrpList','ciGrpLabel');renderCashIn();}
+function resetCO(){['coStart','coEnd'].forEach(id=>document.getElementById(id).value='');selectAllGrp('coGrpList','coGrpLabel');renderCashout();}
+function resetGD(){['gdStart','gdEnd'].forEach(id=>document.getElementById(id).value='');selectAllGrp('gdGrpList','gdGrpLabel');renderGames();}
+function resetCH(){selectAllGrp('chGrpList','chGrpLabel');document.getElementById('chDays').value='30';renderCharts();}
+function resetDH(){document.getElementById('dhDate').value='';selectAllGrp('dhGrpList','dhGrpLabel');renderHolding();}
 
 function xls(data,name,sheet){const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,name);}
 function exportOverviewExcel(){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allTx),'Cash-In');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allCO),'Cashout');XLSX.writeFile(wb,'Payment_Tracker_Full.xlsx');}
