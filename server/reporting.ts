@@ -26,7 +26,7 @@ function getCashInRecords() {
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: (p[3] || "").replace(/"/g, ""),
+    group: p[3] || "",
     employee: p[4] || "",
     amount: parseFloat(p[5]) || 0,
     game: p[6] || "",
@@ -40,7 +40,7 @@ function getCashInRecordsAll() {
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: (p[3] || "").replace(/"/g, ""),
+    group: p[3] || "",
     employee: p[4] || "",
     amount: parseFloat(p[5]) || 0,
     game: p[6] || "",
@@ -63,18 +63,25 @@ function getCashoutRecords() {
   }));
 }
 
-// ─── CST time helpers ─────────────────────────────────────────────────────────
+// ─── CST/CDT time helpers (America/Chicago, DST-aware) ───────────────────────
 function nowCST() {
   const now = new Date();
-  const cst = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const tz = "America/Chicago";
+  const date = now.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+  const time = now.toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true });
+  const month = date.substring(0, 7);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour: "numeric", minute: "numeric", day: "numeric", hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parseInt(parts.find(p => p.type === type)?.value || "0");
   return {
-    date: cst.toISOString().split("T")[0],
-    time: cst.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-    month: cst.toISOString().substring(0, 7), // "YYYY-MM"
-    day: cst.getDate(),
-    hour: cst.getHours(),
-    minute: cst.getMinutes(),
-    full: cst,
+    date,
+    time,
+    month,
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+    full: now,
   };
 }
 
@@ -311,30 +318,34 @@ export async function updateSnapshot(bot: TelegramBot) {
   const { date, time } = nowCST();
   const text = buildSnapshot(date, time);
 
-  try {
-    if (snapshotMsgId) {
-      // Try to edit existing pinned message
+  const sendFresh = async () => {
+    try {
+      const msg = await bot.sendMessage(REPORT_GROUP_ID, text, { parse_mode: "Markdown" });
+      snapshotMsgId = msg.message_id;
+      // Try to pin — bot needs admin rights for this
+      await bot.pinChatMessage(REPORT_GROUP_ID, snapshotMsgId, { disable_notification: true })
+        .catch(e => console.warn("⚠️ Could not pin snapshot (bot may not be admin):", e.message));
+      console.log("✅ Snapshot sent, id:", snapshotMsgId);
+    } catch (e) {
+      console.error("❌ Failed to send snapshot:", e);
+    }
+  };
+
+  if (snapshotMsgId) {
+    try {
       await bot.editMessageText(text, {
         chat_id: REPORT_GROUP_ID,
         message_id: snapshotMsgId,
         parse_mode: "Markdown",
       });
-    } else {
-      // Create new snapshot message and pin it
-      const msg = await bot.sendMessage(REPORT_GROUP_ID, text, { parse_mode: "Markdown" });
-      snapshotMsgId = msg.message_id;
-      await bot.pinChatMessage(REPORT_GROUP_ID, snapshotMsgId, { disable_notification: true }).catch(() => {});
+      console.log("✅ Snapshot updated");
+    } catch (e: any) {
+      console.warn("Snapshot edit failed, creating fresh:", e.message);
+      snapshotMsgId = null;
+      await sendFresh();
     }
-  } catch (e: any) {
-    // Message too old (>48h) or missing — create a fresh one
-    console.log("Snapshot message stale, creating new one...");
-    try {
-      const msg = await bot.sendMessage(REPORT_GROUP_ID, text, { parse_mode: "Markdown" });
-      snapshotMsgId = msg.message_id;
-      await bot.pinChatMessage(REPORT_GROUP_ID, snapshotMsgId, { disable_notification: true }).catch(() => {});
-    } catch (e2) {
-      console.error("Failed to create snapshot:", e2);
-    }
+  } else {
+    await sendFresh();
   }
 }
 
@@ -373,17 +384,19 @@ export function startReportScheduler(bot: TelegramBot) {
     // End of day: midnight CST (hour=0, minute=0)
     if (hour === 0 && minute === 0 && date !== lastEndOfDayDate) {
       lastEndOfDayDate = date;
-      // Report is for YESTERDAY
-      const yesterday = new Date(full.getTime() - 24 * 60 * 60 * 1000);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
+      // Report is for YESTERDAY — subtract one day from today's Chicago date
+      const [y, m, d] = date.split("-").map(Number);
+      const yesterday = new Date(y, m - 1, d - 1);
+      const yesterdayStr = yesterday.toLocaleDateString("en-CA"); // YYYY-MM-DD
       await sendEndOfDayReport(bot, yesterdayStr);
 
       // Monthly report: if it's the 1st of the month at midnight
-      if (full.getDate() === 1 && month !== lastMonthlyMonth) {
+      if (day === 1 && month !== lastMonthlyMonth) {
         lastMonthlyMonth = month;
         // Report for previous month
-        const prevMonth = new Date(full.getFullYear(), full.getMonth() - 1, 1);
-        const prevMonthStr = prevMonth.toISOString().substring(0, 7);
+        const [y, mo] = date.split("-").map(Number);
+        const prevMonth = new Date(y, mo - 2, 1);
+        const prevMonthStr = prevMonth.toLocaleDateString("en-CA").substring(0, 7);
         await sendMonthlyReport(bot, prevMonthStr);
       }
     }
