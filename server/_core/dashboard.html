@@ -157,7 +157,7 @@
   <!-- OVERVIEW -->
   <div id="view-overview" class="view-section active">
     <div class="filter-bar">
-      <div><label>Group</label><select id="ovGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group <span style="font-size:0.55rem;color:var(--muted)">(hold to multi-select)</span></label><select id="ovGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Start Date</label><input type="date" id="ovStart"></div>
       <div><label>End Date</label><input type="date" id="ovEnd"></div>
       <div><label>Month</label><select id="ovMonth"><option value="">All Months</option></select></div>
@@ -250,7 +250,7 @@
   <!-- CASH-IN -->
   <div id="view-cashin" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="ciGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group</label><select id="ciGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Start Date</label><input type="date" id="ciStart"></div>
       <div><label>End Date</label><input type="date" id="ciEnd"></div>
       <button class="btn btn-today" onclick="setToday('ciStart','ciEnd',renderCashIn)">Today</button>
@@ -293,7 +293,7 @@
   <!-- CASHOUT -->
   <div id="view-cashout" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="coGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group</label><select id="coGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Start Date</label><input type="date" id="coStart"></div>
       <div><label>End Date</label><input type="date" id="coEnd"></div>
       <button class="btn btn-today" onclick="setToday('coStart','coEnd',renderCashout)">Today</button>
@@ -336,7 +336,7 @@
   <!-- GAMES -->
   <div id="view-games" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="gdGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group</label><select id="gdGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Start Date</label><input type="date" id="gdStart"></div>
       <div><label>End Date</label><input type="date" id="gdEnd"></div>
       <button class="btn btn-red" onclick="renderGames()">Apply</button>
@@ -352,7 +352,7 @@
   <!-- CHARTS -->
   <div id="view-charts" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="chGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group</label><select id="chGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Period</label><select id="chDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option></select></div>
       <button class="btn btn-red" onclick="renderCharts()">Apply</button>
       <button class="btn btn-ghost" onclick="resetCH()">Reset</button>
@@ -367,7 +367,7 @@
   <!-- DAILY HOLDING -->
   <div id="view-holding" class="view-section">
     <div class="filter-bar">
-      <div><label>Group</label><select id="dhGroup" class="group-select"><option value="">All Groups</option></select></div>
+      <div><label>Group</label><select id="dhGroup" class="group-select" multiple size="3" style="height:auto;min-width:160px;padding:4px"></select></div>
       <div><label>Date</label><input type="date" id="dhDate"></div>
       <button class="btn btn-today" onclick="setDhToday()">Today</button>
       <button class="btn btn-red" onclick="renderHolding()">Apply</button>
@@ -402,7 +402,7 @@ let cBar=null,cPie=null,cLine=null;
 function toAmPm(t){if(!t)return'--';if(/\d{1,2}:\d{2}\s*(AM|PM)/i.test(t))return t.trim();const m=t.match(/^(\d{1,2}):(\d{2})/);if(m){let h=parseInt(m[1]),min=m[2],s=h>=12?'PM':'AM';if(h===0)h=12;else if(h>12)h-=12;return`${h}:${min} ${s}`;}return t;}
 function isoAmPm(iso){if(!iso)return'--';return toAmPm(iso.substring(11,16));}
 function ciSortKey(t){const d=t.date||'',ts=t.time||'';const ap=ts.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(ap){let h=parseInt(ap[1]),min=ap[2],s=ap[3].toUpperCase();if(s==='PM'&&h!==12)h+=12;if(s==='AM'&&h===12)h=0;return`${d} ${h.toString().padStart(2,'0')}:${min}`;}return`${d} ${ts}`;}
-function todayStr(){return new Date().toISOString().split('T')[0];}
+function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});}
 function setToday(s,e,fn){const t=todayStr();document.getElementById(s).value=t;document.getElementById(e).value=t;fn();}
 function setDhToday(){document.getElementById('dhDate').value=todayStr();renderHolding();}
 
@@ -419,7 +419,11 @@ async function fetchData(){
 function populateGroups(){
   const g=new Set();allTx.forEach(t=>g.add(t.group));allCO.forEach(c=>g.add(c.group));
   const sorted=[...g].filter(Boolean).sort();
-  document.querySelectorAll('.group-select').forEach(sel=>{const v=sel.value;sel.innerHTML='<option value="">All Groups</option>';sorted.forEach(x=>sel.innerHTML+=`<option value="${x}">${x}</option>`);sel.value=v;});
+  document.querySelectorAll('.group-select').forEach(sel=>{
+    const v=[...sel.selectedOptions].map(o=>o.value);
+    sel.innerHTML='';
+    sorted.forEach(x=>{const opt=document.createElement('option');opt.value=x;opt.textContent=x;if(v.includes(x))opt.selected=true;sel.appendChild(opt);});
+  });
 }
 function populateMonths(){
   const m=new Set();allTx.forEach(t=>{if(t.date)m.add(t.date.substring(0,7));});allCO.forEach(c=>{if(c.created_at)m.add(c.created_at.substring(0,7));});
@@ -437,7 +441,7 @@ function flt(data,start,end,group,month,df){
   return data.filter(item=>{
     const d=item[df]?item[df].substring(0,10):'';
     if(start&&d<start)return false;if(end&&d>end)return false;
-    if(group&&item.group!==group)return false;
+    if(group&&group.length>0&&!group.includes(item.group))return false;
     if(month&&!d.startsWith(month))return false;
     return true;
   });
@@ -447,7 +451,7 @@ function renderAll(){renderOverview();renderCashIn();renderCashout();renderGames
 function renderOverview(){
   recentPage=0;
   const start=document.getElementById('ovStart').value,end=document.getElementById('ovEnd').value;
-  const group=document.getElementById('ovGroup').value,month=document.getElementById('ovMonth').value;
+  const group=[...document.getElementById('ovGroup').selectedOptions].map(o=>o.value).filter(Boolean),month=document.getElementById('ovMonth').value;
   const ciAll=flt(allTx,start,end,group,month,'date');
   const ci=ciAll.filter(r=>r.amount>0);
   const co=flt(allCO,start,end,group,month,'created_at');
@@ -488,7 +492,7 @@ function renderRecent(ciAll,co){
 function loadMore(){recentPage++;renderRecent(window._rCI,window._rCO);}
 
 function renderCashIn(){
-  const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=document.getElementById('ciGroup').value;
+  const start=document.getElementById('ciStart').value,end=document.getElementById('ciEnd').value,group=[...document.getElementById('ciGroup').selectedOptions].map(o=>o.value).filter(Boolean);
   const ciAll=flt(allTx,start,end,group,null,'date').sort((a,b)=>ciSortKey(b).localeCompare(ciSortKey(a)));
   const ci=ciAll.filter(r=>r.amount>0);
   document.getElementById('ciAmt').textContent=`$${ci.reduce((s,t)=>s+t.amount,0).toLocaleString()}`;
@@ -505,7 +509,7 @@ function renderCashIn(){
 }
 
 function renderCashout(){
-  const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=document.getElementById('coGroup').value;
+  const start=document.getElementById('coStart').value,end=document.getElementById('coEnd').value,group=[...document.getElementById('coGroup').selectedOptions].map(o=>o.value).filter(Boolean);
   const co=flt(allCO,start,end,group,null,'created_at').sort((a,b)=>b.created_at.localeCompare(a.created_at));
   document.getElementById('coAmt').textContent=`$${co.reduce((s,c)=>s+c.amount,0).toLocaleString()}`;
   document.getElementById('coPts').textContent=co.reduce((s,c)=>s+(c.points-(parseFloat(c.playback_id)||0)),0).toLocaleString();
@@ -520,7 +524,7 @@ function renderCashout(){
 }
 
 function renderGames(){
-  const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=document.getElementById('gdGroup').value;
+  const start=document.getElementById('gdStart').value,end=document.getElementById('gdEnd').value,group=[...document.getElementById('gdGroup').selectedOptions].map(o=>o.value).filter(Boolean);
   const ciAll=flt(allTx,start,end,group,null,'date');const co=flt(allCO,start,end,group,null,'created_at');
   const ciG={};ciAll.forEach(t=>{if(!ciG[t.game])ciG[t.game]={amount:0,points:0};ciG[t.game].amount+=t.amount;ciG[t.game].points+=t.points;});
   document.getElementById('gdCITable').innerHTML=Object.entries(ciG).sort((a,b)=>b[1].amount-a[1].amount).map(([g,d])=>`<tr><td>${g}</td><td class="val-green val-mono">$${d.amount.toLocaleString()}</td><td class="val-mono">${d.points.toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
@@ -529,10 +533,10 @@ function renderGames(){
 }
 
 function renderCharts(){
-  const group=document.getElementById('chGroup').value;const days=parseInt(document.getElementById('chDays').value);
+  const group=[...document.getElementById('chGroup').selectedOptions].map(o=>o.value).filter(Boolean);const days=parseInt(document.getElementById('chDays').value);
   const today=new Date();const dates=[];
   for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dates.push(d.toISOString().split('T')[0]);}
-  const ci=group?allTx.filter(t=>t.group===group):allTx;const co=group?allCO.filter(c=>c.group===group):allCO;
+  const ci=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
   const ciS=ci.filter(r=>r.amount>0);
   const ciByDay={},coByDay={};dates.forEach(d=>{ciByDay[d]=0;coByDay[d]=0;});
   ciS.forEach(t=>{if(ciByDay[t.date]!==undefined)ciByDay[t.date]+=t.amount;});
@@ -552,10 +556,10 @@ function renderCharts(){
 }
 
 function renderHolding(){
-  const group=document.getElementById('dhGroup').value,sel=document.getElementById('dhDate').value;
-  const ci=(group?allTx.filter(t=>t.group===group):allTx).filter(r=>r.amount>0);
-  const ciAll=group?allTx.filter(t=>t.group===group):allTx;
-  const co=group?allCO.filter(c=>c.group===group):allCO;
+  const group=[...document.getElementById('dhGroup').selectedOptions].map(o=>o.value).filter(Boolean),sel=document.getElementById('dhDate').value;
+  const ci=(group.length>0?allTx.filter(t=>group.includes(t.group)):allTx).filter(r=>r.amount>0);
+  const ciAll=group.length>0?allTx.filter(t=>group.includes(t.group)):allTx;
+  const co=group.length>0?allCO.filter(c=>group.includes(c.group)):allCO;
   const daily={};
   ci.forEach(t=>{daily[t.date]=daily[t.date]||{ci:0,co:0};daily[t.date].ci+=t.amount;});
   co.forEach(c=>{const d=c.created_at.substring(0,10);daily[d]=daily[d]||{ci:0,co:0};daily[d].co+=c.amount;});
@@ -584,12 +588,13 @@ function selectDate(d,ciAll,co){
   document.getElementById('dhDetail').style.display='block';
 }
 
-function resetOv(){['ovStart','ovEnd','ovGroup','ovMonth'].forEach(id=>document.getElementById(id).value='');renderOverview();}
-function resetCI(){['ciStart','ciEnd','ciGroup'].forEach(id=>document.getElementById(id).value='');renderCashIn();}
-function resetCO(){['coStart','coEnd','coGroup'].forEach(id=>document.getElementById(id).value='');renderCashout();}
-function resetGD(){['gdStart','gdEnd','gdGroup'].forEach(id=>document.getElementById(id).value='');renderGames();}
-function resetCH(){document.getElementById('chGroup').value='';document.getElementById('chDays').value='30';renderCharts();}
-function resetDH(){['dhDate','dhGroup'].forEach(id=>document.getElementById(id).value='');renderHolding();}
+function clearGroup(id){[...document.getElementById(id).options].forEach(o=>o.selected=false);}
+function resetOv(){['ovStart','ovEnd','ovMonth'].forEach(id=>document.getElementById(id).value='');clearGroup('ovGroup');renderOverview();}
+function resetCI(){['ciStart','ciEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('ciGroup');renderCashIn();}
+function resetCO(){['coStart','coEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('coGroup');renderCashout();}
+function resetGD(){['gdStart','gdEnd'].forEach(id=>document.getElementById(id).value='');clearGroup('gdGroup');renderGames();}
+function resetCH(){clearGroup('chGroup');document.getElementById('chDays').value='30';renderCharts();}
+function resetDH(){document.getElementById('dhDate').value='';clearGroup('dhGroup');renderHolding();}
 
 function xls(data,name,sheet){const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,name);}
 function exportOverviewExcel(){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allTx),'Cash-In');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(allCO),'Cashout');XLSX.writeFile(wb,'Payment_Tracker_Full.xlsx');}
