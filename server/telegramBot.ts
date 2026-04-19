@@ -876,6 +876,19 @@ export function initTelegramBot(token: string, baseUrl: string): TelegramBot {
           `${state.tip > 0 ? ` · 💵 $${state.tip} tip` : ""} · 💰 $${state.amount}\n` +
           `🆔 \`${state.cashoutId}\``;
 
+        // If this cashout was previously submitted, cancel the old admin message
+const existingPending = pendingCashouts.get(state.cashoutId);
+if (existingPending?.adminMsgId) {
+  await bot.editMessageText(
+    `⚠️ *This request was edited by the employee and resubmitted.*\n🆔 \`${state.cashoutId}\``,
+    {
+      chat_id: existingPending.adminChatId,
+      message_id: existingPending.adminMsgId,
+      parse_mode: "Markdown",
+    }
+  ).catch(() => {});
+  adminMessages.delete(existingPending.adminMsgId);
+}
         const adminMsgObj = await bot.sendMessage(originChatId, adminSummary, {
           parse_mode: "Markdown",
           reply_markup: {
