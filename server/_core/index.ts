@@ -33,9 +33,9 @@ function getRecords() {
         day:      parts[2] || "",
         group:    (parts[3] || "").replace(/"/g, ""),
         employee: (parts[4] || "").replace(/"/g, ""),
-        amount:   parseFloat(parts[5]) || 0,
+        amount:   parseFloat(parts[5] || "0"),
         game:     (parts[6] || "").replace(/"/g, ""),
-        points:   parseFloat(parts[7]) || 0,
+        points:   parseFloat(parts[7] || "0"),
         notes:    (parts[8] || "").replace(/"/g, ""),
       };
     });
@@ -64,11 +64,19 @@ function getCashoutRecords() {
 }
 
 app.get("/", (req, res) => res.redirect("/dashboard"));
-app.get("/api/transactions", (req, res) => res.json({ transactions: getRecords() }));
-app.get("/api/cashout-transactions", (req, res) => res.json({ cashoutTransactions: getCashoutRecords() }));
+app.get("/api/transactions", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ transactions: getRecords() });
+});
+app.get("/api/cashout-transactions", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ cashoutTransactions: getCashoutRecords() });
+});
 
 app.get("/dashboard", (req, res) => {
   try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     const html = fs.readFileSync(path.join(process.cwd(), "server/_core/dashboard.html"), "utf-8");
     res.send(html);
   } catch (e) {
