@@ -5,10 +5,22 @@ import path from "path";
 const RECORDS_FILE = path.join(process.cwd(), "records.csv");
 const CASHOUT_RECORDS_FILE = path.join(process.cwd(), "cashout_records.csv");
 const REPORT_GROUP_ID = -1003718366443;
+const STATE_FILE = path.join(process.cwd(), "bot_state.json");
 
-// ─── Persistent state (survives across calls, resets on redeploy) ─────────────
-// snapshotMsgId: the one master pinned message id
-let snapshotMsgId: number | null = null;
+// ─── Persistent state — survives restarts via JSON file ───────────────────────
+function loadState(): { snapshotMsgId: number | null } {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch { return { snapshotMsgId: null }; }
+}
+
+function saveState(state: { snapshotMsgId: number | null }) {
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(state)); } catch (e) { console.error("Failed to save state:", e); }
+}
+
+let snapshotMsgId: number | null = loadState().snapshotMsgId;
+console.log(`[Reporting] Loaded snapshotMsgId: ${snapshotMsgId}`);
 
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 function parseCsv(filePath: string) {
@@ -322,7 +334,7 @@ export async function updateSnapshot(bot: TelegramBot) {
     try {
       const msg = await bot.sendMessage(REPORT_GROUP_ID, text, { parse_mode: "Markdown" });
       snapshotMsgId = msg.message_id;
-      // Try to pin — bot needs admin rights for this
+      saveState({ snapshotMsgId });
       await bot.pinChatMessage(REPORT_GROUP_ID, snapshotMsgId, { disable_notification: true })
         .catch(e => console.warn("⚠️ Could not pin snapshot (bot may not be admin):", e.message));
       console.log("✅ Snapshot sent, id:", snapshotMsgId);
@@ -357,6 +369,7 @@ async function sendEndOfDayReport(bot: TelegramBot, dateStr: string) {
     console.log(`✅ End of day report sent for ${dateStr}`);
     // Reset snapshot so a fresh one is created for the new day
     snapshotMsgId = null;
+    saveState({ snapshotMsgId: null });
   } catch (e) {
     console.error("Failed to send end of day report:", e);
   }
