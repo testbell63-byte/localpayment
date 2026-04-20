@@ -121,11 +121,11 @@ function tableDivider() {
   return "─".repeat(34);
 }
 
-// ─── Build snapshot text (per-group, simplified) ─────────────────────────────
+// ─── Build snapshot text (simplified) ────────────────────────────────────────
 function buildSnapshot(dateStr: string, updatedTime: string): string {
-  const ci   = getCashInRecords();
+  const ci    = getCashInRecords();
   const ciAll = getCashInRecordsAll();
-  const co   = getCashoutRecords();
+  const co    = getCashoutRecords();
   const monthStr = dateStr.substring(0, 7);
 
   const allGroups = Array.from(new Set([
@@ -138,17 +138,15 @@ function buildSnapshot(dateStr: string, updatedTime: string): string {
   lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
   for (const group of allGroups) {
-    // ── Cash totals ──
-    const todayCi  = ci.filter(r => r.date === dateStr && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const todayCo  = co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const monthCi  = ci.filter(r => r.date.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const monthCo  = co.filter(r => r.created_at.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const todayNet = ci.filter(r => r.date === dateStr && r.group === group).reduce((s, r) => s + r.amount, 0)
+                   - co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const monthNet = ci.filter(r => r.date.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0)
+                   - co.filter(r => r.created_at.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
 
     lines.push(`📍 *${group}*`);
-    lines.push(`Today:  CI $${todayCi.toLocaleString()} · CO $${todayCo.toLocaleString()} · Net *$${(todayCi - todayCo).toLocaleString()}*`);
-    lines.push(`Month:  CI $${monthCi.toLocaleString()} · CO $${monthCo.toLocaleString()} · Net *$${(monthCi - monthCo).toLocaleString()}*`);
+    lines.push(`Today: $${Math.abs(todayNet).toLocaleString()}   Month: $${Math.abs(monthNet).toLocaleString()}`);
 
-    // ── Net points per game TODAY for this group ──
+    // Net points per game TODAY
     const ptsSpent: Record<string, number> = {};
     ciAll.filter(r => r.date === dateStr && r.group === group).forEach(r => {
       ptsSpent[r.game] = (ptsSpent[r.game] || 0) + r.points;
@@ -158,18 +156,14 @@ function buildSnapshot(dateStr: string, updatedTime: string): string {
       ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + (r.points - r.playback);
     });
 
-    const allGames = Array.from(new Set([
-      ...Object.keys(ptsSpent),
-      ...Object.keys(ptsRedeemed),
-    ])).filter(Boolean);
-
+    const allGames = Array.from(new Set([...Object.keys(ptsSpent), ...Object.keys(ptsRedeemed)])).filter(Boolean);
     if (allGames.length > 0) {
       const gameLines = allGames
-        .map(g => ({ g, net: (ptsSpent[g] || 0) - (ptsRedeemed[g] || 0) }))
-        .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
-        .map(({ g, net }) => `  ${g}: ${net >= 0 ? "+" : ""}${net.toLocaleString()} pts`)
+        .map(g => ({ g, net: Math.abs((ptsSpent[g] || 0) - (ptsRedeemed[g] || 0)) }))
+        .sort((a, b) => b.net - a.net)
+        .map(({ g, net }) => `  ${g}: ${net.toLocaleString()} pts`)
         .join("\n");
-      lines.push(`🎯 Net Pts:\n${gameLines}`);
+      lines.push(`🎯\n${gameLines}`);
     }
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
