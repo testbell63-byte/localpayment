@@ -38,24 +38,23 @@ function getCashInRecords() {
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: p[3] || "",
-    employee: p[4] || "",
+    group: (p[3] || "").replace(/"/g, ""),
+    employee: (p[4] || "").replace(/"/g, ""),
     amount: parseFloat(p[5]) || 0,
-    game: p[6] || "",
+    game: (p[6] || "").replace(/"/g, ""),
     points: parseFloat(p[7]) || 0,
     notes: p[8] || "",
-  })).filter(r => r.amount !== 0); // exclude $0 multi-game rows but keep negative deletion rows
+  })).filter(r => r.amount !== 0);
 }
 
 function getCashInRecordsAll() {
-  // includes $0 rows so we can count points correctly
   return parseCsv(RECORDS_FILE).map(p => ({
     date: p[0] || "",
     time: p[1] || "",
-    group: p[3] || "",
-    employee: p[4] || "",
+    group: (p[3] || "").replace(/"/g, ""),
+    employee: (p[4] || "").replace(/"/g, ""),
     amount: parseFloat(p[5]) || 0,
-    game: p[6] || "",
+    game: (p[6] || "").replace(/"/g, ""),
     points: parseFloat(p[7]) || 0,
     notes: p[8] || "",
   }));
