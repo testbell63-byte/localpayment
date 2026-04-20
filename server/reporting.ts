@@ -121,48 +121,41 @@ function tableDivider() {
   return "─".repeat(34);
 }
 
-// ─── Build snapshot text (per-group) ─────────────────────────────────────────
+// ─── Build snapshot text (per-group, simplified) ─────────────────────────────
 function buildSnapshot(dateStr: string, updatedTime: string): string {
+  const ci   = getCashInRecords();
   const ciAll = getCashInRecordsAll();
-  const ci    = getCashInRecords();
-  const co    = getCashoutRecords();
+  const co   = getCashoutRecords();
   const monthStr = dateStr.substring(0, 7);
 
-  // All unique groups
   const allGroups = Array.from(new Set([
-    ...ciAll.map(r => r.group),
+    ...ci.map(r => r.group),
     ...co.map(r => r.group),
   ])).filter(Boolean).sort();
 
   let lines: string[] = [];
-  lines.push(`📊 *Daily Snapshot — ${formatDate(dateStr)}*`);
+  lines.push(`📊 *Snapshot — ${formatDate(dateStr)}*`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
   for (const group of allGroups) {
-    // ── Net today for this group ──
-    const todayCi = ci.filter(r => r.date === dateStr && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const todayCo = co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const todayNet = todayCi - todayCo;
-
-    // ── Net month for this group ──
-    const monthCi = ci.filter(r => r.date.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const monthCo = co.filter(r => r.created_at.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
-    const monthNet = monthCi - monthCo;
+    // ── Cash totals ──
+    const todayCi  = ci.filter(r => r.date === dateStr && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const todayCo  = co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const monthCi  = ci.filter(r => r.date.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
+    const monthCo  = co.filter(r => r.created_at.startsWith(monthStr) && r.group === group).reduce((s, r) => s + r.amount, 0);
 
     lines.push(`📍 *${group}*`);
-    lines.push(`💵 Net Today:  ${todayNet >= 0 ? "+" : ""}$${todayNet.toLocaleString()}   _(CI $${todayCi.toLocaleString()} · CO $${todayCo.toLocaleString()})_`);
-    lines.push(`📅 Net Month:  ${monthNet >= 0 ? "+" : ""}$${monthNet.toLocaleString()}   _(CI $${monthCi.toLocaleString()} · CO $${monthCo.toLocaleString()})_`);
+    lines.push(`Today:  CI $${todayCi.toLocaleString()} · CO $${todayCo.toLocaleString()} · Net *$${(todayCi - todayCo).toLocaleString()}*`);
+    lines.push(`Month:  CI $${monthCi.toLocaleString()} · CO $${monthCo.toLocaleString()} · Net *$${(monthCi - monthCo).toLocaleString()}*`);
 
-    // ── Net points per game for this group (spent - redeemed) ──
+    // ── Net points per game TODAY for this group ──
     const ptsSpent: Record<string, number> = {};
-    ciAll.filter(r => r.group === group).forEach(r => {
+    ciAll.filter(r => r.date === dateStr && r.group === group).forEach(r => {
       ptsSpent[r.game] = (ptsSpent[r.game] || 0) + r.points;
     });
-
     const ptsRedeemed: Record<string, number> = {};
-    co.filter(r => r.group === group).forEach(r => {
-      const net = r.points - r.playback;
-      ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + net;
+    co.filter(r => r.created_at.startsWith(dateStr) && r.group === group).forEach(r => {
+      ptsRedeemed[r.game] = (ptsRedeemed[r.game] || 0) + (r.points - r.playback);
     });
 
     const allGames = Array.from(new Set([
@@ -170,30 +163,20 @@ function buildSnapshot(dateStr: string, updatedTime: string): string {
       ...Object.keys(ptsRedeemed),
     ])).filter(Boolean);
 
-    const gameNetPts: Record<string, number> = {};
-    for (const game of allGames) {
-      gameNetPts[game] = (ptsSpent[game] || 0) - (ptsRedeemed[game] || 0);
-    }
-
-    const sortedGames = Object.entries(gameNetPts).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-
-    if (sortedGames.length > 0) {
-      lines.push(`\`\`\``);
-      lines.push(`${"Game".padEnd(16)}${"Net Pts".padStart(10)}`);
-      lines.push(`─`.repeat(26));
-      for (const [game, net] of sortedGames) {
-        lines.push(`${game.padEnd(16)}${((net >= 0 ? "+" : "") + net.toLocaleString()).padStart(10)}`);
-      }
-      lines.push(`\`\`\``);
-    } else {
-      lines.push(`_No points data yet_`);
+    if (allGames.length > 0) {
+      const gameLines = allGames
+        .map(g => ({ g, net: (ptsSpent[g] || 0) - (ptsRedeemed[g] || 0) }))
+        .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
+        .map(({ g, net }) => `  ${g}: ${net >= 0 ? "+" : ""}${net.toLocaleString()} pts`)
+        .join("\n");
+      lines.push(`🎯 Net Pts:\n${gameLines}`);
     }
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   }
 
   if (allGroups.length === 0) {
-    lines.push(`_No data yet today_`);
+    lines.push(`_No transactions today_`);
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   }
 
@@ -392,7 +375,7 @@ export function startReportScheduler(bot: TelegramBot) {
   let lastMonthlyMonth = "";
 
   setInterval(async () => {
-    const { date, hour, minute, month, full } = nowCST();
+    const { date, hour, minute, month, day } = nowCST();
 
     // End of day: midnight CST (hour=0, minute=0)
     if (hour === 0 && minute === 0 && date !== lastEndOfDayDate) {
